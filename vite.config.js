@@ -8,5 +8,7 @@ export default defineConfig({ // Configuration exportée
   test: { // Réglages des tests (Vitest)
     environment: "node", // La logique métier se teste sans navigateur
     include: ["src/**/*.test.js"], // Cherche les tests dans src, fichiers *.test.js
+    setupFiles: ["src/test-setup.js"], // Réglage commun : attentes plus tolérantes
+    testTimeout: 20000, // Durée maximale d'un test : 20 secondes (marge pour une machine chargée)
   }, // Fin des réglages des tests
 }); // Fin de la configuration

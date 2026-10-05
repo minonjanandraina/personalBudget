@@ -5,7 +5,8 @@ import { afficherToast, confirmer } from "../messages.js"; // Notifications et c
 import { soumettre, lireMontant, effacerErreurs } from "../formulaire.js"; // Enregistrement de formulaire et lecture des montants
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
-import { creerBudget, modifierBudget, supprimerBudget, listerBudgets, lireBudget } from "../../core/budgets.js"; // Logique métier des budgets
+import { creerBudget, modifierBudget, supprimerBudget, lireBudget } from "../../core/budgets.js"; // Logique métier des budgets
+import { resumeBudgets } from "../../core/allocations.js"; // Solde de la période en cours
 import { listerTypesBudget } from "../../core/types-budget.js"; // Types de budget (pour la liste déroulante)
 
 // Une petite case « libellé + montant » de la carte d'un budget.
@@ -13,10 +14,10 @@ const info = (libelle, montant) => h("div", { class: "info" }, h("span", { class
 
 // Liste des budgets.
 export async function afficherBudgets(zone, { base }) { // Reçoit la zone et la base
-  const budgets = await listerBudgets(base); // Lit les budgets
+  const resumes = await resumeBudgets(base); // Lit les budgets avec leur solde de la période en cours
   zone.append(enteteEcran("Budgets", "Vos enveloppes mensuelles"), boutonLien("Nouveau budget", "/budgets/nouveau", "ajouter"), h("div", { class: "espace-haut" }, boutonLien("Types de budget", "/types-budget", "types"))); // En-tête et boutons
-  if (budgets.length === 0) zone.append(h("div", { class: "espace-haut" }, alerte({ niveau: "info", message: "Aucun budget. Créez d'abord un type de budget, puis votre premier budget." }))); // Message si la liste est vide
-  for (const b of budgets) { // Pour chaque budget
+  if (resumes.length === 0) zone.append(h("div", { class: "espace-haut" }, alerte({ niveau: "info", message: "Aucun budget. Créez d'abord un type de budget, puis votre premier budget." }))); // Message si la liste est vide
+  for (const { budget: b, allocation } of resumes) { // Pour chaque budget et son allocation en cours
     const supprimer = async () => { // Action de suppression
       const ok = await confirmer({ titre: "Supprimer ce budget ?", message: `« ${b.name} » sera supprimé définitivement.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
       if (!ok) return; // Annulé : on s'arrête
@@ -36,6 +37,7 @@ export async function afficherBudgets(zone, { base }) { // Reçoit la zone et la
         boutonIcone({ nomIcone: "supprimer", libelle: `Supprimer ${b.name}`, auClic: supprimer, danger: true }), // Bouton supprimer
       ), // Fin de l'en-tête
       h("div", { class: "infos" }, info("Par mois", b.montantBudget), info("Plafond", b.montantMax), info("Solde min.", b.montantMin), info("Seuil d'alerte", b.soldeAlert)), // Les quatre montants
+      h("div", { class: "ligne-detail espace-haut" }, allocation ? `Solde en cours : ${formaterMontant(allocation.solde)}` : "Pas encore alloué sur la période en cours"), // Solde de la période en cours
     )); // Fin de la carte
   } // Fin de la boucle
 } // Fin de afficherBudgets

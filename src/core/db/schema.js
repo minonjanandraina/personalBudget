@@ -68,4 +68,28 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
         BEGIN SELECT RAISE(ABORT, 'La ligne parametre_job ne peut pas être supprimée'); END`, // Annule la suppression
     ], // Fin des instructions de la migration 1
   }, // Fin de la migration 1
+  { // Début de la migration 2 : date de l'opération et note sur les transactions
+    version: 2, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL (la table est reconstruite car SQLite ne sait pas ajouter une colonne avec une date par défaut)
+      `CREATE TABLE transactions_neuf ( -- Nouvelle version de la table des transactions
+        id INTEGER PRIMARY KEY AUTOINCREMENT, -- Identifiant automatique
+        trx_id TEXT NOT NULL UNIQUE, -- ID de transaction (SMS OM, ou généré en saisie manuelle)
+        allocation_id INTEGER REFERENCES allocation_budget (id) ON DELETE RESTRICT, -- Allocation ; vide = transaction « non classée »
+        insert_type TEXT NOT NULL CHECK (insert_type IN ('manuel', 'auto')), -- manuel ou auto (depuis un SMS)
+        debit_credit INTEGER NOT NULL CHECK (debit_credit IN (-1, 1)), -- -1 = dépense, 1 = alimentation du budget
+        montant INTEGER NOT NULL CHECK (typeof(montant) = 'integer' AND montant > 0), -- Montant toujours positif
+        sms TEXT, -- Texte du SMS d'origine (vide si saisie manuelle)
+        date_operation TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), -- Date réelle de l'opération (ISO UTC)
+        note TEXT CHECK (note IS NULL OR length(note) <= 200), -- Note libre facultative (200 caractères au plus)
+        insert_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), -- Date d'insertion automatique
+        CHECK (insert_type = 'auto' OR sms IS NULL) -- Un SMS n'est renseigné que pour une transaction automatique
+      )`, // Fin de la nouvelle table
+      `INSERT INTO transactions_neuf (id, trx_id, allocation_id, insert_type, debit_credit, montant, sms, date_operation, insert_date) -- Recopie les transactions existantes
+        SELECT id, trx_id, allocation_id, insert_type, debit_credit, montant, sms, insert_date, insert_date FROM transactions`, // Pour les anciennes lignes, la date de l'opération = la date d'insertion
+      `DROP TABLE transactions`, // Supprime l'ancienne table
+      `ALTER TABLE transactions_neuf RENAME TO transactions`, // La nouvelle table prend le nom définitif
+      `CREATE INDEX idx_transactions_allocation ON transactions (allocation_id)`, // Accélère le calcul du solde d'une allocation
+      `CREATE INDEX idx_transactions_date ON transactions (date_operation)`, // Accélère le tri par date
+    ], // Fin des instructions de la migration 2
+  }, // Fin de la migration 2
 ]; // Fin de la liste des migrations

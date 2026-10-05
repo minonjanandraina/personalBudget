@@ -50,3 +50,35 @@ describe("migrations", () => { // Groupe de tests des migrations
     expect(retirerCommentairesSql("SELECT 1 -- un commentaire\n, 2")).toBe("SELECT 1 , 2"); // Le commentaire disparaît, le reste est gardé
   }); // Fin du cas
 }); // Fin du groupe
+
+describe("migration 2 (date de l'opération et note)", () => { // Groupe de tests de la migration 2
+  it("conserve les transactions existantes et copie la date d'insertion comme date d'opération", async () => { // Migration de données
+    const base = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(base, [MIGRATIONS[0]]); // Version 1 seulement
+    await base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('ANCIEN', 'manuel', -1, 500)"); // Transaction de l'ancienne version
+    const [avant] = await base.requeter("SELECT insert_date FROM transactions"); // Date d'insertion d'origine
+    await appliquerMigrations(base); // Passe à la dernière version
+    const [ligne] = await base.requeter("SELECT trx_id, montant, date_operation, note, insert_date FROM transactions"); // Relit la transaction
+    expect(ligne).toMatchObject({ trx_id: "ANCIEN", montant: 500, note: null }); // Données conservées
+    expect(ligne.date_operation).toBe(avant.insert_date); // Date d'opération = date d'insertion
+    expect(ligne.insert_date).toBe(avant.insert_date); // Date d'insertion intacte
+  }); // Fin du cas
+
+  it("garde la numérotation et les règles de la table", async () => { // Continuité
+    const base = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(base, [MIGRATIONS[0]]); // Version 1
+    await base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('A', 'manuel', -1, 500)"); // Première transaction (id 1)
+    await appliquerMigrations(base); // Version 2
+    const { dernierId } = await base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('B', 'manuel', 1, 700)"); // Nouvelle transaction
+    expect(dernierId).toBe(2); // La numérotation continue
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('A', 'manuel', 1, 1)")).rejects.toThrow(); // trx_id toujours unique
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('C', 'manuel', 2, 1)")).rejects.toThrow(); // debit_credit toujours contrôlé
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, note) VALUES ('D', 'manuel', 1, 1, ?)", ["x".repeat(201)])).rejects.toThrow(); // Note limitée à 200 caractères
+  }); // Fin du cas
+
+  it("garde les liens vers les allocations", async () => { // Clé étrangère
+    const base = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(base); // Dernière version
+    await expect(base.executer("INSERT INTO transactions (trx_id, allocation_id, insert_type, debit_credit, montant) VALUES ('Z', 999, 'manuel', 1, 10)")).rejects.toThrow(); // Allocation inexistante refusée
+  }); // Fin du cas
+}); // Fin du groupe

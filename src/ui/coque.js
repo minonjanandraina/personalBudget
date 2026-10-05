@@ -6,8 +6,8 @@ import { icone } from "./icones.js"; // Icônes
 // « prefixes » : tous les écrans qui rattachent l'onglet (ex. « /budgets/5 » garde l'onglet Budgets actif).
 export const ONGLETS = [ // Liste des onglets
   { libelle: "Accueil", nomIcone: "accueil", route: "/", prefixes: [] }, // Tableau de bord
-  { libelle: "Budgets", nomIcone: "budgets", route: "/budgets", prefixes: ["/budgets", "/types-budget"] }, // Budgets et types
-  { libelle: "Opérations", nomIcone: "transactions", route: null, prefixes: [] }, // Sprint 5
+  { libelle: "Budgets", nomIcone: "budgets", route: "/budgets", prefixes: ["/budgets", "/types-budget", "/allocations"] }, // Budgets, types et allocations
+  { libelle: "Opérations", nomIcone: "transactions", route: "/operations", prefixes: ["/operations"] }, // Dépenses et allocations
   { libelle: "Réglages", nomIcone: "reglages", route: "/reglages", prefixes: ["/reglages", "/solde", "/diagnostic"] }, // Réglages, solde OM, diagnostic
 ]; // Fin de la liste
 

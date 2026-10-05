@@ -8,6 +8,8 @@ import { afficherDiagnostic } from "./ui/ecrans/diagnostic.js"; // Écran de dia
 import { afficherTypes, afficherFormulaireType } from "./ui/ecrans/types-budget.js"; // Écrans des types de budget
 import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.js"; // Écrans des budgets
 import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde OM
+import { afficherAllocations, afficherFormulaireAllocation } from "./ui/ecrans/allocations.js"; // Écrans des allocations
+import { afficherOperations, afficherFormulaireDepense } from "./ui/ecrans/operations.js"; // Écrans des opérations
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
 const racine = document.getElementById("app"); // Zone vide définie dans index.html
@@ -27,6 +29,11 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/budgets": (zone) => afficherBudgets(zone, { base }), // Liste des budgets
         "/budgets/nouveau": (zone) => afficherFormulaireBudget(zone, { base }), // Création d'un budget
         "/budgets/:id": (zone, ctx) => afficherFormulaireBudget(zone, { base, params: ctx.params }), // Modification d'un budget
+        "/allocations": (zone) => afficherAllocations(zone, { base }), // Situation des budgets sur la période
+        "/allocations/nouveau": (zone) => afficherFormulaireAllocation(zone, { base }), // Allocation d'un budget
+        "/allocations/nouveau/:budgetId": (zone, ctx) => afficherFormulaireAllocation(zone, { base, params: ctx.params }), // Allocation d'un budget présélectionné
+        "/operations": (zone) => afficherOperations(zone, { base }), // Liste des opérations
+        "/operations/depense": (zone) => afficherFormulaireDepense(zone, { base }), // Saisie d'une dépense
         "/types-budget": (zone) => afficherTypes(zone, { base }), // Liste des types
         "/types-budget/nouveau": (zone) => afficherFormulaireType(zone, { base }), // Création d'un type
         "/types-budget/:id": (zone, ctx) => afficherFormulaireType(zone, { base, params: ctx.params }), // Modification d'un type

@@ -669,3 +669,48 @@ a.solde {
   accent-color: var(--accent); /* Couleur bleue quand cochée */
   flex-shrink: 0; /* Ne rétrécit jamais */
 } /* Fin des règles */
+
+/* ===== Opérations et allocations (sprint 5) ===== */
+
+/* Montants signés des opérations */
+.montant-plus {
+  /* Entrée d'argent dans un budget */
+  color: var(--ok); /* Vert */
+  white-space: nowrap; /* Jamais coupé sur deux lignes */
+} /* Fin des règles */
+
+.montant-moins {
+  /* Dépense */
+  color: var(--danger); /* Rouge */
+  white-space: nowrap; /* Jamais coupé sur deux lignes */
+} /* Fin des règles */
+
+/* Filtres côte à côte */
+.filtres {
+  /* Zone des filtres */
+  display: grid; /* Disposition en grille */
+  grid-template-columns: 1fr 1fr; /* Deux colonnes égales */
+  gap: 10px; /* Espace entre filtres */
+} /* Fin des règles */
+
+.filtres .champ {
+  /* Un filtre */
+  margin-bottom: 0; /* Pas d'espace sous le filtre */
+} /* Fin des règles */
+
+/* Liste des opérations : espace entre cartes */
+.liste-operations {
+  /* Zone de la liste */
+  margin-top: 14px; /* Espace au-dessus */
+} /* Fin des règles */
+
+.liste-operations .carte + .carte {
+  /* Carte suivante de la liste */
+  margin-top: 10px; /* Espace réduit entre opérations */
+} /* Fin des règles */
+
+/* Texte d'information placé entre deux champs d'un formulaire */
+.info-formulaire {
+  /* Règles du texte d'information */
+  margin-bottom: 14px; /* Espace avant le champ suivant */
+} /* Fin des règles */

@@ -119,6 +119,8 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - `trx_id` : ID de transaction issu du SMS OM ; auto-généré pour une saisie manuelle (SMS non reçu). Unique (évite les doublons à l'import).
 - `allocation` : FK → AllocationBudget, **vide** tant qu'une transaction issue d'un SMS n'est pas classée
 - `insert_date`
+- `date_operation` : date réelle de l'opération (ISO UTC) ; par défaut maintenant, modifiable pour une dépense passée ; pour un SMS, la date du SMS
+- `note` : libellé libre facultatif (200 caractères au plus)
 - `insert_type` : `manuel` ou `auto` (auto = depuis SMS)
 - `debit_credit` : `-1` dépense, `1` alimentation du budget (lors de l'allocation)
 - `montant` : toujours > 0, le signe vient de `debit_credit`
@@ -128,6 +130,14 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 ### ParametreJob (une seule ligne)
 - `id`
 - `start_day_int` : jour du mois de lancement de l'allocation/réallocation (ex. `20` = tous les 20 du mois), de 1 à 28
+
+## Règles de calcul des soldes et des périodes (décidées au sprint 5)
+
+- **Période d'une allocation** : du jour J au jour J-1 du mois suivant, J = `start_day_int` (ex. J = 20 : du 20 octobre au 19 novembre). La période en cours est celle qui contient la date du jour.
+- **Solde d'un budget = solde PAR PÉRIODE** : somme signée (`debit_credit × montant`) des transactions de l'allocation de la période. Le reliquat d'une période est reporté à la suivante par une opération de transfert explicite (-reliquat sur l'ancienne période, +reliquat sur la nouvelle), à écrire au sprint 6.
+- **Allocation** : crée (ou complète) l'allocation de la période en cours et une transaction `debit_credit = 1`. `montant_alloue` = total des alimentations de la période. Refusée si solde après allocation < `montant_min`. Un plafond dépassé est signalé, jamais tronqué.
+- **Dépense manuelle** : rangée dans l'allocation du budget dont la période contient la `date_operation` ; refusée s'il n'y en a pas, ou si le solde de cette période est inférieur au montant. Date future refusée (5 minutes de tolérance).
+- Les transactions ne se modifient ni ne se suppriment pour l'instant (à décider).
 
 ## Flux fonctionnel
 

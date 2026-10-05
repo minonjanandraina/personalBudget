@@ -9,8 +9,8 @@ import { lireDernierSolde } from "../../core/soldes.js"; // Lecture du dernier s
 // Tuiles de l'accueil. Une tuile sans route est grisée « bientôt » (écran prévu dans un sprint suivant).
 const TUILES = [ // Liste des tuiles
   { libelle: "Budgets", nomIcone: "budgets", couleur: "bleu", route: "/budgets" }, // Liste des budgets
-  { libelle: "Allocations", nomIcone: "allocations", couleur: "vert", route: null }, // Sprint 5
-  { libelle: "Opérations", nomIcone: "transactions", couleur: "orange", route: null }, // Sprint 5
+  { libelle: "Allocations", nomIcone: "allocations", couleur: "vert", route: "/allocations" }, // Situation des budgets
+  { libelle: "Opérations", nomIcone: "transactions", couleur: "orange", route: "/operations" }, // Dépenses et allocations
   { libelle: "Types de budget", nomIcone: "types", couleur: "violet", route: "/types-budget" }, // Types de budget
   { libelle: "Solde OM", nomIcone: "telephone", couleur: "rouge", route: "/solde" }, // Historique des soldes
   { libelle: "Réglages", nomIcone: "reglages", couleur: "gris", route: "/reglages" }, // Disponible
