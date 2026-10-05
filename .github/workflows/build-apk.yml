@@ -53,8 +53,7 @@ jobs:
           # Construit l'APK « release » ; garde tout le journal dans un fichier
           ./gradlew assembleRelease --no-daemon > gradle.log 2>&1 || {
             # En cas d'échec : extrait les lignes utiles du journal (10 premières erreurs)
-            MSG=$(grep -E "What went wrong|error:|Caused by|FAILURE|Could not|not found|invalid" gradle.log | head -15 | sed ':a;N;$!ba;s/
-/%0A/g')
+            MSG=$(grep -E "What went wrong|error:|Caused by|FAILURE|Could not|not found|invalid" gradle.log | head -15 | sed ':a;N;$!ba;s/\n/%0A/g')
             # Affiche ces lignes comme annotation d'erreur visible sur la page du build
             echo "::error title=Echec Gradle::$MSG"
             # Affiche aussi la fin du journal complet
