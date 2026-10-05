@@ -94,3 +94,15 @@ describe("migration 3 (nature des transactions)", () => { // Groupe de tests de 
     await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, nature) VALUES ('Y', 'manuel', 1, 1, 'report')")).resolves.toBeTruthy(); // « report » accepté
   }); // Fin du cas
 }); // Fin du groupe
+
+describe("migration 4 (dépense déjà comprise dans le solde)", () => { // Groupe de tests de la migration 4
+  it("met 0 par défaut aux transactions existantes et n'accepte que 0 ou 1", async () => { // Migration de données et contrainte
+    const base = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(base, MIGRATIONS.slice(0, 3)); // Versions 1 à 3 seulement
+    await base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('ANCIEN', 'manuel', -1, 500)"); // Transaction de l'ancienne version
+    await appliquerMigrations(base); // Passe à la dernière version
+    expect((await base.requeter("SELECT comprise_dans_solde FROM transactions"))[0].comprise_dans_solde).toBe(0); // Valeur par défaut
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, comprise_dans_solde) VALUES ('X', 'manuel', -1, 1, 2)")).rejects.toThrow(); // 2 refusé
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, comprise_dans_solde) VALUES ('Y', 'manuel', -1, 1, 1)")).resolves.toBeTruthy(); // 1 accepté
+  }); // Fin du cas
+}); // Fin du groupe

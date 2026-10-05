@@ -51,11 +51,12 @@ export async function supprimerSolde(base, id) { // Reçoit la base et l'identif
 
 // Solde du compte Orange Money disponible = dernier solde saisi (ou reçu) moins les dépenses enregistrées après lui.
 // Les dépenses issues d'un SMS à la même seconde que le solde sont déjà comprises dans ce solde ; les saisies manuelles de la même seconde sont retirées.
+// Une dépense marquée « déjà comprise dans le solde » (oubli rattrapé après un solde réel) n'est jamais retirée une seconde fois.
 export async function soldeOMDisponible(base) { // Reçoit la base
   const dernier = await lireDernierSolde(base); // Dernier solde connu
   if (dernier === null) return null; // Aucun solde saisi : situation inconnue
   const [ligne] = await base.requeter( // Somme des dépenses postérieures au solde
-    "SELECT COALESCE(SUM(montant), 0) AS total FROM transactions WHERE debit_credit = -1 AND nature = 'normale' AND (date_operation > ? OR (date_operation = ? AND insert_type = 'manuel'))", // Dépenses normales après le solde
+    "SELECT COALESCE(SUM(montant), 0) AS total FROM transactions WHERE debit_credit = -1 AND nature = 'normale' AND comprise_dans_solde = 0 AND (date_operation > ? OR (date_operation = ? AND insert_type = 'manuel'))", // Dépenses normales après le solde (sauf celles déjà comprises dedans)
     [dernier.datetime, dernier.datetime], // Date du solde
   ); // Fin de la lecture
   const depensesDepuis = Number(ligne.total); // Dépenses retirées du dernier solde

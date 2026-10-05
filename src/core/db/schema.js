@@ -98,4 +98,10 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       `ALTER TABLE transactions ADD COLUMN nature TEXT NOT NULL DEFAULT 'normale' CHECK (nature IN ('normale', 'report', 'transfert'))`, // « normale » = saisie de l'utilisateur ; « report » et « transfert » = mouvements générés par l'application (lecture seule)
     ], // Fin des instructions de la migration 3
   }, // Fin de la migration 3
+  { // Début de la migration 4 : dépense « déjà comprise dans le solde OM »
+    version: 4, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `ALTER TABLE transactions ADD COLUMN comprise_dans_solde INTEGER NOT NULL DEFAULT 0 CHECK (comprise_dans_solde IN (0, 1))`, // 1 = dépense oubliée, déjà retirée du solde OM réel saisi ensuite : elle ne doit pas être retirée une seconde fois du solde disponible
+    ], // Fin des instructions de la migration 4
+  }, // Fin de la migration 4
 ]; // Fin de la liste des migrations

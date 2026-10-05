@@ -14,11 +14,11 @@ export function genererTrxIdManuel() { // Aucun paramètre
 } // Fin de genererTrxIdManuel
 
 // Crée une transaction (sans contrôle de solde). Sans trxId (saisie manuelle), un identifiant est généré.
-export async function creerTransaction(base, { trxId, allocationId = null, insertType = "manuel", debitCredit, montant, sms = null, dateOperation = new Date().toISOString(), note = null, nature = "normale" }) { // Reçoit la base et les champs
+export async function creerTransaction(base, { trxId, allocationId = null, insertType = "manuel", debitCredit, montant, sms = null, dateOperation = new Date().toISOString(), note = null, nature = "normale", compriseDansSolde = false }) { // Reçoit la base et les champs
   const identifiant = trxId ?? genererTrxIdManuel(); // Utilise l'ID du SMS, sinon en fabrique un
   const { dernierId } = await base.executer( // Insère la transaction
-    "INSERT INTO transactions (trx_id, allocation_id, insert_type, debit_credit, montant, sms, date_operation, note, nature) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", // Requête d'insertion
-    [identifiant, allocationId, insertType, debitCredit, montant, sms, dateOperation, note, nature], // Valeurs dans l'ordre des colonnes
+    "INSERT INTO transactions (trx_id, allocation_id, insert_type, debit_credit, montant, sms, date_operation, note, nature, comprise_dans_solde) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", // Requête d'insertion
+    [identifiant, allocationId, insertType, debitCredit, montant, sms, dateOperation, note, nature, compriseDansSolde ? 1 : 0], // Valeurs dans l'ordre des colonnes
   ); // Fin de l'insertion
   return dernierId; // Renvoie l'identifiant créé
 } // Fin de creerTransaction
@@ -33,7 +33,7 @@ export async function listerTransactions(base, { budgetId = null, sens = null, n
   if (nature === "normale") conditions.push("t.nature = 'normale'"); // Seulement les saisies de l'utilisateur
   if (nature === "mouvements") conditions.push("t.nature <> 'normale'"); // Seulement les reports et transferts
   const lignes = await base.requeter( // Lit les transactions avec le nom du budget
-    `SELECT t.id, t.trx_id, t.insert_type, t.debit_credit, t.montant, t.note, t.sms, t.date_operation, t.nature, t.allocation_id, b.id AS budget_id, b.name AS budget_name
+    `SELECT t.id, t.trx_id, t.insert_type, t.debit_credit, t.montant, t.note, t.sms, t.date_operation, t.nature, t.comprise_dans_solde, t.allocation_id, b.id AS budget_id, b.name AS budget_name
      FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id LEFT JOIN budget b ON b.id = a.budget_id
      ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
      ORDER BY t.date_operation DESC, t.id DESC LIMIT ?`, // Plus récent d'abord, nombre limité
@@ -41,7 +41,7 @@ export async function listerTransactions(base, { budgetId = null, sens = null, n
   ); // Fin de la lecture
   return lignes.map((l) => ({ // Convertit chaque ligne en objet
     id: Number(l.id), trxId: l.trx_id, insertType: l.insert_type, debitCredit: Number(l.debit_credit), // Identité et sens
-    montant: Number(l.montant), note: l.note, sms: l.sms, dateOperation: l.date_operation, nature: l.nature, // Montant, note, SMS, date, nature
+    montant: Number(l.montant), note: l.note, sms: l.sms, dateOperation: l.date_operation, nature: l.nature, compriseDansSolde: Number(l.comprise_dans_solde) === 1, // Montant, note, SMS, date, nature, déjà comprise dans le solde
     allocationId: l.allocation_id === null ? null : Number(l.allocation_id), // Allocation (null = non classée)
     budgetId: l.budget_id === null ? null : Number(l.budget_id), budgetName: l.budget_name ?? null, // Budget (null = non classée)
   })); // Fin de la conversion

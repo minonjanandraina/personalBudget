@@ -75,7 +75,7 @@ export async function allouerBudget(base, { budgetId, montant, periode = null, n
 } // Fin de allouerBudget
 
 // Enregistre une dépense manuelle sur un budget. Bloquée si le solde de la période est insuffisant.
-export async function enregistrerDepense(base, { budgetId, montant, dateOperation, note = null }, maintenant = new Date()) { // Reçoit la base, la saisie et l'heure
+export async function enregistrerDepense(base, { budgetId, montant, dateOperation, note = null, compriseDansSolde = false }, maintenant = new Date()) { // Reçoit la base, la saisie et l'heure
   const erreurs = {}; // Erreurs de saisie
   if (!montantValide(montant)) erreurs.montant = "Le montant doit être un entier supérieur à 0."; // Montant invalide
   const date = new Date(dateOperation); // Date de la dépense
@@ -85,13 +85,14 @@ export async function enregistrerDepense(base, { budgetId, montant, dateOperatio
   if (!budget) erreurs.budgetId = "Choisissez un budget."; // Budget inexistant
   let noteNette = null; // Note nettoyée
   try { noteNette = nettoyerNote(note); } catch (e) { Object.assign(erreurs, e.erreurs); } // Vérifie la note
+  if (compriseDansSolde && (await situationFinanciere(base)).om === null) erreurs.compriseDansSolde = "Aucun solde Orange Money saisi : il n'y a rien à rattraper."; // Cette case n'a de sens qu'avec un solde OM
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse si une saisie est incorrecte
   return base.transaction(async () => { // Tout ou rien
     const allocation = await allocationCouvrant(base, budgetId, jourLocal(dateOperation)); // Allocation de la période de la dépense
     if (!allocation) throw new ErreurMetier(`Aucune allocation pour « ${budget.name} » à cette date. Allouez d'abord le budget.`); // Pas d'allocation : dépense impossible
     const solde = await soldeAllocation(base, allocation.id); // Solde disponible
     if (solde < montant) throw new ErreurValidation({ montant: `Solde insuffisant : il reste ${formaterMontant(solde)} sur ce budget. Une réallocation est nécessaire.` }); // Dépense bloquée
-    const idTransaction = await creerTransaction(base, { allocationId: allocation.id, debitCredit: -1, montant, dateOperation: new Date(dateOperation).toISOString(), note: noteNette }); // Crée la dépense
+    const idTransaction = await creerTransaction(base, { allocationId: allocation.id, debitCredit: -1, montant, dateOperation: new Date(dateOperation).toISOString(), note: noteNette, compriseDansSolde }); // Crée la dépense
     return { allocationId: allocation.id, idTransaction, soldeApres: solde - montant }; // Résultat
   }); // Fin de la transaction
 } // Fin de enregistrerDepense
@@ -134,12 +135,12 @@ export function libellePeriode({ dateFrom, dateTo }) { // Reçoit la période
 // Lit une transaction avec son budget (null si elle n'existe pas).
 async function lireOperation(base, id) { // Reçoit la base et l'identifiant
   const lignes = await base.requeter( // Lit la transaction et le budget de son allocation
-    "SELECT t.id, t.allocation_id, t.insert_type, t.debit_credit, t.montant, t.date_operation, t.note, t.nature, a.budget_id FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id WHERE t.id = ?", // Jointure transaction + allocation
+    "SELECT t.id, t.allocation_id, t.insert_type, t.debit_credit, t.montant, t.date_operation, t.note, t.nature, t.comprise_dans_solde, a.budget_id FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id WHERE t.id = ?", // Jointure transaction + allocation
     [id], // Identifiant
   ); // Fin de la lecture
   if (lignes.length === 0) return null; // Transaction introuvable
   const l = lignes[0]; // Ligne trouvée
-  return { id: Number(l.id), allocationId: l.allocation_id === null ? null : Number(l.allocation_id), insertType: l.insert_type, debitCredit: Number(l.debit_credit), montant: Number(l.montant), dateOperation: l.date_operation, note: l.note, nature: l.nature, budgetId: l.budget_id === null ? null : Number(l.budget_id) }; // Objet transaction
+  return { id: Number(l.id), allocationId: l.allocation_id === null ? null : Number(l.allocation_id), insertType: l.insert_type, debitCredit: Number(l.debit_credit), montant: Number(l.montant), dateOperation: l.date_operation, note: l.note, nature: l.nature, compriseDansSolde: Number(l.comprise_dans_solde) === 1, budgetId: l.budget_id === null ? null : Number(l.budget_id) }; // Objet transaction
 } // Fin de lireOperation
 
 // Vérifie qu'une opération existe et peut être modifiée ou supprimée ; renvoie l'opération.
@@ -153,7 +154,7 @@ async function operationModifiable(base, id) { // Reçoit la base et l'identifia
 } // Fin de operationModifiable
 
 // Modifie le montant, la note et (pour une dépense) la date d'une opération manuelle.
-export async function modifierOperation(base, id, { montant, dateOperation, note = null }, maintenant = new Date()) { // Reçoit la base, l'identifiant et les nouvelles valeurs
+export async function modifierOperation(base, id, { montant, dateOperation, note = null, compriseDansSolde = undefined }, maintenant = new Date()) { // Reçoit la base, l'identifiant et les nouvelles valeurs
   const operation = await operationModifiable(base, id); // Vérifie que l'opération est modifiable
   const estDepense = operation.debitCredit === -1; // Dépense ou alimentation ?
   const erreurs = {}; // Erreurs de saisie
@@ -170,11 +171,13 @@ export async function modifierOperation(base, id, { montant, dateOperation, note
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse si une saisie est incorrecte
   return base.transaction(async () => { // Tout ou rien
     if (estDepense) { // Dépense : elle peut changer de période si la date change
+      const drapeau = compriseDansSolde === undefined ? operation.compriseDansSolde : Boolean(compriseDansSolde); // « Déjà comprise dans le solde » : inchangé si non précisé
+      if (drapeau && (await situationFinanciere(base)).om === null) throw new ErreurValidation({ compriseDansSolde: "Aucun solde Orange Money saisi : il n'y a rien à rattraper." }); // Impossible sans solde OM
       const allocation = await allocationCouvrant(base, operation.budgetId, jourLocal(nouvelleDate)); // Allocation de la nouvelle date
       if (!allocation) throw new ErreurMetier("Aucune allocation pour ce budget à cette date. Allouez d'abord le budget."); // Pas d'allocation à cette date
       const soldeSansElle = (await soldeAllocation(base, allocation.id)) + (allocation.id === operation.allocationId ? operation.montant : 0); // Solde de la période sans cette dépense
       if (soldeSansElle < montant) throw new ErreurValidation({ montant: `Solde insuffisant : il reste ${formaterMontant(soldeSansElle)} sur ce budget pour cette période.` }); // Dépense bloquée
-      await base.executer("UPDATE transactions SET montant = ?, date_operation = ?, note = ?, allocation_id = ? WHERE id = ?", [montant, nouvelleDate, noteNette, allocation.id, id]); // Met à jour la dépense
+      await base.executer("UPDATE transactions SET montant = ?, date_operation = ?, note = ?, allocation_id = ?, comprise_dans_solde = ? WHERE id = ?", [montant, nouvelleDate, noteNette, allocation.id, drapeau ? 1 : 0, id]); // Met à jour la dépense
       return { allocationId: allocation.id, soldeApres: soldeSansElle - montant }; // Résultat
     } // Fin du cas dépense
     const soldeApres = (await soldeAllocation(base, operation.allocationId)) - operation.montant + montant; // Solde de la période après la modification d'une allocation
