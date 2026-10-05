@@ -33,3 +33,23 @@ body {
   padding: 20px; /* Espace intérieur */
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05); /* Ombre légère sous la carte */
 } /* Fin des règles de la carte */
+
+/* Espace entre les cartes superposées */
+.carte + .carte {
+  /* Début des règles d'une carte qui suit une autre carte */
+  margin-top: 14px; /* Marge au-dessus pour les séparer */
+} /* Fin des règles */
+
+/* Texte technique de la carte de diagnostic */
+.diagnostic ul {
+  /* Début des règles de la liste du diagnostic */
+  margin: 8px 0 0; /* Petite marge au-dessus, aucune ailleurs */
+  padding-left: 18px; /* Retrait de la liste */
+  font-size: 0.9rem; /* Texte un peu plus petit */
+} /* Fin des règles */
+
+/* Messages d'erreur : retour à la ligne automatique */
+pre {
+  /* Début des règles du texte préformaté */
+  white-space: pre-wrap; /* Coupe les longues lignes au lieu de déborder */
+} /* Fin des règles */

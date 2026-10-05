@@ -62,6 +62,14 @@ Trois couches, pour que la logique métier se teste sans téléphone :
 - `src/ui/` : écrans (tableau de bord, budgets, transactions…). N'appelle que `core/` et `platform/`.
 - `src/platform/` : adaptateurs Android (lecture des SMS, USSD, export de fichiers). Chaque adaptateur a une **version Android** (plugin Kotlin dans `android-plugin/`) et une **version simulée** pour le navigateur (ex. lit un fichier de SMS d'exemple).
 
+### Base de données : choix d'implémentation (sprint 2)
+- Deux adaptateurs interchangeables dans `src/platform/` (mêmes fonctions `executer`, `requeter`, `transaction`, `fermer`) : `base-capacitor.js` (SQLite du téléphone, plugin `@capacitor-community/sqlite`) et `base-sqljs.js` (sql.js, SQLite en WebAssembly, pour les tests et le navigateur). `base.js` choisit selon l'environnement.
+- Schéma et migrations dans `src/core/db/` ; version du schéma gardée dans la table `meta`. On n'édite jamais une migration publiée : on en ajoute une.
+- Règles d'intégrité (montants entiers `typeof = 'integer'`, `montant_min` ≤ `montant_max`, `trx_id` unique, une allocation par budget et par période, ligne unique de `parametre_job`…) imposées **par la base elle-même** (CHECK, UNIQUE, clés étrangères `ON DELETE RESTRICT`).
+- Dates en texte ISO 8601 : instants en UTC (`2026-10-05T10:30:00.000Z`), jours en `AAAA-MM-JJ`.
+- La base du navigateur (développement) est gardée dans le `localStorage` ; elle n'a aucun lien avec celle du téléphone.
+- Le fichier de la base sur le téléphone est dans le dossier privé de l'application (à exporter pour la sauvegarde, sprint 8).
+
 ## Modèle de données
 
 Tous les enregistrements ont `insert_date` (date d'insertion automatique).

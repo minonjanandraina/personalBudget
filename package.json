@@ -14,7 +14,9 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
     "@capacitor/android": "^7.6.9",
-    "@capacitor/core": "^7.6.9"
+    "@capacitor/core": "^7.6.9",
+    "sql.js": "^1.14.2"
   }
 }

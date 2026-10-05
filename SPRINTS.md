@@ -22,7 +22,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : `npm run dev` et `npm test` fonctionnent sous Windows.
 
-## Sprint 1 — Pipeline APK de bout en bout (réduction du risque) — EN COURS
+## Sprint 1 — Pipeline APK de bout en bout (réduction du risque) ✅ TERMINÉ (mise à jour par-dessus à vérifier avec l'APK du sprint 2)
 - Ajout du projet Android généré par Capacitor.
 - Clé de signature créée une fois, stockée dans les secrets GitHub (sauvegarde de la clé documentée).
 - Workflow GitHub Actions : build Gradle → APK signé publié en artefact.
@@ -30,7 +30,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : l'application affichant un écran de base s'installe et se met à jour sur le téléphone. C'est le sprint le plus risqué : on le fait en premier.
 
-## Sprint 2 — Base de données et modèles (`core`)
+## Sprint 2 — Base de données et modèles (`core`) — EN COURS
 - Schéma SQLite : SoldeOM, TypeBudget (code `bdg-001` auto), Budget, AllocationBudget, Transaction, ParametreJob (ligne unique).
 - Contraintes : montants entiers, `montant` > 0, `debit_credit` ∈ {-1, 1}, `trx_id` unique, une allocation par budget et par période, règles `montant_min` ≤ `montant_max` et `montant_budget` ≤ `montant_max`.
 - Migrations versionnées (évolution du schéma sans perdre les données).
