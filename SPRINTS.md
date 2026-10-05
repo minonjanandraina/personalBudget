@@ -47,7 +47,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : navigation fluide sur le navigateur et sur le téléphone.
 
-## Sprint 4 — Solde OM, types de budget, budgets, paramètres
+## Sprint 4 — Solde OM, types de budget, budgets, paramètres — EN COURS
 - Saisie manuelle du solde initial OM et historique.
 - Création, modification, suppression des types et des budgets (suppression refusée si utilisé).
 - Écran paramètres : jour de lancement de l'allocation (1 à 28).

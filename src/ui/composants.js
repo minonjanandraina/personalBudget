@@ -7,9 +7,10 @@ export function carte(...enfants) { // Reçoit le contenu
   return h("section", { class: "carte apparition" }, ...enfants); // Section avec la classe carte
 } // Fin de carte
 
-// En-tête d'un écran : grand titre et sous-titre facultatif.
-export function enteteEcran(titre, sousTitre = null) { // Titre et sous-titre
+// En-tête d'un écran : grand titre, sous-titre facultatif et lien de retour facultatif.
+export function enteteEcran(titre, sousTitre = null, { retour = null } = {}) { // Titre, sous-titre et route de retour
   return h("header", { class: "entete" }, // Zone d'en-tête
+    retour ? h("a", { class: "retour", href: `#${retour}`, "aria-label": "Retour" }, icone("retour", 22), "Retour") : null, // Lien de retour s'il est demandé
     h("h1", { class: "titre" }, titre), // Grand titre
     sousTitre ? h("p", { class: "sous-titre" }, sousTitre) : null, // Sous-titre s'il existe
   ); // Fin de l'en-tête
@@ -67,3 +68,52 @@ export function champ({ id, libelle, type = "text", valeur = "", aide = null, in
     }, // Fin de effacerErreur
   }; // Fin de l'objet de contrôle
 } // Fin de champ
+
+// Gros bouton qui est en réalité un lien vers un écran, avec une icône.
+export function boutonLien(texte, route, nomIcone = null) { // Texte, route et icône facultative
+  return h("a", { class: "bouton bouton-lien", href: `#${route}` }, nomIcone ? icone(nomIcone, 22) : null, texte); // Lien stylé comme un bouton
+} // Fin de boutonLien
+
+// Petit bouton rond avec une icône seule (modifier, supprimer...). « libelle » est lu par les lecteurs d'écran.
+export function boutonIcone({ nomIcone, libelle, auClic = null, route = null, danger = false }) { // Icône, libellé, action ou route
+  const classes = `bouton-icone${danger ? " bouton-icone-danger" : ""}`; // Classes CSS
+  if (route) return h("a", { class: classes, href: `#${route}`, "aria-label": libelle, title: libelle }, icone(nomIcone, 20)); // Version lien
+  return h("button", { class: classes, type: "button", "aria-label": libelle, title: libelle, onclick: auClic }, icone(nomIcone, 20)); // Version bouton
+} // Fin de boutonIcone
+
+// Fabrique l'objet de contrôle commun à tous les champs de formulaire.
+function controleChamp({ element, saisie, lire, ecrire, message }) { // Éléments à piloter
+  return { // Objet de contrôle
+    element, // Bloc à insérer dans la page
+    lire, // Lit la valeur
+    ecrire, // Change la valeur affichée
+    afficherErreur: (texte) => { // Affiche une erreur sous le champ
+      message.textContent = texte; // Écrit le message
+      saisie.setAttribute("aria-invalid", "true"); // Signale l'erreur aux lecteurs d'écran
+      element.classList.add("en-erreur"); // Colore le champ en rouge
+    }, // Fin de afficherErreur
+    effacerErreur: () => { // Retire l'erreur
+      message.textContent = ""; // Vide le message
+      saisie.removeAttribute("aria-invalid"); // Retire le signal d'erreur
+      element.classList.remove("en-erreur"); // Retire la couleur rouge
+    }, // Fin de effacerErreur
+  }; // Fin de l'objet
+} // Fin de controleChamp
+
+// Liste déroulante. « options » : [{ valeur, libelle }]. Lire renvoie la valeur choisie (texte).
+export function choix({ id, libelle, options, valeur = "", aide = null }) { // Description du champ
+  const saisie = h("select", { id, class: "champ-saisie", "aria-describedby": `${id}-message` }, // Zone de choix
+    ...options.map((o) => h("option", { value: String(o.valeur), selected: String(o.valeur) === String(valeur) }, o.libelle)), // Une ligne par option
+  ); // Fin de la liste
+  const message = h("div", { id: `${id}-message`, class: "champ-message", role: "alert" }); // Zone du message d'erreur
+  const element = h("div", { class: "champ" }, h("label", { class: "champ-libelle", for: id }, libelle), saisie, aide ? h("div", { class: "champ-aide" }, aide) : null, message); // Bloc complet
+  return controleChamp({ element, saisie, message, lire: () => saisie.value, ecrire: (v) => { saisie.value = String(v); } }); // Objet de contrôle
+} // Fin de choix
+
+// Interrupteur oui/non. Lire renvoie un booléen.
+export function interrupteur({ id, libelle, valeur = false, aide = null }) { // Description du champ
+  const saisie = h("input", { id, class: "interrupteur-saisie", type: "checkbox", checked: valeur, "aria-describedby": `${id}-message` }); // Case à cocher
+  const message = h("div", { id: `${id}-message`, class: "champ-message", role: "alert" }); // Zone du message d'erreur
+  const element = h("div", { class: "champ champ-interrupteur" }, h("label", { class: "interrupteur", for: id }, saisie, h("span", { class: "champ-libelle" }, libelle)), aide ? h("div", { class: "champ-aide" }, aide) : null, message); // Bloc complet
+  return controleChamp({ element, saisie, message, lire: () => saisie.checked, ecrire: (v) => { saisie.checked = Boolean(v); } }); // Objet de contrôle
+} // Fin de interrupteur

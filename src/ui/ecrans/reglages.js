@@ -1,49 +1,28 @@
-// Écran des réglages : diagnostic de la base et essai des composants d'interface.
-// (Les vrais réglages, comme le jour de lancement de l'allocation, arrivent au sprint 4.)
+// Écran des réglages : jour de l'allocation automatique et accès aux autres écrans.
 import { h } from "../dom.js"; // Fabrication d'éléments
-import { enteteEcran, carte, boutonPrincipal, champ } from "../composants.js"; // Composants
-import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
-import { lireVersion } from "../../core/db/migrations.js"; // Version de la base
+import { enteteEcran, carte, boutonLien, boutonPrincipal, champ } from "../composants.js"; // Composants
+import { soumettre } from "../formulaire.js"; // Enregistrement de formulaire
+import { lireJourJob, modifierJourJob } from "../../core/parametres.js"; // Paramètre du jour de lancement
+import { analyserMontant } from "../../core/format.js"; // Lecture d'un entier saisi
 
 // Dessine l'écran des réglages dans le conteneur.
 export async function afficherReglages(conteneur, { base }) { // Reçoit la zone et la base
-  const version = await lireVersion(base); // Version actuelle du schéma
-  const types = await base.requeter("SELECT COUNT(*) AS n FROM type_budget"); // Nombre de types (preuve que la base répond)
-
-  const diagnostic = carte( // Carte de diagnostic
-    h("h2", { class: "carte-titre" }, "Diagnostic de la base"), // Titre
-    h("ul", { class: "liste-diagnostic" }, // Liste des constats
-      h("li", {}, `Moteur : ${base.nom}`), // Moteur de base de données
-      h("li", {}, `Version du schéma : ${version}`), // Version du schéma
-      h("li", {}, `Liens entre tables contrôlés : ${base.cleEtrangeresActives ? "oui" : "NON"}`), // Contrôle des clés étrangères
-      h("li", {}, `Types de budget : ${Number(types[0].n)}`), // Nombre de types
-    ), // Fin de la liste
-  ); // Fin de la carte
-
-  const champDemo = champ({ id: "demo-montant", libelle: "Montant (essai)", inputmode: "numeric", aide: "Entier positif, sans virgule" }); // Champ d'essai
-  const verifier = () => { // Vérifie la saisie du champ d'essai
-    champDemo.effacerErreur(); // Retire une éventuelle erreur précédente
-    const texte = champDemo.lire().trim(); // Lit la saisie sans espaces autour
-    if (!/^\d+$/.test(texte)) { // Seuls des chiffres sont acceptés
-      champDemo.afficherErreur("Saisissez un nombre entier positif."); // Message d'erreur sous le champ
-      return; // Arrête là
-    } // Fin du cas invalide
-    afficherToast(`Montant accepté : ${texte}`, "succes"); // Confirme visuellement
-  }; // Fin de verifier
-
-  const essai = carte( // Carte d'essai des composants
-    h("h2", { class: "carte-titre" }, "Essai de l'interface"), // Titre
-    h("div", { class: "groupe" }, // Groupe de boutons
-      boutonPrincipal("Notification de succès", () => afficherToast("Enregistré avec succès", "succes")), // Toast de succès
-      boutonPrincipal("Notification d'erreur", () => afficherToast("Une erreur est survenue", "erreur")), // Toast d'erreur
-      boutonPrincipal("Demander confirmation", async () => { // Fenêtre de confirmation
-        const reponse = await confirmer({ titre: "Supprimer ?", message: "Cette action est définitive.", libelleOk: "Supprimer", danger: true }); // Attend la réponse
-        afficherToast(reponse ? "Confirmé" : "Annulé", reponse ? "succes" : "info"); // Affiche la réponse choisie
-      }, { danger: true }), // Bouton rouge
-    ), // Fin du groupe
-    champDemo.element, // Champ d'essai
-    boutonPrincipal("Vérifier le montant", verifier), // Bouton de vérification
-  ); // Fin de la carte
-
-  conteneur.append(enteteEcran("Réglages", "Diagnostic et essais"), diagnostic, essai); // Assemble l'écran
+  const jour = await lireJourJob(base); // Jour actuellement réglé
+  const champJour = champ({ id: "reglage-jour", libelle: "Jour du mois", valeur: String(jour), inputmode: "numeric", aide: "L'allocation et la réallocation des budgets se lancent ce jour-là chaque mois (de 1 à 28)." }); // Champ du jour
+  const champs = { jour: champJour }; // Dictionnaire des champs (pour l'affichage des erreurs)
+  const enregistrer = () => { // Enregistre le réglage
+    champJour.effacerErreur(); // Retire une erreur précédente
+    const lu = analyserMontant(champJour.lire()); // Lit le nombre saisi
+    if (lu.erreur) { champJour.afficherErreur(lu.erreur); return Promise.resolve(false); } // Saisie illisible : message sous le champ
+    return soumettre({ champs, action: () => modifierJourJob(base, lu.valeur), messageSucces: "Réglage enregistré." }); // Enregistre (reste sur l'écran)
+  }; // Fin de enregistrer
+  conteneur.append( // Assemble l'écran
+    enteteEcran("Réglages", "Votre application"), // En-tête
+    carte(h("h2", { class: "carte-titre" }, "Allocation automatique"), champJour.element, boutonPrincipal("Enregistrer", enregistrer)), // Carte du jour de lancement
+    h("div", { class: "espace-haut groupe" }, // Liens vers les autres écrans
+      boutonLien("Solde Orange Money", "/solde", "telephone"), // Historique des soldes
+      boutonLien("Types de budget", "/types-budget", "types"), // Types de budget
+      boutonLien("Diagnostic et essais", "/diagnostic", "info"), // Diagnostic
+    ), // Fin des liens
+  ); // Fin de l'assemblage
 } // Fin de afficherReglages

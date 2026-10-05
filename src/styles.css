@@ -525,3 +525,147 @@ pre {
   .apparition { opacity: 1; transform: none; } /* Tout est visible immédiatement */
   .tuile, .bouton, .toast, .dialogue { transition: none !important; animation: none !important; transform: none !important; } /* Aucune animation */
 } /* Fin de la règle d'accessibilité */
+
+/* ===== Écrans de liste et de formulaire (sprint 4) ===== */
+
+/* Le bloc de solde est un lien : pas de soulignement, texte hérité */
+a.solde {
+  /* Règles du solde cliquable */
+  display: block; /* Occupe toute la largeur de la carte */
+  color: #ffffff; /* Texte blanc */
+  text-decoration: none; /* Pas de soulignement */
+} /* Fin des règles */
+
+/* Lien de retour en haut d'un écran */
+.retour {
+  /* Règles du lien « Retour » */
+  display: inline-flex; /* Icône et texte côte à côte */
+  align-items: center; /* Alignés verticalement */
+  gap: 4px; /* Petit espace */
+  min-height: 44px; /* Zone tactile confortable */
+  color: var(--accent); /* Bleu */
+  text-decoration: none; /* Pas de soulignement */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+/* Espace vertical au-dessus d'un bloc */
+.espace-haut {
+  /* Règles de l'espacement */
+  margin-top: 14px; /* Marge au-dessus */
+} /* Fin des règles */
+
+/* Gros bouton qui est un lien */
+.bouton-lien {
+  /* Règles du lien-bouton */
+  display: flex; /* Icône et texte côte à côte */
+  align-items: center; /* Alignés verticalement */
+  justify-content: center; /* Centrés horizontalement */
+  gap: 8px; /* Espace entre l'icône et le texte */
+  line-height: 52px; /* Centre le texte dans la hauteur du bouton */
+  text-decoration: none; /* Pas de soulignement */
+} /* Fin des règles */
+
+.bouton + .carte, .bouton-lien + .carte, .espace-haut + .carte {
+  /* Carte qui suit un bouton */
+  margin-top: 14px; /* Espace au-dessus */
+} /* Fin des règles */
+
+/* Ligne de liste : texte à gauche, boutons à droite */
+.ligne {
+  /* Règles d'une ligne */
+  display: flex; /* Disposition en ligne */
+  align-items: center; /* Alignés verticalement */
+  gap: 10px; /* Espace entre éléments */
+} /* Fin des règles */
+
+.ligne-sans-carte {
+  /* Ligne placée dans une carte existante */
+  margin-bottom: 4px; /* Petit espace sous la ligne */
+} /* Fin des règles */
+
+.ligne-texte {
+  /* Bloc de texte d'une ligne */
+  flex: 1; /* Prend toute la place restante */
+  min-width: 0; /* Permet de couper un texte trop long */
+} /* Fin des règles */
+
+.ligne-titre {
+  /* Titre d'une ligne */
+  font-weight: 600; /* Semi-gras */
+  font-size: 1.05rem; /* Taille un peu agrandie */
+  overflow-wrap: anywhere; /* Coupe les mots très longs */
+} /* Fin des règles */
+
+.ligne-montant {
+  /* Montant en grand dans une ligne */
+  font-size: 1.3rem; /* Grande taille */
+  font-variant-numeric: tabular-nums; /* Chiffres de même largeur */
+} /* Fin des règles */
+
+.ligne-detail {
+  /* Détail d'une ligne */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.85rem; /* Petit texte */
+} /* Fin des règles */
+
+/* Petits boutons ronds (modifier, supprimer) */
+.bouton-icone {
+  /* Règles du bouton rond */
+  display: inline-grid; /* Pour centrer l'icône */
+  place-items: center; /* Centre l'icône */
+  width: 48px; /* Zone tactile minimale */
+  height: 48px; /* Zone tactile minimale */
+  border: 0; /* Pas de bordure */
+  border-radius: 50%; /* Rond */
+  background: var(--fond); /* Fond discret */
+  color: var(--texte); /* Icône normale */
+  flex-shrink: 0; /* Ne rétrécit jamais */
+} /* Fin des règles */
+
+.bouton-icone:active {
+  /* Pendant l'appui */
+  transform: scale(0.92); /* Se rétrécit un peu */
+} /* Fin des règles */
+
+.bouton-icone-danger {
+  /* Bouton de suppression */
+  color: var(--danger); /* Icône rouge */
+} /* Fin des règles */
+
+/* Montants d'un budget en grille de 2 colonnes */
+.infos {
+  /* Règles de la grille */
+  display: grid; /* Disposition en grille */
+  grid-template-columns: 1fr 1fr; /* Deux colonnes égales */
+  gap: 10px 14px; /* Espaces entre cases */
+  margin-top: 10px; /* Espace au-dessus */
+} /* Fin des règles */
+
+.info {
+  /* Une case de la grille */
+  display: grid; /* Libellé au-dessus du montant */
+  font-size: 0.95rem; /* Taille du montant */
+} /* Fin des règles */
+
+.info-libelle {
+  /* Libellé d'une case */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.8rem; /* Petit texte */
+} /* Fin des règles */
+
+/* Interrupteur oui/non */
+.interrupteur {
+  /* Libellé cliquable de l'interrupteur */
+  display: flex; /* Case et texte côte à côte */
+  align-items: center; /* Alignés verticalement */
+  gap: 12px; /* Espace entre case et texte */
+  min-height: 48px; /* Zone tactile minimale */
+} /* Fin des règles */
+
+.interrupteur-saisie {
+  /* Case à cocher */
+  width: 26px; /* Largeur */
+  height: 26px; /* Hauteur */
+  accent-color: var(--accent); /* Couleur bleue quand cochée */
+  flex-shrink: 0; /* Ne rétrécit jamais */
+} /* Fin des règles */

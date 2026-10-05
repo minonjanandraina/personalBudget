@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"; // Outils de test
-import { creerRouteur } from "./routeur.js"; // Routeur à tester
-import { construireCoque } from "./coque.js"; // Coque (barre d'onglets) à tester
+import { creerRouteur, trouverRoute } from "./routeur.js"; // Routeur à tester
+import { construireCoque, ongletActifPour } from "./coque.js"; // Coque (barre d onglets) à tester
 import { h } from "./dom.js"; // Fabrication d'éléments
 
 let routeur; // Routeur du cas en cours
@@ -90,5 +90,49 @@ describe("coque (barre d'onglets)", () => { // Groupe de tests de la coque
     expect(racine.querySelector("a[data-route='/reglages']").classList.contains("actif")).toBe(true); // Réglages actif
     expect(racine.querySelector("a[data-route='/']").classList.contains("actif")).toBe(false); // Accueil inactif
     expect(racine.querySelector("a[data-route='/reglages']").getAttribute("aria-current")).toBe("page"); // Page courante signalée
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("trouverRoute (paramètres dans l'adresse)", () => { // Groupe de tests des routes à paramètres
+  const routes = { "/": () => {}, "/budgets": () => {}, "/budgets/nouveau": () => {}, "/budgets/:id": () => {} }; // Routes de test
+
+  it("trouve une route exacte sans paramètre", () => { // Correspondance directe
+    expect(trouverRoute(routes, "/budgets")).toEqual({ cle: "/budgets", params: {} }); // Route trouvée
+  }); // Fin du cas
+
+  it("préfère la route fixe à la route à paramètre", () => { // « nouveau » n'est pas un identifiant
+    expect(trouverRoute(routes, "/budgets/nouveau").cle).toBe("/budgets/nouveau"); // La route fixe gagne
+  }); // Fin du cas
+
+  it("extrait le paramètre", () => { // Paramètre :id
+    expect(trouverRoute(routes, "/budgets/12")).toEqual({ cle: "/budgets/:id", params: { id: "12" } }); // Identifiant extrait
+  }); // Fin du cas
+
+  it("renvoie null pour une adresse inconnue ou de mauvaise longueur", () => { // Refus
+    expect(trouverRoute(routes, "/inconnu")).toBeNull(); // Route absente
+    expect(trouverRoute(routes, "/budgets/1/2")).toBeNull(); // Trop de morceaux
+    expect(trouverRoute(routes, "/budgets/")).toBeNull(); // Paramètre vide
+  }); // Fin du cas
+
+  it("transmet les paramètres à l'écran", async () => { // Intégration dans le routeur
+    window.location.hash = "#/budgets/7"; // Adresse avec paramètre
+    const ecran = vi.fn(); // Fonction espion
+    routeur = creerRouteur({ conteneur, routes: { "/": () => {}, "/budgets/:id": ecran } }); // Routeur avec la route à paramètre
+    await routeur.demarrer(); // Le démarre
+    expect(ecran).toHaveBeenCalledWith(conteneur, { params: { id: "7" } }); // L'écran reçoit le paramètre
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("onglet actif selon les préfixes", () => { // Groupe de tests
+  const budgets = { libelle: "Budgets", nomIcone: "budgets", route: "/budgets", prefixes: ["/budgets", "/types-budget"] }; // Onglet avec préfixes
+
+  it("reste actif sur les écrans qui en dépendent", () => { // Sous-écrans
+    for (const chemin of ["/budgets", "/budgets/3", "/budgets/nouveau", "/types-budget", "/types-budget/2"]) expect(ongletActifPour(budgets, chemin), chemin).toBe(true); // Tous rattachés
+  }); // Fin du cas
+
+  it("n'est pas actif sur les autres écrans, ni s'il est grisé", () => { // Cas négatifs
+    expect(ongletActifPour(budgets, "/")).toBe(false); // Accueil
+    expect(ongletActifPour(budgets, "/budgetsfaux")).toBe(false); // Préfixe partiel refusé
+    expect(ongletActifPour({ ...budgets, route: null }, "/budgets")).toBe(false); // Onglet grisé
   }); // Fin du cas
 }); // Fin du groupe

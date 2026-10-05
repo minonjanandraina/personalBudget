@@ -68,6 +68,8 @@ Trois couches, pour que la logique métier se teste sans téléphone :
 - Coque (`src/ui/coque.js`) : zone de contenu + barre d'onglets en bas. Un onglet ou une tuile sans route est grisé « bientôt » jusqu'à ce que l'écran existe.
 - Composants réutilisables : `composants.js` (carte, tuile, alerte, bouton, champ avec erreur), `messages.js` (notifications et fenêtre de confirmation), `icones.js` (icônes SVG intégrées, hors ligne), `animations.js` (désactivées si « réduire les animations »).
 - Thème clair et sombre automatiques selon le téléphone.
+- Saisies : le texte tapé est lu par `analyserMontant` (entiers seulement, espaces entre milliers acceptés, virgule/point/signe refusés). La logique métier lance `ErreurValidation` (message par champ, affiché sous le champ) ou `ErreurMetier` (message unique, affiché en notification) ; l'écran n'a pas à connaître les règles.
+- Routes à paramètres (`/budgets/:id`) ; les onglets de la barre du bas restent actifs sur leurs sous-écrans (`prefixes`). Suppressions toujours avec confirmation, et refusées avec un message clair si l'élément est utilisé.
 - Tests d'interface : Vitest avec `jsdom` (version 25, compatible avec Node 20.17 du poste de dev).
 
 ### Base de données : choix d'implémentation (sprint 2)
