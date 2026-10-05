@@ -1,0 +1,5 @@
+{% for a in alertes %}
+  <div class="alert-app {{ a.level }}"><i class="bi {{ a.icon }}"></i><span>{{ a.message }}</span></div>
+{% empty %}
+  <div class="alert-app ok"><i class="bi bi-check-circle-fill"></i><span>Aucune alerte</span></div>
+{% endfor %}

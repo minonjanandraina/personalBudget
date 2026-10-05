@@ -1,11 +1,33 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>{% block title %}Gestion de Budget{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
-<body>
-  {% block content %}{% endblock %}
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% block body %}
+    <header class="app-header">
+      <h1 class="app-title">{% block heading %}Gestion de Budget{% endblock %}</h1>
+      {% block subtitle %}{% endblock %}
+    </header>
+    <main class="app-main">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert-app {{ message.tags }} reveal"><i class="bi bi-info-circle-fill"></i>{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    {% include "partials/tabbar.html" %}
+  {% endblock %}
+  <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'js/app.js' %}"></script>
 </body>
 </html>

@@ -1,10 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Connexion{% endblock %}
-{% block content %}
-<h1>Connexion</h1>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Se connecter</button>
-</form>
+{% block title %}Connexion — Gestion de Budget{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="login-card reveal">
+    <div class="login-logo"><i class="bi bi-piggy-bank-fill"></i></div>
+    <h1 class="app-title text-center mb-4">Gestion de Budget</h1>
+    <form method="post" class="card-app">
+      {% csrf_token %}
+      {% if form.errors %}
+        <div class="alert-app danger"><i class="bi bi-exclamation-triangle-fill"></i>Identifiant ou mot de passe incorrect.</div>
+      {% endif %}
+      <div class="mb-3">
+        <label for="id_username" class="form-label fw-semibold">Identifiant</label>
+        <input type="text" name="username" id="id_username" class="form-control" autocomplete="username" autocapitalize="none" autofocus required>
+      </div>
+      <div class="mb-4">
+        <label for="id_password" class="form-label fw-semibold">Mot de passe</label>
+        <input type="password" name="password" id="id_password" class="form-control" autocomplete="current-password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn-app">Se connecter</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

@@ -1,6 +1,27 @@
 {% extends "base.html" %}
+{% block subtitle %}<p class="app-subtitle">Bonjour {{ request.user.username }}</p>{% endblock %}
 {% block content %}
-<h1>Gestion de Budget</h1>
-<p>Bienvenue {{ request.user.username }}.</p>
-<form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Déconnexion</button></form>
+<section class="card-app card-solde reveal">
+  <div class="label"><i class="bi bi-phone-fill me-1"></i>Solde Orange Money</div>
+  {% if solde %}
+    <div class="amount" data-countup="{{ solde.balance }}">{{ solde.balance }} Ar</div>
+    <div class="when">Au {{ solde.datetime|date:"d/m/Y H:i" }}</div>
+  {% else %}
+    <div class="amount">— Ar</div>
+    <div class="when">Aucun solde enregistré</div>
+  {% endif %}
+</section>
+
+<section class="mt-3 reveal" hx-get="{% url 'core:alertes' %}" hx-trigger="load, every 60s" hx-swap="innerHTML" aria-live="polite">
+</section>
+
+<section class="tiles">
+  {% for tile in tiles %}
+    <a href="{{ tile.url|default:'#' }}" class="tile reveal{% if not tile.url %} disabled{% endif %}">
+      {% if not tile.url %}<span class="soon">bientôt</span>{% endif %}
+      <span class="tile-icon {{ tile.color }}"><i class="bi {{ tile.icon }}"></i></span>
+      <span class="tile-label">{{ tile.label }}</span>
+    </a>
+  {% endfor %}
+</section>
 {% endblock %}

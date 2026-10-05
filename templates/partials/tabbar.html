@@ -1,0 +1,11 @@
+<nav class="tabbar" aria-label="Navigation principale">
+  <a href="{% url 'core:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+    <i class="bi bi-house-fill"></i>Accueil
+  </a>
+  <a href="#" class="disabled" aria-disabled="true"><i class="bi bi-wallet2"></i>Budgets</a>
+  <a href="#" class="disabled" aria-disabled="true"><i class="bi bi-arrow-left-right"></i>Transactions</a>
+  <form method="post" action="{% url 'logout' %}" class="d-flex flex-fill">
+    {% csrf_token %}
+    <button type="submit"><i class="bi bi-box-arrow-right"></i>Quitter</button>
+  </form>
+</nav>

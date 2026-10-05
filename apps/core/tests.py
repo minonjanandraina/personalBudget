@@ -34,3 +34,71 @@ class ParametreJobTests(TestCase):
         from .models import ParametreJob
 
         self.assertEqual(ParametreJob.load().start_day_int, 20)
+
+
+class AuthTests(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user("moi", password="secret123")
+
+    def test_page_connexion_accessible(self):
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, "Se connecter")
+
+    def test_connexion_valide_redirige_vers_accueil(self):
+        response = self.client.post(
+            reverse("login"), {"username": "moi", "password": "secret123"}
+        )
+        self.assertRedirects(response, reverse("core:home"))
+
+    def test_connexion_invalide_affiche_erreur(self):
+        response = self.client.post(
+            reverse("login"), {"username": "moi", "password": "faux"}
+        )
+        self.assertContains(response, "incorrect")
+
+    def test_deconnexion_par_post(self):
+        self.client.login(username="moi", password="secret123")
+        response = self.client.post(reverse("logout"))
+        self.assertRedirects(response, reverse("login"))
+        self.assertRedirects(
+            self.client.get(reverse("core:home")), "/login/?next=/"
+        )
+
+
+class DashboardTests(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user("moi", password="x")
+        self.client.login(username="moi", password="x")
+
+    def test_accueil_sans_solde(self):
+        response = self.client.get(reverse("core:home"))
+        self.assertContains(response, "Aucun solde enregistré")
+        self.assertContains(response, "Budgets")
+
+    def test_accueil_affiche_dernier_solde(self):
+        from django.utils import timezone
+
+        from .models import SoldeOM
+
+        SoldeOM.objects.create(datetime=timezone.now(), balance=12345)
+        response = self.client.get(reverse("core:home"))
+        self.assertContains(response, 'data-countup="12345"')
+
+    def test_fragment_alertes_htmx(self):
+        response = self.client.get(reverse("core:alertes"))
+        self.assertContains(response, "Aucune alerte")
+        self.assertNotContains(response, "<html")
+
+    def test_alertes_protegees(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("core:alertes")).status_code, 302)
+
+    def test_ressources_statiques_locales(self):
+        from django.contrib.staticfiles import finders
+
+        for path in (
+            "vendor/bootstrap.min.css", "vendor/htmx.min.js",
+            "vendor/bootstrap-icons.min.css", "vendor/fonts/bootstrap-icons.woff2",
+            "css/app.css", "js/app.js",
+        ):
+            self.assertIsNotNone(finders.find(path), path)

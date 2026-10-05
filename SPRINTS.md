@@ -25,7 +25,7 @@ Dépendances externes (à fournir avant le sprint concerné) :
 
 **Livrable** : base créée, modèles manipulables via l'admin.
 
-## Sprint 2 — Socle UI mobile first et authentification
+## Sprint 2 — Socle UI mobile first et authentification ✅ TERMINÉ
 - Base de templates : Bootstrap, CSS personnalisé, navigation par grandes tuiles/icônes (style iPhone), zones tactiles ≥ 48 px.
 - HTMX intégré, convention `partials/`.
 - Login/logout Django Auth, toutes les vues protégées (`login_required`).
