@@ -114,3 +114,82 @@ export async function resumeBudgets(base, aujourdhui = new Date()) { // Reçoit 
 export function libellePeriode({ dateFrom, dateTo }) { // Reçoit la période
   return `${afficherJour(dateFrom)} → ${afficherJour(dateTo)}`; // Assemble les deux dates
 } // Fin de libellePeriode
+
+// ===== Modification et suppression des opérations saisies à la main =====
+// Règles : seules les opérations manuelles sont modifiables ; un solde de période ne doit jamais devenir négatif.
+
+// Lit une transaction avec son budget (null si elle n'existe pas).
+async function lireOperation(base, id) { // Reçoit la base et l'identifiant
+  const lignes = await base.requeter( // Lit la transaction et le budget de son allocation
+    "SELECT t.id, t.allocation_id, t.insert_type, t.debit_credit, t.montant, t.date_operation, t.note, a.budget_id FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id WHERE t.id = ?", // Jointure transaction + allocation
+    [id], // Identifiant
+  ); // Fin de la lecture
+  if (lignes.length === 0) return null; // Transaction introuvable
+  const l = lignes[0]; // Ligne trouvée
+  return { id: Number(l.id), allocationId: l.allocation_id === null ? null : Number(l.allocation_id), insertType: l.insert_type, debitCredit: Number(l.debit_credit), montant: Number(l.montant), dateOperation: l.date_operation, note: l.note, budgetId: l.budget_id === null ? null : Number(l.budget_id) }; // Objet transaction
+} // Fin de lireOperation
+
+// Vérifie qu'une opération existe et peut être modifiée ou supprimée ; renvoie l'opération.
+async function operationModifiable(base, id) { // Reçoit la base et l'identifiant
+  const operation = await lireOperation(base, id); // Lit l'opération
+  if (!operation) throw new ErreurMetier("Cette opération n'existe plus."); // Introuvable
+  if (operation.insertType !== "manuel") throw new ErreurMetier("Une opération issue d'un SMS ne peut pas être modifiée ni supprimée."); // Les opérations venant d'un SMS restent telles que reçues
+  if (operation.allocationId === null) throw new ErreurMetier("Cette opération n'est rattachée à aucun budget."); // Cas non classé : traité plus tard
+  return operation; // Opération modifiable
+} // Fin de operationModifiable
+
+// Modifie le montant, la note et (pour une dépense) la date d'une opération manuelle.
+export async function modifierOperation(base, id, { montant, dateOperation, note = null }, maintenant = new Date()) { // Reçoit la base, l'identifiant et les nouvelles valeurs
+  const operation = await operationModifiable(base, id); // Vérifie que l'opération est modifiable
+  const estDepense = operation.debitCredit === -1; // Dépense ou alimentation ?
+  const erreurs = {}; // Erreurs de saisie
+  if (!montantValide(montant)) erreurs.montant = "Le montant doit être un entier supérieur à 0."; // Montant invalide
+  let nouvelleDate = operation.dateOperation; // La date ne change pas par défaut
+  if (estDepense) { // La date d'une dépense peut changer
+    const date = new Date(dateOperation); // Nouvelle date
+    if (!dateOperation || Number.isNaN(date.getTime())) erreurs.dateOperation = "La date et l'heure sont invalides."; // Date illisible
+    else if (date.getTime() > maintenant.getTime() + TOLERANCE_FUTUR_MS) erreurs.dateOperation = "La date ne peut pas être dans le futur."; // Date future
+    else nouvelleDate = date.toISOString(); // Date valide
+  } // Fin du cas dépense
+  let noteNette = null; // Note nettoyée
+  try { noteNette = nettoyerNote(note); } catch (e) { Object.assign(erreurs, e.erreurs); } // Vérifie la note
+  if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse si une saisie est incorrecte
+  return base.transaction(async () => { // Tout ou rien
+    if (estDepense) { // Dépense : elle peut changer de période si la date change
+      const allocation = await allocationCouvrant(base, operation.budgetId, jourLocal(nouvelleDate)); // Allocation de la nouvelle date
+      if (!allocation) throw new ErreurMetier("Aucune allocation pour ce budget à cette date. Allouez d'abord le budget."); // Pas d'allocation à cette date
+      const soldeSansElle = (await soldeAllocation(base, allocation.id)) + (allocation.id === operation.allocationId ? operation.montant : 0); // Solde de la période sans cette dépense
+      if (soldeSansElle < montant) throw new ErreurValidation({ montant: `Solde insuffisant : il reste ${formaterMontant(soldeSansElle)} sur ce budget pour cette période.` }); // Dépense bloquée
+      await base.executer("UPDATE transactions SET montant = ?, date_operation = ?, note = ?, allocation_id = ? WHERE id = ?", [montant, nouvelleDate, noteNette, allocation.id, id]); // Met à jour la dépense
+      return { allocationId: allocation.id, soldeApres: soldeSansElle - montant }; // Résultat
+    } // Fin du cas dépense
+    const soldeApres = (await soldeAllocation(base, operation.allocationId)) - operation.montant + montant; // Solde de la période après la modification d'une allocation
+    if (soldeApres < 0) throw new ErreurValidation({ montant: `Impossible : des dépenses de cette période dépasseraient alors le solde (${formaterMontant(soldeApres)}).` }); // Le solde deviendrait négatif
+    await base.executer("UPDATE transactions SET montant = ?, note = ? WHERE id = ?", [montant, noteNette, id]); // Met à jour l'allocation
+    await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue + ? WHERE id = ?", [montant - operation.montant, operation.allocationId]); // Tient à jour le total alloué
+    return { allocationId: operation.allocationId, soldeApres }; // Résultat
+  }); // Fin de la transaction
+} // Fin de modifierOperation
+
+// Supprime une opération manuelle. Une allocation ne peut être supprimée que si les dépenses restent couvertes.
+export async function supprimerOperation(base, id) { // Reçoit la base et l'identifiant
+  const operation = await operationModifiable(base, id); // Vérifie que l'opération est supprimable
+  return base.transaction(async () => { // Tout ou rien
+    if (operation.debitCredit === 1) { // Suppression d'une allocation
+      const soldeApres = (await soldeAllocation(base, operation.allocationId)) - operation.montant; // Solde de la période sans cette allocation
+      if (soldeApres < 0) throw new ErreurMetier(`Suppression impossible : des dépenses de cette période dépasseraient alors le solde (${formaterMontant(soldeApres)}). Supprimez d'abord ces dépenses.`); // Le solde deviendrait négatif
+      await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue - ? WHERE id = ?", [operation.montant, operation.allocationId]); // Tient à jour le total alloué
+    } // Fin du cas allocation
+    await base.executer("DELETE FROM transactions WHERE id = ?", [id]); // Supprime l'opération
+    const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE allocation_id = ?", [operation.allocationId]); // Reste-t-il des opérations dans cette allocation ?
+    if (Number(n) === 0) await base.executer("DELETE FROM allocation_budget WHERE id = ?", [operation.allocationId]); // Sinon l'allocation vide est supprimée (le budget redevient « non alloué »)
+  }); // Fin de la transaction
+} // Fin de supprimerOperation
+
+// Lit une opération pour l'afficher dans un formulaire (null si elle n'existe pas) : ajoute le nom du budget.
+export async function lireOperationDetaillee(base, id) { // Reçoit la base et l'identifiant
+  const operation = await lireOperation(base, id); // Lit l'opération
+  if (!operation) return null; // Introuvable
+  const budget = operation.budgetId === null ? null : await lireBudget(base, operation.budgetId); // Lit son budget
+  return { ...operation, budgetName: budget?.name ?? null }; // Ajoute le nom du budget
+} // Fin de lireOperationDetaillee

@@ -714,3 +714,12 @@ a.solde {
   /* Règles du texte d'information */
   margin-bottom: 14px; /* Espace avant le champ suivant */
 } /* Fin des règles */
+
+/* Boutons d'action d'une opération, alignés à droite sous le texte */
+.actions-ligne {
+  /* Rangée des boutons */
+  display: flex; /* Boutons côte à côte */
+  justify-content: flex-end; /* Alignés à droite */
+  gap: 10px; /* Espace entre les boutons */
+  margin-top: 8px; /* Espace au-dessus */
+} /* Fin des règles */

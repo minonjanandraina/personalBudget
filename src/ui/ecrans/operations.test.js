@@ -4,10 +4,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas
 import { creerTypeBudget } from "../../core/types-budget.js"; // Types
 import { creerBudget } from "../../core/budgets.js"; // Budgets
-import { allouerBudget, resumeBudgets } from "../../core/allocations.js"; // Allocation
+import { allouerBudget, enregistrerDepense, resumeBudgets, soldeAllocation } from "../../core/allocations.js"; // Allocation et dépense
 import { listerTransactions } from "../../core/transactions.js"; // Transactions
 import { afficherAllocations, afficherFormulaireAllocation } from "./allocations.js"; // Écrans des allocations
-import { afficherOperations, afficherFormulaireDepense } from "./operations.js"; // Écrans des opérations
+import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./operations.js"; // Écrans des opérations
 import { afficherBudgets } from "./budgets.js"; // Liste des budgets
 
 let base; // Base utilisée par les cas de test
@@ -193,5 +193,92 @@ describe("dépenses et liste des opérations (écrans)", () => { // Saisie et li
   it("affiche un message quand il n'y a aucune opération", async () => { // Liste vide
     await monter(afficherOperations); // Liste
     expect(zone.textContent).toContain("Aucune opération"); // Message
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("modifier et supprimer une opération (écrans)", () => { // Modification et suppression
+  let id; // Budget alloué de 100 000
+  let depenseId; // Dépense de 30 000
+  beforeEach(async () => { // Avant chaque cas
+    id = await budget(); // Budget
+    await allouerBudget(base, { budgetId: id, montant: 100000 }); // Alloue 100 000
+    depenseId = (await enregistrerDepense(base, { budgetId: id, montant: 30000, dateOperation: new Date().toISOString(), note: "Essence" })).idTransaction; // Dépense
+  }); // Fin de la préparation
+
+  it("propose modifier et supprimer sur chaque opération manuelle", async () => { // Boutons
+    await monter(afficherOperations); // Liste
+    expect(zone.querySelectorAll("[aria-label='Modifier cette opération']")).toHaveLength(2); // Une allocation et une dépense
+    expect(zone.querySelectorAll("[aria-label='Supprimer cette opération']")).toHaveLength(2); // Idem
+  }); // Fin du cas
+
+  it("n'offre aucun bouton sur une opération issue d'un SMS", async () => { // Opération automatique
+    const allocation = (await base.requeter("SELECT id FROM allocation_budget"))[0].id; // Allocation existante
+    await base.executer("INSERT INTO transactions (trx_id, allocation_id, insert_type, debit_credit, montant, sms) VALUES ('OM1', ?, 'auto', -1, 500, 'texte')", [allocation]); // Dépense venant d'un SMS
+    await monter(afficherOperations); // Liste
+    expect(zone.querySelectorAll("[aria-label='Modifier cette opération']")).toHaveLength(2); // Seules les 2 manuelles ont des boutons (3 opérations affichées)
+    expect(zone.querySelectorAll(".liste-operations .carte")).toHaveLength(3); // Trois opérations affichées
+  }); // Fin du cas
+
+  it("préremplit le formulaire de modification d'une dépense et l'enregistre", async () => { // Modification
+    await monter(afficherFormulaireOperation, { id: String(depenseId) }); // Formulaire
+    expect(zone.querySelector("#op-montant").value).toBe("30000"); // Montant prérempli
+    expect(zone.querySelector("#op-note").value).toBe("Essence"); // Note préremplie
+    expect(zone.querySelector("#op-date")).not.toBeNull(); // Date modifiable pour une dépense
+    saisir("op-montant", "45 000"); // Nouveau montant
+    saisir("op-note", "Essence + péage"); // Nouvelle note
+    toucher("Enregistrer"); // Enregistre
+    await vi.waitFor(async () => expect((await listerTransactions(base, { sens: -1 }))[0].montant).toBe(45000)); // Montant modifié
+    expect((await listerTransactions(base, { sens: -1 }))[0].note).toBe("Essence + péage"); // Note modifiée
+    expect(window.location.hash).toBe("#/operations"); // Retour à la liste
+  }); // Fin du cas
+
+  it("n'offre pas la date pour une allocation", async () => { // Allocation
+    const alimentation = (await listerTransactions(base, { sens: 1 }))[0].id; // Identifiant de l'allocation
+    await monter(afficherFormulaireOperation, { id: String(alimentation) }); // Formulaire
+    expect(zone.querySelector("#op-date")).toBeNull(); // Pas de date
+    expect(zone.textContent).toContain("Allocation"); // Rappel du type
+  }); // Fin du cas
+
+  it("affiche l'erreur de solde insuffisant sous le montant", async () => { // Blocage
+    await monter(afficherFormulaireOperation, { id: String(depenseId) }); // Formulaire
+    saisir("op-montant", "100001"); // Dépasse le solde total
+    toucher("Enregistrer"); // Enregistre
+    await vi.waitFor(() => expect(erreurDe("op-montant")).toMatch(/Solde insuffisant/)); // Message
+    expect((await listerTransactions(base, { sens: -1 }))[0].montant).toBe(30000); // Rien n'a changé
+  }); // Fin du cas
+
+  it("refuse de réduire une allocation sous les dépenses", async () => { // Allocation réduite
+    const alimentation = (await listerTransactions(base, { sens: 1 }))[0].id; // Identifiant de l'allocation
+    await monter(afficherFormulaireOperation, { id: String(alimentation) }); // Formulaire
+    saisir("op-montant", "20000"); // Moins que les 30 000 dépensés
+    toucher("Enregistrer"); // Enregistre
+    await vi.waitFor(() => expect(erreurDe("op-montant")).toMatch(/dépasseraient/)); // Message
+  }); // Fin du cas
+
+  it("signale une opération introuvable ou non modifiable", async () => { // Cas d'erreur
+    await monter(afficherFormulaireOperation, { id: "999" }); // Identifiant inconnu
+    expect(zone.textContent).toContain("n'existe plus"); // Message
+  }); // Fin du cas
+
+  it("supprime après confirmation et rend le solde, et annule si on refuse", async () => { // Suppression
+    await monter(afficherOperations); // Liste
+    zone.querySelectorAll("[aria-label='Supprimer cette opération']")[0].click(); // Touche Supprimer sur la plus récente (la dépense)
+    document.querySelectorAll(".dialogue-actions button")[0].click(); // Annule
+    await vi.waitFor(() => expect(document.querySelector("[role=dialog]")).toBeNull()); // Fenêtre fermée
+    expect(await listerTransactions(base, { sens: -1 })).toHaveLength(1); // La dépense existe toujours
+    zone.querySelectorAll("[aria-label='Supprimer cette opération']")[0].click(); // Touche Supprimer de nouveau
+    document.querySelectorAll(".dialogue-actions button")[1].click(); // Confirme
+    await vi.waitFor(async () => expect(await listerTransactions(base, { sens: -1 })).toHaveLength(0)); // Dépense supprimée
+    await vi.waitFor(() => expect(zone.querySelectorAll(".liste-operations .carte")).toHaveLength(1)); // La liste est redessinée
+    const allocation = (await base.requeter("SELECT id FROM allocation_budget"))[0].id; // Allocation
+    expect(await soldeAllocation(base, Number(allocation))).toBe(100000); // Solde rétabli
+  }); // Fin du cas
+
+  it("explique pourquoi une allocation ne peut pas être supprimée", async () => { // Suppression refusée
+    await monter(afficherOperations); // Liste
+    zone.querySelectorAll("[aria-label='Supprimer cette opération']")[1].click(); // Touche Supprimer sur l'allocation (la plus ancienne)
+    document.querySelectorAll(".dialogue-actions button")[1].click(); // Confirme
+    await vi.waitFor(() => expect(document.querySelector(".toast-erreur").textContent).toMatch(/Supprimez d'abord ces dépenses/)); // Message clair
+    expect(await listerTransactions(base, { sens: 1 })).toHaveLength(1); // L'allocation existe toujours
   }); // Fin du cas
 }); // Fin du groupe

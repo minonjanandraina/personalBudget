@@ -59,7 +59,8 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 - Service d'allocation (période, transactions `debit_credit = 1`).
 - Saisie manuelle des transactions (génération du `trx_id`, `insert_type = manuel`).
 - Contrôles : dépense bloquée si solde du budget < dépense ; allocation refusée si solde après allocation < `montant_min`.
-- Solde par budget, liste des transactions filtrable.
+- Solde par budget (par période), liste des transactions filtrable.
+- Modification et suppression des opérations manuelles, avec garde-fous sur le solde.
 - Tests unitaires des contrôles.
 
 **Livrable** : allocation et dépenses manuelles avec blocages.

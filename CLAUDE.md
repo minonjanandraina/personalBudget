@@ -137,7 +137,7 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - **Solde d'un budget = solde PAR PÉRIODE** : somme signée (`debit_credit × montant`) des transactions de l'allocation de la période. Le reliquat d'une période est reporté à la suivante par une opération de transfert explicite (-reliquat sur l'ancienne période, +reliquat sur la nouvelle), à écrire au sprint 6.
 - **Allocation** : crée (ou complète) l'allocation de la période en cours et une transaction `debit_credit = 1`. `montant_alloue` = total des alimentations de la période. Refusée si solde après allocation < `montant_min`. Un plafond dépassé est signalé, jamais tronqué.
 - **Dépense manuelle** : rangée dans l'allocation du budget dont la période contient la `date_operation` ; refusée s'il n'y en a pas, ou si le solde de cette période est inférieur au montant. Date future refusée (5 minutes de tolérance).
-- Les transactions ne se modifient ni ne se suppriment pour l'instant (à décider).
+- **Modification / suppression** (décidé au sprint 5) : possibles uniquement pour les opérations **manuelles** rattachées à un budget (jamais celles issues d'un SMS, laissées telles que reçues). On modifie le montant, la note et, pour une dépense, la date (une dépense peut ainsi changer de période). Garde-fou : le solde d'une période ne doit jamais devenir négatif (ni en réduisant une allocation, ni en la supprimant tant que des dépenses en dépendent). Supprimer la dernière opération d'une allocation supprime l'allocation vide : le budget redevient « non alloué ».
 
 ## Flux fonctionnel
 

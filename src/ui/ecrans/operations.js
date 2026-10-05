@@ -1,28 +1,45 @@
 // Écrans des opérations : liste filtrable des transactions et saisie d'une dépense manuelle.
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
-import { enteteEcran, carte, alerte, boutonLien, boutonPrincipal, champ, choix } from "../composants.js"; // Composants
-import { afficherToast } from "../messages.js"; // Notifications
+import { enteteEcran, carte, alerte, boutonLien, boutonIcone, boutonPrincipal, champ, choix } from "../composants.js"; // Composants
+import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
 import { soumettre, lireMontant, effacerErreurs } from "../formulaire.js"; // Enregistrement de formulaire
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
 import { datetimeLocalVersIso, isoVersDatetimeLocal, afficherDateHeure } from "../../core/dates.js"; // Conversions de dates
-import { enregistrerDepense, resumeBudgets } from "../../core/allocations.js"; // Logique métier
+import { enregistrerDepense, resumeBudgets, modifierOperation, supprimerOperation, lireOperationDetaillee } from "../../core/allocations.js"; // Logique métier
+import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
 import { listerTransactions } from "../../core/transactions.js"; // Liste des transactions
 import { listerBudgets } from "../../core/budgets.js"; // Liste des budgets
 
 // Dessine la liste des transactions dans le conteneur, selon les filtres.
-async function dessinerListe(conteneur, base, { budgetId, sens }) { // Reçoit la zone, la base et les filtres
+async function dessinerListe(conteneur, base, { budgetId, sens }, recharger) { // Reçoit la zone, la base, les filtres et la fonction qui redessine la liste
   vider(conteneur); // Efface la liste précédente
   const transactions = await listerTransactions(base, { budgetId, sens }); // Lit les transactions filtrées
   if (transactions.length === 0) conteneur.append(alerte({ niveau: "info", message: "Aucune opération pour ces critères." })); // Message si la liste est vide
   for (const t of transactions) { // Pour chaque transaction
     const entree = t.debitCredit === 1; // Alimentation (entrée d'argent dans le budget) ?
-    conteneur.append(h("div", { class: "carte ligne apparition visible" }, // Une carte par transaction
+    conteneur.append(h("div", { class: "carte apparition visible" }, // Une carte par transaction
+      h("div", { class: "ligne ligne-sans-carte" }, // Ligne du haut : texte et montant
       h("div", { class: "ligne-texte" }, // Bloc de texte
         h("div", { class: "ligne-titre" }, t.budgetName ?? "Non classée"), // Budget (ou « Non classée »)
         h("div", { class: "ligne-detail" }, `${afficherDateHeure(t.dateOperation)} · ${entree ? "Allocation" : "Dépense"} · ${t.insertType === "auto" ? "SMS" : "manuel"}`), // Date, nature et origine
         t.note ? h("div", { class: "ligne-detail" }, t.note) : null, // Note éventuelle
       ), // Fin du bloc de texte
       h("div", { class: `ligne-montant ${entree ? "montant-plus" : "montant-moins"}` }, `${entree ? "+" : "−"}${formaterMontant(t.montant)}`), // Montant signé
+      ), // Fin de la ligne du haut
+      t.insertType === "manuel" && t.allocationId !== null ? h("div", { class: "actions-ligne" }, // Seules les opérations manuelles rattachées à un budget sont modifiables
+        boutonIcone({ nomIcone: "modifier", libelle: "Modifier cette opération", route: `/operations/${t.id}` }), // Bouton modifier
+        boutonIcone({ nomIcone: "supprimer", libelle: "Supprimer cette opération", danger: true, auClic: async () => { // Bouton supprimer
+          const ok = await confirmer({ titre: "Supprimer cette opération ?", message: `${entree ? "L'allocation" : "La dépense"} de ${formaterMontant(t.montant)} sera supprimée définitivement.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
+          if (!ok) return; // Annulé : on s'arrête
+          try { // Tente la suppression
+            await supprimerOperation(base, t.id); // Supprime (refusé si le solde deviendrait négatif)
+            afficherToast("Opération supprimée.", "succes"); // Confirme
+            await recharger(); // Redessine la liste
+          } catch (erreur) { // Si c'est refusé
+            afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur.message}`, "erreur"); // Explique pourquoi
+          } // Fin du try/catch
+        } }), // Fin du bouton supprimer
+      ) : null, // Fin des boutons
     )); // Fin de la carte
   } // Fin de la boucle
 } // Fin de dessinerListe
@@ -33,7 +50,7 @@ export async function afficherOperations(zone, { base }) { // Reçoit la zone et
   const filtreBudget = choix({ id: "filtre-budget", libelle: "Budget", options: [{ valeur: "", libelle: "Tous les budgets" }, ...budgets.map((b) => ({ valeur: b.id, libelle: b.name }))] }); // Filtre par budget
   const filtreSens = choix({ id: "filtre-sens", libelle: "Type", options: [{ valeur: "", libelle: "Toutes" }, { valeur: "-1", libelle: "Dépenses" }, { valeur: "1", libelle: "Allocations" }] }); // Filtre par sens
   const liste = h("div", { class: "liste-operations" }); // Zone de la liste
-  const recharger = () => dessinerListe(liste, base, { budgetId: filtreBudget.lire() === "" ? null : Number(filtreBudget.lire()), sens: filtreSens.lire() === "" ? null : Number(filtreSens.lire()) }); // Redessine la liste selon les filtres
+  const recharger = () => dessinerListe(liste, base, { budgetId: filtreBudget.lire() === "" ? null : Number(filtreBudget.lire()), sens: filtreSens.lire() === "" ? null : Number(filtreSens.lire()) }, recharger); // Redessine la liste selon les filtres
   filtreBudget.element.querySelector("select").addEventListener("change", recharger); // Recharge quand le budget change
   filtreSens.element.querySelector("select").addEventListener("change", recharger); // Recharge quand le type change
   zone.append( // Assemble l'écran
@@ -76,3 +93,31 @@ export async function afficherFormulaireDepense(zone, { base }) { // Reçoit la 
   }; // Fin de enregistrer
   zone.append(carte(champs.budgetId.element, champs.montant.element, champs.dateOperation.element, champs.note.element, boutonPrincipal("Enregistrer la dépense", enregistrer))); // Carte du formulaire
 } // Fin de afficherFormulaireDepense
+
+// Formulaire de modification d'une opération manuelle (params.id). La date ne se modifie que pour une dépense.
+export async function afficherFormulaireOperation(zone, { base, params = {} }) { // Reçoit la zone, la base et les paramètres de route
+  const id = Number(params.id); // Identifiant de l'opération
+  const operation = await lireOperationDetaillee(base, id); // Lit l'opération
+  zone.append(enteteEcran("Modifier l'opération", null, { retour: "/operations" })); // En-tête
+  if (!operation) { zone.append(alerte({ niveau: "danger", message: "Cette opération n'existe plus." })); return; } // Introuvable
+  if (operation.insertType !== "manuel" || operation.allocationId === null) { zone.append(alerte({ niveau: "attention", message: "Cette opération ne peut pas être modifiée." })); return; } // Opération non modifiable
+  const estDepense = operation.debitCredit === -1; // Dépense ou allocation ?
+  const champs = { // Champs du formulaire
+    montant: champ({ id: "op-montant", libelle: "Montant (Ar)", valeur: String(operation.montant), inputmode: "numeric" }), // Montant
+    ...(estDepense ? { dateOperation: champ({ id: "op-date", libelle: "Date et heure", type: "datetime-local", valeur: isoVersDatetimeLocal(operation.dateOperation) }) } : {}), // Date (dépense seulement)
+    note: champ({ id: "op-note", libelle: "Note (facultative)", valeur: operation.note ?? "" }), // Note
+  }; // Fin des champs
+  const enregistrer = () => { // Enregistre le formulaire
+    effacerErreurs(champs); // Repart sans erreur affichée
+    const montant = lireMontant(champs.montant); // Lit le montant (affiche l'erreur de format)
+    const dateOperation = estDepense ? datetimeLocalVersIso(champs.dateOperation.lire()) : operation.dateOperation; // Convertit la date
+    if (dateOperation === null) champs.dateOperation.afficherErreur("La date et l'heure sont invalides."); // Date illisible
+    if (montant === null || dateOperation === null) { afficherToast("Corrigez les champs en rouge.", "erreur"); return Promise.resolve(false); } // Arrête si un champ est illisible
+    return soumettre({ champs, action: () => modifierOperation(base, id, { montant, dateOperation, note: champs.note.lire() }), messageSucces: "Opération modifiée.", routeSucces: "/operations" }); // Enregistre
+  }; // Fin de enregistrer
+  zone.append(carte( // Carte du formulaire
+    h("div", { class: "ligne-detail info-formulaire" }, `${estDepense ? "Dépense" : "Allocation"} · ${operation.budgetName}`), // Rappel du type et du budget
+    ...Object.values(champs).map((c) => c.element), // Champs
+    boutonPrincipal("Enregistrer", enregistrer), // Bouton d'enregistrement
+  )); // Fin de la carte
+} // Fin de afficherFormulaireOperation
