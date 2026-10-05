@@ -46,3 +46,45 @@ export async function listerSoldes(base, limite = 100) { // Reçoit la base et l
 export async function supprimerSolde(base, id) { // Reçoit la base et l'identifiant
   await base.executer("DELETE FROM solde_om WHERE id = ?", [id]); // Supprime la ligne
 } // Fin de supprimerSolde
+
+// ===== Situation financière : solde OM disponible, argent réservé dans les budgets, libre à allouer =====
+
+// Solde du compte Orange Money disponible = dernier solde saisi (ou reçu) moins les dépenses enregistrées après lui.
+// Les dépenses issues d'un SMS à la même seconde que le solde sont déjà comprises dans ce solde ; les saisies manuelles de la même seconde sont retirées.
+export async function soldeOMDisponible(base) { // Reçoit la base
+  const dernier = await lireDernierSolde(base); // Dernier solde connu
+  if (dernier === null) return null; // Aucun solde saisi : situation inconnue
+  const [ligne] = await base.requeter( // Somme des dépenses postérieures au solde
+    "SELECT COALESCE(SUM(montant), 0) AS total FROM transactions WHERE debit_credit = -1 AND nature = 'normale' AND (date_operation > ? OR (date_operation = ? AND insert_type = 'manuel'))", // Dépenses normales après le solde
+    [dernier.datetime, dernier.datetime], // Date du solde
+  ); // Fin de la lecture
+  const depensesDepuis = Number(ligne.total); // Dépenses retirées du dernier solde
+  return { dernierSolde: dernier.balance, datetime: dernier.datetime, depensesDepuis, disponible: dernier.balance - depensesDepuis }; // Résultat
+} // Fin de soldeOMDisponible
+
+// Total réservé dans les budgets = somme des soldes de toutes les allocations = total des allocations moins total des dépenses.
+export async function totalReserve(base) { // Reçoit la base
+  const [ligne] = await base.requeter("SELECT COALESCE(SUM(debit_credit * montant), 0) AS total FROM transactions WHERE allocation_id IS NOT NULL"); // Somme signée des transactions rattachées à un budget
+  return Number(ligne.total); // Renvoie un entier
+} // Fin de totalReserve
+
+// Situation d'ensemble : solde OM disponible, total réservé et libre à allouer (null si aucun solde OM n'est saisi).
+export async function situationFinanciere(base) { // Reçoit la base
+  const om = await soldeOMDisponible(base); // Solde OM disponible
+  const reserve = await totalReserve(base); // Total réservé dans les budgets
+  return { om, reserve, libre: om === null ? null : om.disponible - reserve }; // Libre = disponible moins réservé
+} // Fin de situationFinanciere
+
+// Détail du solde réservé par budget : alloué (net des reports et transferts) moins dépensé, sur toutes les périodes.
+export async function soldesParBudget(base) { // Reçoit la base
+  const lignes = await base.requeter( // Lit chaque budget avec ses totaux
+    `SELECT b.id, b.name, t.name AS type_name,
+       COALESCE(SUM(CASE WHEN x.debit_credit = 1 THEN x.montant WHEN x.debit_credit = -1 AND x.nature <> 'normale' THEN -x.montant END), 0) AS alloue,
+       COALESCE(SUM(CASE WHEN x.debit_credit = -1 AND x.nature = 'normale' THEN x.montant END), 0) AS depense
+     FROM budget b JOIN type_budget t ON t.id = b.type_id
+     LEFT JOIN allocation_budget a ON a.budget_id = b.id
+     LEFT JOIN transactions x ON x.allocation_id = a.id
+     GROUP BY b.id ORDER BY b.name`, // Alloué net et dépensé par budget
+  ); // Fin de la lecture
+  return lignes.map((l) => ({ budgetId: Number(l.id), name: l.name, typeName: l.type_name, alloue: Number(l.alloue), depense: Number(l.depense), solde: Number(l.alloue) - Number(l.depense) })); // Solde = alloué - dépensé
+} // Fin de soldesParBudget

@@ -723,3 +723,67 @@ a.solde {
   gap: 10px; /* Espace entre les boutons */
   margin-top: 8px; /* Espace au-dessus */
 } /* Fin des règles */
+
+/* ===== Carte « réservé dans les budgets » de l'accueil ===== */
+
+.reserve-bascule {
+  /* Bouton qui déplie le détail par budget */
+  display: flex; /* Texte à gauche, flèche à droite */
+  align-items: center; /* Alignés verticalement */
+  gap: 10px; /* Espace entre éléments */
+  width: 100%; /* Pleine largeur */
+  min-height: 48px; /* Zone tactile confortable */
+  padding: 0; /* Pas de marge intérieure */
+  border: 0; /* Pas de bordure */
+  background: none; /* Fond transparent */
+  color: inherit; /* Couleur du texte héritée */
+  font: inherit; /* Police héritée */
+  text-align: left; /* Texte aligné à gauche */
+} /* Fin des règles */
+
+.reserve-montant {
+  /* Montant réservé */
+  font-size: 1.6rem; /* Grande taille */
+  font-weight: 700; /* Gras */
+  font-variant-numeric: tabular-nums; /* Chiffres de même largeur */
+} /* Fin des règles */
+
+.reserve-fleche {
+  /* Flèche de dépliage */
+  display: inline-flex; /* Pour pouvoir pivoter */
+  color: var(--texte-doux); /* Grise */
+  transition: transform 0.2s ease; /* Rotation douce */
+} /* Fin des règles */
+
+.reserve-bascule[aria-expanded="true"] .reserve-fleche {
+  /* Flèche quand le détail est ouvert */
+  transform: rotate(180deg); /* Pointe vers le haut */
+} /* Fin des règles */
+
+.reserve-libre {
+  /* Ligne « libre à allouer » */
+  display: flex; /* Libellé à gauche, montant à droite */
+  justify-content: space-between; /* Écartés aux deux bords */
+  margin-top: 8px; /* Espace au-dessus */
+  padding-top: 10px; /* Espace sous le trait */
+  border-top: 1px solid var(--trait); /* Fin trait de séparation */
+} /* Fin des règles */
+
+.reserve-detail {
+  /* Liste des budgets dépliée */
+  margin-top: 8px; /* Espace au-dessus */
+} /* Fin des règles */
+
+.reserve-detail[hidden] {
+  /* Liste repliée */
+  display: none; /* Cachée */
+} /* Fin des règles */
+
+.reserve-ligne {
+  /* Une ligne de la liste */
+  display: flex; /* Nom à gauche, solde à droite */
+  align-items: center; /* Alignés verticalement */
+  gap: 10px; /* Espace entre éléments */
+  padding: 8px 0; /* Espace au-dessus et en dessous */
+  border-top: 1px solid var(--trait); /* Fin trait de séparation */
+} /* Fin des règles */

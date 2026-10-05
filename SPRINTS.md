@@ -70,6 +70,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 - Marquage « solde dépassant le plafond » + écran de réallocation manuelle.
 - Bouton d'allocation/réallocation, idempotent (relancer ne duplique pas).
 - Tests : exemple 100 000 / 60 000 → 40 000 reportés, dépassement de plafond, idempotence.
+- Solde OM disponible (dernier solde − dépenses suivantes), solde réservé détaillé par budget, libre à allouer ; allocations bornées par le libre ; lancement « tout ou rien » ; allocation bloquée sans solde OM.
 
 **Livrable** : cycle mensuel complet déclenchable par bouton.
 

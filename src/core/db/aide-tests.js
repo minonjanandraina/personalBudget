@@ -19,3 +19,8 @@ export async function creerBudgetDeTest(base, surcharges = {}) { // Les valeurs 
   ); // Fin de l'insertion du budget
   return { typeId: type.dernierId, budgetId: budget.dernierId }; // Renvoie les identifiants créés
 } // Fin de creerBudgetDeTest
+
+// Enregistre un solde Orange Money très ancien et très grand : les tests d'allocation ne sont pas limités par le solde OM.
+export async function ajouterSoldeOMDeTest(base, balance = 10000000000) { // Reçoit la base et le montant
+  await base.executer("INSERT INTO solde_om (datetime, balance) VALUES ('2020-01-01T00:00:00.000Z', ?)", [balance]); // Solde daté de 2020 : toutes les dépenses des tests sont postérieures
+} // Fin de ajouterSoldeOMDeTest

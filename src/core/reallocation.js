@@ -7,7 +7,8 @@ import { periodePour, afficherJour } from "./periodes.js"; // Calculs de périod
 import { listerBudgets, lireBudget } from "./budgets.js"; // Lecture des budgets
 import { lireJourJob } from "./parametres.js"; // Jour de lancement de l'allocation
 import { creerTransaction, genererTrxId } from "./transactions.js"; // Création des transactions
-import { soldeAllocation } from "./allocations.js"; // Solde d'une allocation
+import { soldeAllocation, MESSAGE_SANS_SOLDE } from "./allocations.js"; // Solde d'une allocation et message commun
+import { situationFinanciere } from "./soldes.js"; // Solde OM disponible et argent réservé
 
 const LONGUEUR_MAX_NOTE_TRANSFERT = 80; // Longueur maximale de la note saisie pour un transfert (le reste de la note est généré)
 
@@ -31,55 +32,73 @@ async function ecrirePaire(base, { depuisAllocationId, versAllocationId, montant
   await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue + ? WHERE id = ?", [montant, versAllocationId]); // Tient à jour le total alloué de la destination
 } // Fin de ecrirePaire
 
-// Traite un budget pour la période : reporte les reliquats des périodes précédentes et crée l'allocation mensuelle si elle manque.
-async function allouerPeriodeBudget(base, budget, periode, instant) { // Reçoit la base, le budget, la période et l'heure
-  const resultat = { budgetId: budget.id, nom: budget.name, statut: "", reliquatReporte: 0, montantAlloue: 0, soldeApres: null, depassePlafond: false, raison: null }; // Résultat à remplir
+// ÉTAPE 1 : calcule ce qu'il faudrait faire pour un budget, SANS rien écrire. Renvoie un plan.
+async function planifierPeriodeBudget(base, budget, periode) { // Reçoit la base, le budget et la période
+  const plan = { budget, statut: "", raison: null, existanteId: null, aReporter: [], totalReport: 0, creerMensuel: false, soldeApres: null }; // Plan à remplir
   const existante = (await base.requeter("SELECT id FROM allocation_budget WHERE budget_id = ? AND date_from = ?", [budget.id, periode.dateFrom]))[0]; // Allocation de la période en cours, si elle existe
-  const precedentes = await base.requeter("SELECT id, date_from, date_to FROM allocation_budget WHERE budget_id = ? AND date_to < ? ORDER BY date_from", [budget.id, periode.dateFrom]); // Allocations des périodes terminées
-  const aReporter = []; // Périodes terminées qui ont encore un solde positif
+  plan.existanteId = existante ? Number(existante.id) : null; // Son identifiant
+  const precedentes = await base.requeter("SELECT id, date_from FROM allocation_budget WHERE budget_id = ? AND date_to < ? ORDER BY date_from", [budget.id, periode.dateFrom]); // Allocations des périodes terminées
   for (const p of precedentes) { // Pour chaque période terminée
     const solde = await soldeAllocation(base, Number(p.id)); // Son solde restant
-    if (solde > 0) aReporter.push({ id: Number(p.id), dateFrom: p.date_from, solde }); // À reporter s'il reste de l'argent
+    if (solde > 0) plan.aReporter.push({ id: Number(p.id), dateFrom: p.date_from, solde }); // À reporter s'il reste de l'argent
   } // Fin de la boucle
-  const totalReport = aReporter.reduce((somme, p) => somme + p.solde, 0); // Total à reporter
-  const creerMensuel = !existante && budget.montantBudget > 0; // Faut-il créer l'allocation mensuelle ?
-  if (!existante && !creerMensuel && totalReport === 0) { resultat.statut = "ignore"; resultat.raison = "Rien à allouer : montant mensuel nul et aucun reliquat."; return resultat; } // Rien à faire
-  if (existante && totalReport === 0) { resultat.statut = "deja"; resultat.soldeApres = await soldeAllocation(base, Number(existante.id)); return resultat; } // Déjà fait : l'opération est idempotente
-  const soldeCourant = existante ? await soldeAllocation(base, Number(existante.id)) : 0; // Solde déjà présent dans la période
-  const soldeApres = soldeCourant + totalReport + (creerMensuel ? budget.montantBudget : 0); // Solde après report et allocation
-  if (creerMensuel && soldeApres < budget.montantMin) { // Contrôle du minimum (comme pour une allocation manuelle)
-    resultat.statut = "refuse"; // Refusé
-    resultat.raison = `Minimum non atteint : le solde serait de ${formaterMontant(soldeApres)}, sous le minimum de ${formaterMontant(budget.montantMin)}.`; // Explication
-    return resultat; // Aucune écriture
+  plan.totalReport = plan.aReporter.reduce((somme, p) => somme + p.solde, 0); // Total à reporter
+  plan.creerMensuel = plan.existanteId === null && budget.montantBudget > 0; // Faut-il créer l'allocation mensuelle ?
+  if (plan.existanteId === null && !plan.creerMensuel && plan.totalReport === 0) { plan.statut = "ignore"; plan.raison = "Rien à allouer : montant mensuel nul et aucun reliquat."; return plan; } // Rien à faire
+  if (plan.existanteId !== null && plan.totalReport === 0) { plan.statut = "deja"; plan.soldeApres = await soldeAllocation(base, plan.existanteId); return plan; } // Déjà fait : l'opération est idempotente
+  const soldeCourant = plan.existanteId === null ? 0 : await soldeAllocation(base, plan.existanteId); // Solde déjà présent dans la période
+  plan.soldeApres = soldeCourant + plan.totalReport + (plan.creerMensuel ? budget.montantBudget : 0); // Solde après report et allocation
+  if (plan.creerMensuel && plan.soldeApres < budget.montantMin) { // Contrôle du minimum (comme pour une allocation manuelle)
+    plan.statut = "refuse"; // Refusé
+    plan.raison = `Minimum non atteint : le solde serait de ${formaterMontant(plan.soldeApres)}, sous le minimum de ${formaterMontant(budget.montantMin)}.`; // Explication
+    return plan; // Aucune écriture
   } // Fin du contrôle
-  const allocationId = existante ? Number(existante.id) : await obtenirAllocation(base, budget.id, periode); // Allocation de la période (créée si besoin)
-  for (const p of aReporter) { // Pour chaque reliquat à reporter
+  plan.statut = plan.creerMensuel ? "alloue" : "reporte"; // Ce qui sera fait
+  return plan; // Renvoie le plan
+} // Fin de planifierPeriodeBudget
+
+// ÉTAPE 2 : écrit le plan d'un budget dans la base. Renvoie le résultat à afficher.
+async function appliquerPlan(base, plan, periode, instant) { // Reçoit la base, le plan, la période et l'heure
+  const { budget } = plan; // Budget concerné
+  const resultat = { budgetId: budget.id, nom: budget.name, statut: plan.statut, reliquatReporte: 0, montantAlloue: 0, soldeApres: plan.soldeApres, depassePlafond: false, raison: plan.raison }; // Résultat de base
+  if (plan.statut !== "alloue" && plan.statut !== "reporte") return resultat; // Rien à écrire (ignoré, déjà fait ou refusé)
+  const allocationId = plan.existanteId ?? await obtenirAllocation(base, budget.id, periode); // Allocation de la période (créée si besoin)
+  for (const p of plan.aReporter) { // Pour chaque reliquat à reporter
     await ecrirePaire(base, { depuisAllocationId: p.id, versAllocationId: allocationId, montant: p.solde, nature: "report", noteSortie: `Report vers la période du ${afficherJour(periode.dateFrom)}`, noteEntree: `Report de la période du ${afficherJour(p.dateFrom)}`, instant: instant.toISOString() }); // Écrit le report
   } // Fin de la boucle
-  if (creerMensuel) { // Allocation mensuelle
+  if (plan.creerMensuel) { // Allocation mensuelle
     await creerTransaction(base, { allocationId, debitCredit: 1, montant: budget.montantBudget, note: "Allocation de la période", dateOperation: instant.toISOString() }); // Alimentation du budget
     await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue + ? WHERE id = ?", [budget.montantBudget, allocationId]); // Tient à jour le total alloué
   } // Fin de l'allocation mensuelle
-  Object.assign(resultat, { statut: creerMensuel ? "alloue" : "reporte", reliquatReporte: totalReport, montantAlloue: creerMensuel ? budget.montantBudget : 0, soldeApres, depassePlafond: soldeApres > budget.montantMax }); // Résultat final (un plafond dépassé est signalé, jamais tronqué)
+  Object.assign(resultat, { reliquatReporte: plan.totalReport, montantAlloue: plan.creerMensuel ? budget.montantBudget : 0, depassePlafond: plan.soldeApres > budget.montantMax }); // Résultat final (un plafond dépassé est signalé, jamais tronqué)
   return resultat; // Renvoie le résultat
-} // Fin de allouerPeriodeBudget
+} // Fin de appliquerPlan
 
 // Lance l'allocation de la période en cours pour tous les budgets (ou seulement les automatiques). Sans danger si on la relance.
+// TOUT OU RIEN : si l'argent frais demandé dépasse le solde libre à allouer, rien n'est écrit.
 export async function lancerAllocationPeriode(base, maintenant = new Date(), { seulementAuto = false } = {}) { // Reçoit la base, l'heure et l'option
   const periode = periodePour(await lireJourJob(base), maintenant); // Période en cours
   const budgets = (await listerBudgets(base)).filter((b) => !seulementAuto || b.autogenFinMois); // Budgets concernés
+  const plans = []; // Plan de chaque budget
+  for (const budget of budgets) plans.push(await planifierPeriodeBudget(base, budget, periode)); // Étape 1 : calcule tout sans rien écrire
+  const argentFrais = plans.filter((p) => p.statut === "alloue").reduce((somme, p) => somme + p.budget.montantBudget, 0); // Total des nouvelles allocations mensuelles (les reports ne sont pas de l'argent frais)
+  if (argentFrais > 0) { // Contrôle du solde libre
+    const { om, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
+    if (om === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde OM saisi
+    if (argentFrais > libre) throw new ErreurMetier(`Solde libre insuffisant : l'allocation de tous les budgets demande ${formaterMontant(argentFrais)}, il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde OM disponible ${formaterMontant(om.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}). Il manque ${formaterMontant(argentFrais - Math.max(libre, 0))}. Rien n'a été alloué.`); // Tout ou rien
+  } // Fin du contrôle
   const resultats = []; // Résultat de chaque budget
-  for (const budget of budgets) { // Pour chaque budget
+  for (const plan of plans) { // Étape 2 : écrit chaque plan
     try { // Un budget en échec ne bloque pas les autres
-      resultats.push(await base.transaction(() => allouerPeriodeBudget(base, budget, periode, maintenant))); // Traite le budget (tout ou rien)
+      resultats.push(await base.transaction(() => appliquerPlan(base, plan, periode, maintenant))); // Écrit le plan (tout ou rien pour ce budget)
     } catch (erreur) { // En cas d'erreur inattendue
-      resultats.push({ budgetId: budget.id, nom: budget.name, statut: "erreur", reliquatReporte: 0, montantAlloue: 0, soldeApres: null, depassePlafond: false, raison: erreur.message }); // Signale l'erreur pour ce budget
+      resultats.push({ budgetId: plan.budget.id, nom: plan.budget.name, statut: "erreur", reliquatReporte: 0, montantAlloue: 0, soldeApres: null, depassePlafond: false, raison: erreur.message }); // Signale l'erreur pour ce budget
     } // Fin du try/catch
   } // Fin de la boucle
   return { periode, resultats }; // Renvoie la période et les résultats
 } // Fin de lancerAllocationPeriode
 
-// Transfère un montant d'un budget vers un autre pour la période en cours (réallocation manuelle).
+// Transfère un montant d'un budget vers un autre pour la période en cours (réallocation manuelle). Neutre pour le solde libre.
 export async function transfererEntreBudgets(base, { sourceId, destinationId, montant, note = null }, maintenant = new Date()) { // Reçoit la base, la demande et l'heure
   const erreurs = {}; // Erreurs de saisie
   if (!Number.isInteger(montant) || montant <= 0) erreurs.montant = "Le montant doit être un entier supérieur à 0."; // Montant invalide

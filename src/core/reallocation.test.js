@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
-import { creerBaseDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas
+import { creerBaseDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas et solde OM de test
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget } from "./budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, modifierOperation, supprimerOperation, soldeAllocation, resumeBudgets } from "./allocations.js"; // Allocation
@@ -15,6 +15,7 @@ const OCTOBRE = local(2026, 10, 25); // Période du 20/10 au 19/11
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
+  await ajouterSoldeOMDeTest(base); // Solde OM très grand : ces tests ne vérifient pas la limite du solde OM
   typeId = await creerTypeBudget(base, { name: "Loisir" }); // Crée un type
 }); // Fin de la préparation
 

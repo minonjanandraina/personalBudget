@@ -6,6 +6,7 @@ import { periodePour, jourLocal, formaterJour, afficherJour } from "./periodes.j
 import { lireBudget, listerBudgets } from "./budgets.js"; // Lecture des budgets
 import { lireJourJob } from "./parametres.js"; // Jour de lancement de l'allocation
 import { creerTransaction } from "./transactions.js"; // Création des transactions
+import { situationFinanciere } from "./soldes.js"; // Solde OM disponible et argent réservé
 
 const TOLERANCE_FUTUR_MS = 5 * 60 * 1000; // On accepte jusqu'à 5 minutes d'avance (décalage d'horloge)
 
@@ -25,6 +26,16 @@ export async function allocationCouvrant(base, budgetId, jour) { // Reçoit la b
   const l = lignes[0]; // Première (et seule) ligne
   return { id: Number(l.id), dateFrom: l.date_from, dateTo: l.date_to, montantAlloue: Number(l.montant_alloue) }; // Objet allocation
 } // Fin de allocationCouvrant
+
+// Message affiché quand aucun solde OM n'a été saisi.
+export const MESSAGE_SANS_SOLDE = "Saisissez d'abord le solde de votre compte Orange Money avant d'allouer un budget."; // Texte commun
+
+// Vérifie que « montantNouveau » d'argent frais peut être alloué : le total réservé dans les budgets ne doit pas dépasser le solde OM disponible.
+export async function verifierSoldeLibre(base, montantNouveau) { // Reçoit la base et le montant à réserver en plus
+  const { om, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
+  if (om === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde OM saisi : on ne peut pas contrôler
+  if (montantNouveau > libre) throw new ErreurValidation({ montant: `Solde libre insuffisant : il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde OM disponible ${formaterMontant(om.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}).` }); // Allocation trop grande
+} // Fin de verifierSoldeLibre
 
 // Vérifie qu'un montant est un entier strictement positif.
 const montantValide = (m) => Number.isInteger(m) && m > 0; // Vrai si entier > 0
@@ -49,6 +60,7 @@ export async function allouerBudget(base, { budgetId, montant, periode = null, n
     let allocationId = allocation ? Number(allocation.id) : null; // Son identifiant, ou null
     const soldeAvant = allocationId === null ? 0 : await soldeAllocation(base, allocationId); // Solde actuel de la période
     const soldeApres = soldeAvant + montant; // Solde après cette allocation
+    await verifierSoldeLibre(base, montant); // Contrôle : le total réservé ne dépasse pas le solde OM disponible
     if (soldeApres < budget.montantMin) { // Contrôle du minimum
       throw new ErreurValidation({ montant: `Après cette allocation, le solde serait de ${formaterMontant(soldeApres)}, en dessous du minimum de ${formaterMontant(budget.montantMin)}.` }); // Refus avec explication
     } // Fin du contrôle
@@ -167,6 +179,7 @@ export async function modifierOperation(base, id, { montant, dateOperation, note
     } // Fin du cas dépense
     const soldeApres = (await soldeAllocation(base, operation.allocationId)) - operation.montant + montant; // Solde de la période après la modification d'une allocation
     if (soldeApres < 0) throw new ErreurValidation({ montant: `Impossible : des dépenses de cette période dépasseraient alors le solde (${formaterMontant(soldeApres)}).` }); // Le solde deviendrait négatif
+    if (montant > operation.montant) await verifierSoldeLibre(base, montant - operation.montant); // Une augmentation réserve de l'argent frais : elle doit tenir dans le solde OM disponible
     await base.executer("UPDATE transactions SET montant = ?, note = ? WHERE id = ?", [montant, noteNette, id]); // Met à jour l'allocation
     await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue + ? WHERE id = ?", [montant - operation.montant, operation.allocationId]); // Tient à jour le total alloué
     return { allocationId: operation.allocationId, soldeApres }; // Résultat
