@@ -104,7 +104,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 ## Sprint 11 — Planification et sécurité
 - Rattrapage à l'ouverture : allocation automatique des budgets `autogen_fin_mois` si le jour `start_day_int` est passé (décision en suspens : exécution en arrière-plan).
-- Code PIN de verrouillage (si retenu).
+- Code PIN de verrouillage (décidé : oui) : saisie à la création, demande à l'ouverture, hachage, limite d'essais, procédure en cas d'oubli.
 - Revue des permissions demandées (minimum nécessaire).
 
 **Livrable** : l'application se met à jour toute seule à l'ouverture.

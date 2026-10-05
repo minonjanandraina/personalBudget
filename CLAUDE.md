@@ -1,4 +1,4 @@
-# Gestion de Budget personnel — application Android
+# Volako — gestion de budget personnel (application Android)
 
 ## Contexte
 
@@ -144,7 +144,15 @@ Les alertes sont affichées **dans l'application uniquement** (bandeau/badge sur
 
 ## Historique
 
-Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde/types/budgets/paramètres) a été réalisé avant le changement de cible. Il reste dans le dépôt comme **référence fonctionnelle** (règles métier et tests) ; il sera archivé dans un dossier `legacy_django/` au démarrage du nouveau projet.
+Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde/types/budgets/paramètres) a été réalisé avant le changement de cible. Il est archivé dans `legacy_django/` comme **référence fonctionnelle** (règles métier et tests).
+
+## Décisions prises
+
+- **Nom de l'application : Volako.**
+- **Identifiant de paquet : `org.minonja.volako`** (proposé par Claude, à confirmer : il ne pourra plus changer une fois l'app installée avec des données).
+- **Android 8 (API 26) minimum.**
+- **Verrouillage par code PIN : oui** (PIN demandé à l'ouverture ; PIN stocké sous forme de hachage, jamais en clair ; limite d'essais à définir au sprint 11).
+- Node.js 20 est installé sur le poste de dev.
 
 ## Questions ouvertes
 
@@ -152,12 +160,9 @@ Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde
 - Format exact des SMS Orange Money (3–4 exemples anonymisés : dépense, crédit, consultation de solde) → nécessaire avant d'implémenter le parsing.
 - Code USSD de consultation du solde.
 
-À décider avant le démarrage :
-- Version minimale d'Android visée (proposition : Android 8 / API 26 ou plus, nécessaire pour l'USSD natif).
-- Node.js est-il installable sur le poste de dev (même sans droits admin) ? Sinon, plan B : laisser GitHub Actions tout construire et tester.
-- Nom de l'application et identifiant de paquet (ex. `org.minonja.budget`).
-- Verrouillage de l'app par code PIN (oui/non).
+À décider avant le sprint 11 :
 - Exécution automatique en arrière-plan de l'allocation (sinon : rattrapage à l'ouverture, voir « Planification »).
+- Que faire si le PIN est oublié (la base étant locale, un oubli ne doit pas rendre les données inaccessibles : réinitialisation via restauration d'une sauvegarde ?).
 
 
 note de travail:
