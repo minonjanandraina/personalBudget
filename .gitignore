@@ -5,3 +5,9 @@ db.sqlite3
 *.sqlite3
 .env
 staticfiles/
+node_modules/
+dist/
+android/app/build/
+android/.gradle/
+*.keystore
+*.jks

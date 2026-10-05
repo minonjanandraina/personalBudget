@@ -1,33 +1,73 @@
-# Gestion de Budget personnel
+# Gestion de Budget personnel — application Android
 
 ## Contexte
 
-Serveur web Django, lancé avec **Termux** sur téléphone Android, pour gérer un budget personnel en Ariary (Ar). Le budget est suivi à partir d'un compte **Orange Money (OM)** : les SMS OM alimentent automatiquement les transactions et les soldes.
+Application **Android (APK)** de gestion de budget personnel en Ariary (Ar), **100 % hors ligne** : base de données locale sur le téléphone, aucun serveur, aucun cloud, aucune connexion requise. Le budget est suivi à partir d'un compte **Orange Money (OM)** : les SMS OM alimentent les transactions et les soldes.
 
-- Application **mono-utilisateur** (un seul compte Django Auth, créé via `createsuperuser`, pas d'inscription).
-- Monnaie : Ariary (Ar), montants entiers (`BigIntegerField` ou `DecimalField(decimal_places=0)`, jamais de float).
-- Langue de l'interface et du code métier : français. Fuseau : `Indian/Antananarivo`.
+- **Open source** (dépôt public GitHub : `minonjanandraina/personalBudget`).
+- **Android uniquement.** iOS n'est pas une cible, ni maintenant ni plus tard (choix de principe : écosystème Apple fermé et commercial).
+- Application **mono-utilisateur**, sans compte ni inscription.
+- Monnaie : Ariary (Ar), montants **entiers** (jamais de float).
+- Langue de l'interface et du code métier : français. Fuseau : `Indian/Antananarivo` (UTC+3, sans heure d'été).
 
-## Stack technique
+## Profil du développeur et contraintes d'environnement
+
+- Ne code pas lui-même : Claude écrit tout le code, le propriétaire le lit et le valide. Ne connaît que **Python** (JavaScript ~10 %) ; ne connaît ni Java, ni Kotlin, ni Flutter. Doit pouvoir **lire et comprendre** tout le code.
+- Édite avec **VS Code**. N'utilise pas Android Studio.
+- Environnement de dev restreint (poste d'entreprise) : Wi-Fi/hotspot très limités, Bluetooth et USB inutilisables. Le **seul canal pour transférer l'APK est Google Drive** (téléchargement de l'APK sur le téléphone depuis Drive, puis installation).
+- Poste de dev : Windows 11. Pas de dépendance à un émulateur, à WSL ni à une toolchain Android locale. **Python/Kivy ne fonctionne pas** sur ce poste (contraintes WSL).
+
+## Choix technique
+
+**JavaScript + Capacitor** : l'application est écrite comme une page web (HTML, CSS, JavaScript) que Capacitor empaquette dans un APK Android. Seule une petite partie native (SMS, USSD, export de fichiers) est écrite en **Kotlin** dans un plugin Capacitor ; elle est écrite par Claude, courte et commentée ligne par ligne.
+
+Pourquoi ce choix :
+- **Kivy/Python écarté** : ne fonctionne pas sur le poste de dev (contraintes WSL).
+- **Tout se teste sous Windows, dans le navigateur** (`npm run dev`), sans WSL, sans émulateur, sans téléphone branché : le seul transfert vers le téléphone est l'APK via Google Drive, donc la boucle « modifier → voir le résultat » doit se faire sur le PC.
+- **JavaScript** est le langage le plus proche de ce que connaît le propriétaire (Python, JS ~10 %), et le plus lisible avec des commentaires partout. Pas de TypeScript, pas de framework (React, Vue…) : du JavaScript simple en modules.
+- **Accès natif Android** (lecture SMS, USSD) possible via un plugin Capacitor en Kotlin ; c'est le point que les solutions « web » pures ne couvrent pas.
+- **SQLite locale** via le plugin `@capacitor-community/sqlite` : vraie base SQL sur le téléphone, sans serveur.
+- **Build dans le cloud** (GitHub Actions) : pas d'Android Studio ni de SDK Android sur le poste.
+
+Alternatives écartées : Kotlin natif (aucune prévisualisation sans Android Studio/émulateur, inconnu du développeur), Flutter/Dart (inconnu), React Native (plus lourd, nécessite émulateur/téléphone pour tester), Kivy et BeeWare/Flet (Python, ne tournent pas sur le poste ou accès SMS/USSD incertain).
+
+Limites assumées :
+- Il faut **Node.js** sur le poste Windows (installation sans droits admin possible en version « zip » — à vérifier sur le poste de la PAMF).
+- Le plugin Kotlin (SMS/USSD) ne peut **pas être testé sur le PC** : il n'est vérifiable que sur le téléphone, via l'APK. Il est volontairement minimal, et l'application affiche des messages d'erreur clairs.
+- Rendu « application native » obtenu en CSS (grosses tuiles, barre de navigation basse), pas avec des composants natifs.
 
 | Couche | Technologie |
 |---|---|
-| Backend | Django (Python), compatible Termux (pas de dépendance nécessitant une compilation lourde) |
-| Frontend — interactions | HTMX (appels backend partiels) |
-| Frontend — mise en page | Bootstrap + CSS personnalisé |
-| Frontend — animations | JavaScript Vanilla |
-| Base de données | SQLite |
-| Authentification | Django Auth |
-| Tâches planifiées | crontab Termux (`termux-job-scheduler`/`crond`) appelant des commandes `manage.py` |
-| SMS | Termux:API (`termux-sms-list`) |
-| Design | Mobile first, gros icônes façon application native iPhone 17 |
+| Langage | JavaScript (modules ES), Kotlin uniquement pour le plugin Android |
+| Interface | HTML + CSS personnalisé (mobile first) + JavaScript sans framework |
+| Empaquetage Android | Capacitor |
+| Base de données | SQLite locale (`@capacitor-community/sqlite` sur Android ; version navigateur pour le développement sous Windows) |
+| API Android (SMS, USSD, fichiers) | Plugin Capacitor maison en Kotlin |
+| Tests | Vitest (logique métier, sous Windows) |
+| Build APK | Gradle, exécuté par **GitHub Actions** (le poste Windows ne compile pas l'APK) |
+| Distribution | APK téléchargé depuis GitHub (artefact) → Google Drive → téléphone |
+
+## Chaîne de travail (build et livraison)
+
+1. Développement dans VS Code sous Windows : `npm run dev` ouvre l'application dans le navigateur (avec des **simulateurs** pour SMS/USSD/fichiers).
+2. Tests : `npm test`.
+3. `git push` → GitHub Actions lance le build Gradle sur Linux et publie l'**APK** (artefact ou Release).
+4. Télécharger l'APK, le déposer sur Google Drive, le télécharger depuis le téléphone, l'installer (autoriser les sources inconnues).
+5. **Signature** : toujours la **même clé de signature** (stockée dans les secrets GitHub). Une clé différente empêche la mise à jour de l'app et oblige à la désinstaller, ce qui **efface la base locale**. D'où l'importance de la sauvegarde/restauration (voir plus bas).
+
+## Architecture du code
+
+Trois couches, pour que la logique métier se teste sans téléphone :
+- `src/core/` : logique métier en **JavaScript pur** (accès base, services d'allocation, contrôles, alertes, parsing SMS). **Aucun appel à Capacitor ni au navigateur.** Entièrement testable avec Vitest sur Windows.
+- `src/ui/` : écrans (tableau de bord, budgets, transactions…). N'appelle que `core/` et `platform/`.
+- `src/platform/` : adaptateurs Android (lecture des SMS, USSD, export de fichiers). Chaque adaptateur a une **version Android** (plugin Kotlin dans `android-plugin/`) et une **version simulée** pour le navigateur (ex. lit un fichier de SMS d'exemple).
 
 ## Modèle de données
 
-Tous les modèles ont `insert_date` (auto, `auto_now_add`).
+Tous les enregistrements ont `insert_date` (date d'insertion automatique).
 
 ### SoldeOM (balance du compte Orange Money)
-Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérification possible via USSD (le code sera fourni dans un autre modèle/document).
+Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérification possible via USSD (le code sera fourni plus tard).
 - `id`
 - `datetime` : date/heure du solde (réception du SMS)
 - `balance` : montant disponible sur le compte OM
@@ -35,7 +75,7 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 
 ### TypeBudget
 - `id`
-- `code` : auto-généré, format `bdg-001`, unique
+- `code` : auto-généré, format `bdg-001`, unique, jamais réutilisé après suppression
 - `name`
 - `insert_date`
 
@@ -48,33 +88,35 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - `solde_alert` : seuil minimal du budget déclenchant une alerte
 - `autogen_fin_mois` : booléen ; si vrai, l'allocation est générée automatiquement par le job
 - `insert_date`
+- Règles de saisie : `montant_min` ≤ `montant_max` ; `montant_budget` ≤ `montant_max`.
 
 ### AllocationBudget (allocation d'un budget pour une période)
-- `date_from`, `date_to`
+- `date_from`, `date_to` (`date_to` ≥ `date_from`)
 - `budget` : FK → Budget
-- `montant_alloue` : montant effectivement alloué (montant_budget + reliquat reporté, plafonné par `montant_max`)
+- `montant_alloue` : montant effectivement alloué (`montant_budget` + reliquat reporté ; **jamais tronqué** par `montant_max`)
 - `insert_date`
+- Une seule allocation par budget et par période (`budget` + `date_from` unique).
 
 ### Transaction
 - `trx_id` : ID de transaction issu du SMS OM ; auto-généré pour une saisie manuelle (SMS non reçu). Unique (évite les doublons à l'import).
-- `allocation` : FK → AllocationBudget
+- `allocation` : FK → AllocationBudget, **vide** tant qu'une transaction issue d'un SMS n'est pas classée
 - `insert_date`
 - `insert_type` : `manuel` ou `auto` (auto = depuis SMS)
 - `debit_credit` : `-1` dépense, `1` alimentation du budget (lors de l'allocation)
-- `montant` : toujours positif, le signe vient de `debit_credit`
-- `sms` : texte brut du SMS OM d'origine (`TextField`, nullable/blank) ; renseigné uniquement si la transaction vient d'un SMS (`insert_type = auto`), vide pour une saisie manuelle
+- `montant` : toujours > 0, le signe vient de `debit_credit`
+- `sms` : texte brut du SMS OM d'origine ; renseigné uniquement si la transaction vient d'un SMS (`insert_type = auto`), vide pour une saisie manuelle
 - Classement dans un budget : selon le **code budget présent dans l'objet du SMS** ; sans code reconnu, la transaction reste « non classée » et doit être affectée manuellement.
 
 ### ParametreJob (une seule ligne)
 - `id`
-- `start_day_int` : jour du mois de lancement du job d'allocation/réallocation (ex. `20` = tous les 20 du mois)
+- `start_day_int` : jour du mois de lancement de l'allocation/réallocation (ex. `20` = tous les 20 du mois), de 1 à 28
 
 ## Flux fonctionnel
 
 1. **Début** : saisie manuelle du solde initial du compte OM.
 2. Création des types de budget.
 3. Création des budgets.
-4. **Allocation / réallocation** : déclenchée par un bouton et par un job crontab Termux (jour = `start_day_int`). Le reliquat non dépensé est reporté au mois suivant.
+4. **Allocation / réallocation** : déclenchée par un bouton et automatiquement au jour `start_day_int` (voir « Planification »). Le reliquat non dépensé est reporté au mois suivant.
    Exemple : budget loisirs = 100 000 Ar, dépenses = 60 000 Ar → 40 000 Ar reportés ; allocation suivante = 100 000 + 40 000.
    Si le total dépasse `montant_max`, l'allocation n'est pas tronquée : le budget est **marqué « solde dépassant le plafond »** et une **réallocation manuelle** est demandée à l'utilisateur (alerte dans l'app).
 5. **Alerte seuil min** : le solde restant d'un budget passe sous `solde_alert`.
@@ -84,30 +126,38 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 
 Les alertes sont affichées **dans l'application uniquement** (bandeau/badge sur le tableau de bord).
 
-## Import des SMS (Termux:API)
+## Fonctions Android
 
-- Un script Termux planifié par cron lit les SMS OM (`termux-sms-list`) et les envoie à l'application (commande `manage.py` ou endpoint POST protégé par un jeton).
-- Le parsing extrait : `trx_id`, montant, type (débit/crédit), solde après opération, date, code budget éventuel dans l'objet.
-- Chaque SMS crée une `Transaction` (si pas déjà existante via `trx_id`) et un `SoldeOM`.
-- Le job doit être **idempotent** : relancer l'import ne crée jamais de doublons.
-
-## Sauvegarde
-
-Export périodique (cron Termux) de la base SQLite vers le stockage du téléphone, avec un nom de fichier daté, ex. `db_2026-10-05_14-30-00.sqlite3`. Utiliser l'API de sauvegarde SQLite (`.backup` / `sqlite3.Connection.backup`) plutôt qu'une simple copie, pour éviter un fichier corrompu en cours d'écriture. Commande de management prévue : `backup_db`.
+- **Lecture des SMS OM** : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur Orange Money (nom à confirmer avec les exemples de SMS). Déclenchée à l'ouverture de l'app et par un bouton « Synchroniser ». Le parsing extrait : `trx_id`, montant, débit/crédit, solde après opération, date, code budget éventuel. Chaque SMS crée une `Transaction` (si `trx_id` pas déjà présent) et un `SoldeOM`. L'import est **idempotent** : le relancer ne crée jamais de doublons.
+- **Consultation USSD du solde** : via l'API téléphonie d'Android, appelée depuis le plugin Kotlin (permissions `CALL_PHONE` et `READ_PHONE_STATE`). Code USSD à fournir.
+- **Planification** : l'application n'a pas de cron. À chaque ouverture, elle vérifie si le jour `start_day_int` du mois est passé sans allocation pour les budgets `autogen_fin_mois`, et la génère (rattrapage). *(À valider : une exécution en arrière-plan sans ouvrir l'app est possible mais plus complexe.)*
+- **Sauvegarde / restauration** : export de la base SQLite vers un dossier accessible du téléphone (ex. Téléchargements), nom de fichier daté `db_2026-10-05_14-30-00.sqlite3`, en copiant la base de façon cohérente (jamais pendant une écriture) pour éviter un fichier corrompu. Une fonction de **restauration** depuis un de ces fichiers est prévue (données uniquement locales). Le fichier peut ensuite être copié sur Google Drive à la main.
 
 ## Conventions
 
-- Mobile first : navigation par grandes tuiles/icônes, zones tactiles ≥ 48 px.
-- HTMX : retourner des fragments de template (`partials/`) pour les mises à jour partielles.
-- Logique métier (allocation, parsing SMS, alertes) dans des modules de service testables, pas dans les vues.
-- Les jobs sont des commandes de management Django (`allocate_budgets`, `import_sms`) pour être appelables depuis cron.
-- Tests unitaires obligatoires pour : calcul de réallocation, parsing SMS, détection d'écart de solde.
+- **Chaque ligne de code est accompagnée d'un commentaire en français**, car le propriétaire lit le code sans être développeur. Cela vaut pour le JavaScript, le HTML, le CSS, le Kotlin et les fichiers de configuration qui le permettent.
+- Mobile first : navigation par grandes tuiles/icônes, zones tactiles ≥ 48 dp.
+- Logique métier (allocation, parsing SMS, alertes, contrôles) dans `src/core/`, jamais dans `src/ui/`.
+- Tout code spécifique à Android passe par `src/platform/`, avec une version simulée pour le navigateur.
+- Tests unitaires (Vitest) obligatoires pour : calcul de réallocation, contrôles d'allocation/dépense, parsing SMS, détection d'écart de solde, idempotence de l'import.
+- Dépendances limitées au strict nécessaire (Capacitor, plugin SQLite, Vitest) ; pas de framework front.
+
+## Historique
+
+Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde/types/budgets/paramètres) a été réalisé avant le changement de cible. Il reste dans le dépôt comme **référence fonctionnelle** (règles métier et tests) ; il sera archivé dans un dossier `legacy_django/` au démarrage du nouveau projet.
 
 ## Questions ouvertes
 
 À traiter plus tard :
 - Format exact des SMS Orange Money (3–4 exemples anonymisés : dépense, crédit, consultation de solde) → nécessaire avant d'implémenter le parsing.
-- Code USSD de consultation du solde et façon de l'exécuter depuis Termux.
+- Code USSD de consultation du solde.
+
+À décider avant le démarrage :
+- Version minimale d'Android visée (proposition : Android 8 / API 26 ou plus, nécessaire pour l'USSD natif).
+- Node.js est-il installable sur le poste de dev (même sans droits admin) ? Sinon, plan B : laisser GitHub Actions tout construire et tester.
+- Nom de l'application et identifiant de paquet (ex. `org.minonja.budget`).
+- Verrouillage de l'app par code PIN (oui/non).
+- Exécution automatique en arrière-plan de l'allocation (sinon : rattrapage à l'ouverture, voir « Planification »).
 
 
 note de travail:
@@ -118,3 +168,6 @@ note de travail:
 4- quand tu commences un sprint, met à jour le sprint à 'encours'
 5- après avoir terminé un sprint, marque comme terminé le sprint 
 6- ne jamais decidé seul si une fonctionnalité n'est pas 100% sure que ça converge avec notre besoins
+7- toujours un commentaire sur chaque ligne de code (demandé dans le chat)
+8- cible : APK Android uniquement, hors ligne, développé dans VS Code, transfert de l'APK via Google Drive (demandé dans le chat)
+9- Kivy/Python écarté (ne marche pas sur le PC) : langage choisi par Claude = JavaScript + Capacitor ; Claude écrit tout le code, le propriétaire lit et valide (demandé dans le chat)

@@ -1,111 +1,125 @@
-# Plan de sprints — Gestion de Budget
+# Plan de sprints — Gestion de Budget (application Android)
 
-Référence fonctionnelle : [CLAUDE.md](CLAUDE.md). Chaque sprint se termine par une démo sur Termux et des tests verts.
+Référence fonctionnelle : [CLAUDE.md](CLAUDE.md). Technologie : JavaScript + Capacitor, plugin Kotlin pour SMS/USSD, APK construit par GitHub Actions.
+Statuts : à faire · EN COURS · ✅ TERMINÉ.
 
-Dépendances externes (à fournir avant le sprint concerné) :
-- Exemples de SMS Orange Money → **avant le sprint 7**.
-- Code USSD de consultation du solde → **avant le sprint 8**.
+Règles pour tous les sprints : un commentaire en français sur chaque ligne de code ; logique métier dans `src/core/` avec tests Vitest ; chaque sprint finit par une démo (navigateur et/ou APK) et des tests verts.
+
+Dépendances externes :
+- Exemples de SMS Orange Money → avant le sprint 9.
+- Code USSD de consultation du solde → avant le sprint 10.
+- Réponse sur Node.js sur le poste de dev → avant le sprint 0.
+
+Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [legacy_django/](legacy_django/) et sert de référence pour les règles métier.
 
 ---
 
-## Sprint 0 — Initialisation du projet ✅ TERMINÉ
-- Environnement Termux : Python, pip, venv, installation de Django (sans dépendance à compilation lourde).
-- Création du projet Django et des apps (`core`, `budgets`, `transactions`, `sms`).
-- Settings : SQLite, fuseau `Indian/Antananarivo`, langue `fr`, fichiers statiques.
-- Dépôt git, `.gitignore`, `requirements.txt`, README de lancement (`runserver 0.0.0.0`).
-- Compte unique via `createsuperuser`.
+## Sprint 0 — Initialisation du projet
+- Vérifier/installer Node.js sur le poste (voir question ouverte de CLAUDE.md).
+- Création du projet : Vite (serveur de développement navigateur), Capacitor, Vitest.
+- Arborescence `src/core`, `src/ui`, `src/platform`, `android-plugin/`.
+- Un écran d'accueil minimal affiché dans le navigateur (`npm run dev`) et un test Vitest qui passe.
 
-**Livrable** : serveur qui démarre sur Termux et page d'accueil accessible depuis le téléphone.
+**Livrable** : `npm run dev` et `npm test` fonctionnent sous Windows.
 
-## Sprint 1 — Modèles de données et administration ✅ TERMINÉ
-- Modèles : SoldeOM, TypeBudget (code auto `bdg-001`), Budget, AllocationBudget, Transaction (avec `sms`, `trx_id` unique, auto-génération pour saisie manuelle), ParametreJob (ligne unique).
-- Migrations, contraintes (montants entiers, `montant` positif, `debit_credit` ∈ {-1, 1}).
-- Enregistrement dans l'admin Django pour vérifier le modèle.
-- Tests unitaires des modèles (code auto, unicité, ligne unique ParametreJob).
+## Sprint 1 — Pipeline APK de bout en bout (réduction du risque)
+- Ajout du projet Android généré par Capacitor.
+- Clé de signature créée une fois, stockée dans les secrets GitHub (sauvegarde de la clé documentée).
+- Workflow GitHub Actions : build Gradle → APK signé publié en artefact.
+- Test réel : APK « Bonjour » téléchargé, passé par Google Drive, installé sur le téléphone, mise à jour par-dessus sans perte de données.
 
-**Livrable** : base créée, modèles manipulables via l'admin.
+**Livrable** : l'application affichant un écran de base s'installe et se met à jour sur le téléphone. C'est le sprint le plus risqué : on le fait en premier.
 
-## Sprint 2 — Socle UI mobile first et authentification ✅ TERMINÉ
-- Base de templates : Bootstrap, CSS personnalisé, navigation par grandes tuiles/icônes (style iPhone), zones tactiles ≥ 48 px.
-- HTMX intégré, convention `partials/`.
-- Login/logout Django Auth, toutes les vues protégées (`login_required`).
-- Tableau de bord vide (structure des tuiles : solde OM, budgets, alertes).
-- Animations JS vanilla de base (transitions, feedback tactile).
+## Sprint 2 — Base de données et modèles (`core`)
+- Schéma SQLite : SoldeOM, TypeBudget (code `bdg-001` auto), Budget, AllocationBudget, Transaction, ParametreJob (ligne unique).
+- Contraintes : montants entiers, `montant` > 0, `debit_credit` ∈ {-1, 1}, `trx_id` unique, une allocation par budget et par période, règles `montant_min` ≤ `montant_max` et `montant_budget` ≤ `montant_max`.
+- Migrations versionnées (évolution du schéma sans perdre les données).
+- Adaptateur base : SQLite du téléphone (plugin) et version navigateur pour le développement.
+- Tests Vitest sur chaque règle.
 
-**Livrable** : connexion, navigation et tableau de bord squelette.
+**Livrable** : base créée et manipulable depuis le navigateur et depuis l'APK.
 
-## Sprint 3 — Solde OM, types de budget et budgets (CRUD) ✅ TERMINÉ
-- Saisie manuelle du solde initial OM + historique des soldes.
-- CRUD TypeBudget et Budget (formulaires HTMX, validation).
-- Écran paramètres : `start_day_int` (ParametreJob).
-- Tests des vues et formulaires.
+## Sprint 3 — Socle UI mobile first
+- Structure des écrans, navigation par barre basse, grosses tuiles/icônes, zones tactiles ≥ 48 dp.
+- Tableau de bord squelette : solde OM, zone d'alertes, tuiles.
+- Composants communs : cartes, formulaires, messages d'erreur, confirmations.
+- Animations CSS/JS légères (désactivées si « réduire les animations »).
+
+**Livrable** : navigation fluide sur le navigateur et sur le téléphone.
+
+## Sprint 4 — Solde OM, types de budget, budgets, paramètres
+- Saisie manuelle du solde initial OM et historique.
+- Création, modification, suppression des types et des budgets (suppression refusée si utilisé).
+- Écran paramètres : jour de lancement de l'allocation (1 à 28).
+- Tests des règles de saisie.
 
 **Livrable** : flux 1 à 3 de CLAUDE.md utilisable.
 
-## Sprint 4 — Allocations et transactions manuelles
-- Service d'allocation (période `date_from`/`date_to`, création des transactions `debit_credit = 1`).
+## Sprint 5 — Allocations et transactions manuelles
+- Service d'allocation (période, transactions `debit_credit = 1`).
 - Saisie manuelle des transactions (génération du `trx_id`, `insert_type = manuel`).
-- Règles de contrôle :
-  - dépense bloquée si solde du budget < montant de la dépense ;
-  - allocation refusée si `SUM(transactions du budget) + allocation < montant_min`.
-- Calcul du solde par budget, liste des transactions filtrable.
-- Tests unitaires des règles de contrôle.
+- Contrôles : dépense bloquée si solde du budget < dépense ; allocation refusée si solde après allocation < `montant_min`.
+- Solde par budget, liste des transactions filtrable.
+- Tests unitaires des contrôles.
 
-**Livrable** : allocation et dépenses manuelles fonctionnelles, avec blocages.
+**Livrable** : allocation et dépenses manuelles avec blocages.
 
-## Sprint 5 — Réallocation de fin de période
-- Service de réallocation : reliquat reporté au mois suivant (montant budget + reliquat).
-- Marquage « solde dépassant le plafond » si le total > `montant_max` + écran de réallocation manuelle.
-- Bouton d'allocation/réallocation dans l'UI.
-- Commande de management `allocate_budgets` (budgets `autogen_fin_mois`, jour = `start_day_int`), idempotente.
+## Sprint 6 — Réallocation de fin de période
+- Reliquat reporté au mois suivant (montant budget + reliquat, jamais tronqué).
+- Marquage « solde dépassant le plafond » + écran de réallocation manuelle.
+- Bouton d'allocation/réallocation, idempotent (relancer ne duplique pas).
 - Tests : exemple 100 000 / 60 000 → 40 000 reportés, dépassement de plafond, idempotence.
 
-**Livrable** : cycle mensuel complet, déclenchable par bouton et par commande.
+**Livrable** : cycle mensuel complet déclenchable par bouton.
 
-## Sprint 6 — Alertes
-- Alerte seuil min : solde du budget < `solde_alert`.
-- Alerte plafond dépassé (réallocation manuelle requise).
-- Alerte dépense non enregistrée : écart ≠ 0 entre solde OM et somme des transactions (aucune tolérance).
-- Bandeaux/badges sur le tableau de bord (dans l'app uniquement), rafraîchissement HTMX.
+## Sprint 7 — Alertes
+- Seuil min (`solde_alert`), plafond dépassé, écart solde OM vs transactions (aucune tolérance).
+- Affichage sur le tableau de bord (dans l'app uniquement).
 - Tests unitaires de chaque alerte.
 
 **Livrable** : flux 5 et 6 de CLAUDE.md opérationnels.
 
-## Sprint 7 — Import des SMS Orange Money *(dépend des exemples de SMS)*
-- Parser SMS : `trx_id`, montant, débit/crédit, solde après opération, date, code budget dans l'objet.
-- Commande `import_sms` : lecture via `termux-sms-list`, création Transaction (`insert_type = auto`, champ `sms` renseigné) + SoldeOM.
-- Idempotence via `trx_id` ; transactions sans code reconnu → « non classées » + écran d'affectation manuelle.
-- Gestion des SMS illisibles (journalisation, écran de revue).
-- Tests unitaires du parsing sur les exemples réels anonymisés.
+## Sprint 8 — Sauvegarde et restauration
+- Export de la base vers un dossier du téléphone, fichier daté `db_YYYY-MM-DD_HH-MM-SS.sqlite3`, copie cohérente.
+- Restauration depuis un fichier choisi, avec confirmation et vérification du fichier.
+- Test réel : désinstallation/réinstallation puis restauration.
 
-**Livrable** : les SMS OM alimentent automatiquement transactions et soldes.
+**Livrable** : les données ne sont plus perdues en cas de changement de clé ou de téléphone.
 
-## Sprint 8 — Consultation USSD du solde *(dépend du code USSD)*
-- Exécution de la consultation USSD depuis Termux et enregistrement d'un SoldeOM.
-- Bouton « Consulter le solde » dans l'UI.
-- Tests avec USSD simulé (mock).
+## Sprint 9 — Lecture et import des SMS Orange Money *(dépend des exemples de SMS)*
+- Plugin Kotlin : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM.
+- Parser (JavaScript, `core`) : `trx_id`, montant, débit/crédit, solde après opération, date, code budget.
+- Import à l'ouverture et par bouton « Synchroniser » ; idempotent via `trx_id` ; création Transaction (champ `sms` rempli) + SoldeOM.
+- Transactions sans code reconnu → « non classées » + écran d'affectation manuelle ; SMS illisibles listés pour revue.
+- Version simulée (fichier de SMS d'exemple) pour le navigateur ; tests du parsing sur les SMS réels anonymisés.
+
+**Livrable** : les SMS OM alimentent transactions et soldes (vérifié sur le téléphone).
+
+## Sprint 10 — Consultation USSD du solde *(dépend du code USSD)*
+- Plugin Kotlin : exécution de l'USSD (API 26+), permissions `CALL_PHONE` et `READ_PHONE_STATE`.
+- Bouton « Consulter le solde » → nouveau SoldeOM ; messages d'erreur clairs (permission refusée, réseau absent).
+- Version simulée pour le navigateur.
 
 **Livrable** : solde OM vérifiable à la demande.
 
-## Sprint 9 — Planification, sauvegarde et exploitation
-- Crontab Termux : `import_sms`, `allocate_budgets`, `backup_db`.
-- Commande `backup_db` : sauvegarde SQLite (API backup) vers le stockage du téléphone, nom daté `db_YYYY-MM-DD_HH-MM-SS.sqlite3`, rotation éventuelle.
-- Script de démarrage du serveur au lancement de Termux (`termux-wake-lock`, Termux:Boot).
-- Documentation d'installation et d'exploitation.
+## Sprint 11 — Planification et sécurité
+- Rattrapage à l'ouverture : allocation automatique des budgets `autogen_fin_mois` si le jour `start_day_int` est passé (décision en suspens : exécution en arrière-plan).
+- Code PIN de verrouillage (si retenu).
+- Revue des permissions demandées (minimum nécessaire).
 
-**Livrable** : l'application tourne seule sur le téléphone.
+**Livrable** : l'application se met à jour toute seule à l'ouverture.
 
-## Sprint 10 — Finition UI et durcissement
-- Polissage mobile : animations, états vides, messages d'erreur, accessibilité.
-- Sécurité : `DEBUG=False`, `ALLOWED_HOSTS`, clé secrète hors dépôt, protection CSRF sur les fragments HTMX.
-- Performance sur téléphone (requêtes N+1, pagination des transactions).
+## Sprint 12 — Finition
+- Polissage mobile : états vides, messages d'erreur, accessibilité, performances sur téléphone modeste.
+- Icône et nom de l'application, écran de démarrage.
+- Documentation d'installation (Drive → téléphone) et d'exploitation.
 
-**Livrable** : application stable et utilisable au quotidien.
+**Livrable** : application utilisable au quotidien.
 
-## Sprint 11 — Tests de non-régression et recette
-- Consolidation de la suite de tests (unitaires + intégration) : allocation, réallocation, contrôles, alertes, import SMS, sauvegarde.
+## Sprint 13 — Tests de non-régression et recette
+- Suite Vitest complète : allocation, réallocation, contrôles, alertes, parsing SMS, import idempotent, sauvegarde/restauration.
 - Scénario de bout en bout : solde initial → types → budgets → allocation → dépenses (manuelles + SMS) → alertes → réallocation → sauvegarde.
-- Jeu de données de démonstration (fixtures) et exécution complète sur Termux.
-- Correction des anomalies, checklist de recette, tag de version `v1.0`.
+- Exécution automatique des tests dans GitHub Actions à chaque push.
+- Checklist de recette sur téléphone, correction des anomalies, version `v1.0`.
 
-**Livrable** : version 1.0 validée, suite de non-régression rejouable à chaque modification.
+**Livrable** : version 1.0 validée, non-régression rejouable à chaque modification.
