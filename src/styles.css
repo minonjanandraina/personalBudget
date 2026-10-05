@@ -1,55 +1,527 @@
-/* Couleurs et tailles réutilisées partout (variables CSS) */
-:root {
-  /* Début du bloc des variables globales */
-  --fond: #f2f2f7; /* Couleur de fond de l'application : gris très clair */
-  --carte: #ffffff; /* Couleur de fond des cartes : blanc */
-  --texte: #1c1c1e; /* Couleur du texte : presque noir */
-  --accent: #0a84ff; /* Couleur principale : bleu */
-  --rayon: 22px; /* Arrondi des coins des cartes */
-} /* Fin du bloc des variables */
+/* ===== Volako : style « application native », pensé pour téléphone ===== */
 
-/* Réglages de base de la page */
+/* Couleurs et tailles réutilisées partout (variables CSS), thème clair */
+:root {
+  /* Début du bloc des variables du thème clair */
+  color-scheme: light dark; /* Indique au téléphone que l'application gère les deux thèmes */
+  --fond: #f2f2f7; /* Fond de l'application : gris très clair */
+  --carte: #ffffff; /* Fond des cartes : blanc */
+  --texte: #1c1c1e; /* Texte principal : presque noir */
+  --texte-doux: #6c6c70; /* Texte secondaire : gris */
+  --trait: rgba(0, 0, 0, 0.08); /* Fins traits de séparation */
+  --accent: #0a84ff; /* Couleur principale : bleu */
+  --ok: #248a3d; /* Vert (succès) */
+  --attention: #b25000; /* Orange foncé (avertissement) */
+  --danger: #d70015; /* Rouge (erreur) */
+  --rayon: 22px; /* Arrondi des grandes cartes */
+  --hauteur-barre: 72px; /* Hauteur de la barre d'onglets */
+  --zone-haut: env(safe-area-inset-top, 0px); /* Marge de sécurité en haut (encoche) */
+  --zone-bas: env(safe-area-inset-bottom, 0px); /* Marge de sécurité en bas (barre de gestes) */
+} /* Fin du bloc des variables du thème clair */
+
+/* Thème sombre : activé automatiquement si le téléphone est en mode sombre */
+@media (prefers-color-scheme: dark) {
+  /* Début des règles du mode sombre */
+  :root {
+    /* Variables redéfinies pour le thème sombre */
+    --fond: #000000; /* Fond noir */
+    --carte: #1c1c1e; /* Cartes gris très foncé */
+    --texte: #f2f2f7; /* Texte presque blanc */
+    --texte-doux: #a1a1a6; /* Texte secondaire gris clair */
+    --trait: rgba(255, 255, 255, 0.12); /* Traits clairs discrets */
+    --accent: #0a84ff; /* Bleu inchangé */
+    --ok: #30d158; /* Vert plus lumineux */
+    --attention: #ff9f0a; /* Orange plus lumineux */
+    --danger: #ff453a; /* Rouge plus lumineux */
+  } /* Fin des variables du thème sombre */
+} /* Fin du mode sombre */
+
+/* Réglages de base */
+* {
+  /* Règles pour tous les éléments */
+  box-sizing: border-box; /* La largeur inclut les marges intérieures : calculs plus simples */
+  -webkit-tap-highlight-color: transparent; /* Retire le halo gris au toucher */
+} /* Fin des règles générales */
+
+/* Corps de la page */
 body {
   /* Début des règles du corps de la page */
   margin: 0; /* Supprime la marge par défaut du navigateur */
   background: var(--fond); /* Applique la couleur de fond */
   color: var(--texte); /* Applique la couleur du texte */
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; /* Police du système (rapide, native) */
+  line-height: 1.4; /* Hauteur de ligne confortable */
+  padding-top: var(--zone-haut); /* Évite l'encoche en haut */
+  -webkit-text-size-adjust: 100%; /* Empêche le téléphone d'agrandir le texte tout seul */
 } /* Fin des règles du corps de la page */
 
-/* Zone principale de l'application */
-#app {
-  /* Début des règles de la zone principale */
+/* Zone de contenu des écrans (laisse la place à la barre d'onglets) */
+.contenu {
+  /* Début des règles de la zone de contenu */
   max-width: 640px; /* Largeur maximale : reste lisible sur grand écran */
   margin: 0 auto; /* Centre la zone horizontalement */
-  padding: 20px 16px; /* Espace intérieur : haut/bas 20px, côtés 16px */
-} /* Fin des règles de la zone principale */
+  padding: 8px 16px calc(var(--hauteur-barre) + var(--zone-bas) + 24px); /* Espace intérieur ; grande marge en bas pour la barre */
+} /* Fin des règles de la zone de contenu */
 
-/* Carte blanche aux coins arrondis */
+/* En-tête d'écran */
+.entete {
+  /* Début des règles de l'en-tête */
+  padding: 20px 4px 12px; /* Espace autour du titre */
+} /* Fin des règles de l'en-tête */
+
+.titre {
+  /* Début des règles du grand titre */
+  margin: 0; /* Pas de marge */
+  font-size: 2rem; /* Grand texte */
+  font-weight: 700; /* Gras */
+  letter-spacing: -0.02em; /* Lettres légèrement resserrées */
+} /* Fin des règles du grand titre */
+
+.sous-titre {
+  /* Début des règles du sous-titre */
+  margin: 4px 0 0; /* Petit espace au-dessus */
+  color: var(--texte-doux); /* Gris */
+} /* Fin des règles du sous-titre */
+
+/* Cartes */
 .carte {
   /* Début des règles de la carte */
-  background: var(--carte); /* Fond blanc */
+  background: var(--carte); /* Fond de carte */
   border-radius: var(--rayon); /* Coins arrondis */
   padding: 20px; /* Espace intérieur */
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05); /* Ombre légère sous la carte */
 } /* Fin des règles de la carte */
 
-/* Espace entre les cartes superposées */
 .carte + .carte {
-  /* Début des règles d'une carte qui suit une autre carte */
-  margin-top: 14px; /* Marge au-dessus pour les séparer */
+  /* Règles d'une carte qui suit une autre carte */
+  margin-top: 14px; /* Espace entre les cartes */
 } /* Fin des règles */
 
-/* Texte technique de la carte de diagnostic */
-.diagnostic ul {
-  /* Début des règles de la liste du diagnostic */
-  margin: 8px 0 0; /* Petite marge au-dessus, aucune ailleurs */
+.carte-titre {
+  /* Début des règles du titre d'une carte */
+  margin: 0 0 12px; /* Espace sous le titre */
+  font-size: 1.1rem; /* Taille moyenne */
+} /* Fin des règles du titre de carte */
+
+/* Carte du solde Orange Money */
+.solde {
+  /* Début des règles du bloc de solde */
+  margin: -20px; /* Annule l'espace intérieur de la carte pour que le dégradé remplisse tout */
+  padding: 22px; /* Espace intérieur du bloc coloré */
+  border-radius: var(--rayon); /* Mêmes coins arrondis que la carte */
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6); /* Dégradé bleu vers violet */
+  color: #ffffff; /* Texte blanc */
+} /* Fin des règles du bloc de solde */
+
+.solde-libelle {
+  /* Libellé du solde */
+  opacity: 0.85; /* Légèrement transparent */
+  font-size: 0.9rem; /* Petit texte */
+} /* Fin du libellé */
+
+.solde-montant {
+  /* Montant du solde */
+  font-size: 2.4rem; /* Très grand texte */
+  font-weight: 700; /* Gras */
+  letter-spacing: -0.02em; /* Lettres resserrées */
+  line-height: 1.15; /* Hauteur de ligne serrée */
+  font-variant-numeric: tabular-nums; /* Chiffres de même largeur : le compteur ne « tremble » pas */
+} /* Fin du montant */
+
+.solde-date {
+  /* Date du solde */
+  opacity: 0.8; /* Légèrement transparent */
+  font-size: 0.8rem; /* Petit texte */
+} /* Fin de la date */
+
+/* Zone d'alertes */
+.zone-alertes {
+  /* Zone sous la carte de solde */
+  margin-top: 14px; /* Espace au-dessus */
+} /* Fin de la zone d'alertes */
+
+.alerte {
+  /* Bandeau d'alerte */
+  display: flex; /* Icône et texte côte à côte */
+  align-items: center; /* Alignés verticalement */
+  gap: 12px; /* Espace entre l'icône et le texte */
+  padding: 14px 16px; /* Espace intérieur */
+  border-radius: 16px; /* Coins arrondis */
+  background: var(--carte); /* Fond de carte */
+  font-weight: 500; /* Texte un peu épais */
+} /* Fin du bandeau d'alerte */
+
+.alerte + .alerte {
+  /* Alerte qui en suit une autre */
+  margin-top: 8px; /* Espace entre alertes */
+} /* Fin des règles */
+
+.alerte-ok .icone {
+  /* Icône d'une alerte « ok » */
+  color: var(--ok); /* Verte */
+} /* Fin des règles */
+
+.alerte-attention .icone {
+  /* Icône d'une alerte « attention » */
+  color: var(--attention); /* Orange */
+} /* Fin des règles */
+
+.alerte-danger .icone {
+  /* Icône d'une alerte « danger » */
+  color: var(--danger); /* Rouge */
+} /* Fin des règles */
+
+.alerte-info .icone {
+  /* Icône d'une alerte « info » */
+  color: var(--accent); /* Bleue */
+} /* Fin des règles */
+
+/* Icônes */
+.icone {
+  /* Conteneur d'une icône */
+  display: inline-flex; /* Se comporte comme une ligne de texte */
+  flex-shrink: 0; /* Ne rétrécit jamais */
+} /* Fin des règles */
+
+/* Grille de tuiles façon applications */
+.tuiles {
+  /* Grille des tuiles */
+  display: grid; /* Disposition en grille */
+  grid-template-columns: repeat(2, 1fr); /* 2 colonnes égales sur téléphone */
+  gap: 14px; /* Espace entre les tuiles */
+  margin-top: 14px; /* Espace au-dessus de la grille */
+} /* Fin des règles de la grille */
+
+@media (min-width: 480px) {
+  /* Écrans un peu plus larges */
+  .tuiles {
+    /* Grille des tuiles */
+    grid-template-columns: repeat(3, 1fr); /* 3 colonnes */
+  } /* Fin des règles */
+} /* Fin de la règle d'écran large */
+
+.tuile {
+  /* Une tuile */
+  position: relative; /* Permet de placer l'étiquette « bientôt » dans le coin */
+  display: flex; /* Contenu en colonne */
+  flex-direction: column; /* Icône au-dessus du texte */
+  align-items: center; /* Centré horizontalement */
+  justify-content: center; /* Centré verticalement */
+  gap: 10px; /* Espace entre l'icône et le texte */
+  min-height: 132px; /* Grande zone tactile */
+  padding: 16px 8px; /* Espace intérieur */
+  background: var(--carte); /* Fond de carte */
+  border-radius: var(--rayon); /* Coins arrondis */
+  color: var(--texte); /* Couleur du texte */
+  text-decoration: none; /* Pas de soulignement */
+  text-align: center; /* Texte centré */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05); /* Ombre légère */
+  transition: transform 0.15s ease; /* Animation d'appui */
+} /* Fin des règles de la tuile */
+
+a.tuile:active {
+  /* Tuile cliquable pendant l'appui */
+  transform: scale(0.94); /* Se rétrécit un peu : retour tactile */
+} /* Fin des règles */
+
+.tuile.desactivee {
+  /* Tuile inactive */
+  opacity: 0.55; /* Grisée */
+} /* Fin des règles */
+
+.tuile-icone {
+  /* Pastille colorée de l'icône */
+  display: grid; /* Pour centrer l'icône */
+  place-items: center; /* Centre l'icône */
+  width: 64px; /* Largeur de la pastille */
+  height: 64px; /* Hauteur de la pastille */
+  border-radius: 18px; /* Coins arrondis façon icône d'application */
+  color: #ffffff; /* Icône blanche */
+} /* Fin des règles */
+
+.tuile-libelle {
+  /* Nom de la tuile */
+  font-weight: 600; /* Semi-gras */
+  font-size: 0.95rem; /* Taille un peu réduite */
+} /* Fin des règles */
+
+.tuile-bientot {
+  /* Étiquette « bientôt » */
+  position: absolute; /* Placée dans un coin */
+  top: 10px; /* Distance du haut */
+  right: 10px; /* Distance de la droite */
+  padding: 2px 8px; /* Espace intérieur */
+  border-radius: 999px; /* Forme de pilule */
+  background: var(--fond); /* Fond discret */
+  color: var(--texte-doux); /* Texte gris */
+  font-size: 0.65rem; /* Très petit texte */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+/* Couleurs des pastilles */
+.fond-bleu { background: #0a84ff; } /* Bleu */
+.fond-vert { background: #30d158; } /* Vert */
+.fond-orange { background: #ff9f0a; } /* Orange */
+.fond-violet { background: #bf5af2; } /* Violet */
+.fond-rouge { background: #ff453a; } /* Rouge */
+.fond-gris { background: #8e8e93; } /* Gris */
+
+/* Barre d'onglets en bas de l'écran */
+.barre-onglets {
+  /* Début des règles de la barre */
+  position: fixed; /* Reste collée en bas, même quand on fait défiler */
+  left: 0; /* Colle à gauche */
+  right: 0; /* Colle à droite */
+  bottom: 0; /* Colle en bas */
+  height: calc(var(--hauteur-barre) + var(--zone-bas)); /* Hauteur + zone de sécurité */
+  padding-bottom: var(--zone-bas); /* Évite la barre de gestes du téléphone */
+  display: flex; /* Onglets côte à côte */
+  justify-content: space-around; /* Répartis régulièrement */
+  background: color-mix(in srgb, var(--carte) 88%, transparent); /* Fond légèrement transparent */
+  -webkit-backdrop-filter: saturate(180%) blur(20px); /* Effet de flou (Safari/WebView ancien) */
+  backdrop-filter: saturate(180%) blur(20px); /* Effet de flou derrière la barre */
+  border-top: 1px solid var(--trait); /* Fin trait au-dessus */
+  z-index: 100; /* Au-dessus du contenu */
+} /* Fin des règles de la barre */
+
+.onglet {
+  /* Un onglet */
+  flex: 1; /* Chaque onglet prend la même largeur */
+  display: flex; /* Contenu en colonne */
+  flex-direction: column; /* Icône au-dessus du texte */
+  align-items: center; /* Centré horizontalement */
+  justify-content: center; /* Centré verticalement */
+  gap: 2px; /* Petit espace entre l'icône et le texte */
+  min-height: 48px; /* Zone tactile minimale */
+  color: var(--texte-doux); /* Gris quand inactif */
+  text-decoration: none; /* Pas de soulignement */
+  font-size: 0.7rem; /* Petit texte */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles de l'onglet */
+
+.onglet.actif {
+  /* Onglet de l'écran affiché */
+  color: var(--accent); /* Bleu */
+} /* Fin des règles */
+
+.onglet.desactive {
+  /* Onglet pas encore disponible */
+  opacity: 0.4; /* Très grisé */
+} /* Fin des règles */
+
+/* Boutons */
+.bouton {
+  /* Gros bouton principal */
+  display: block; /* Occupe toute la largeur */
+  width: 100%; /* Pleine largeur */
+  min-height: 52px; /* Grande zone tactile */
+  padding: 0 16px; /* Espace intérieur */
+  border: 0; /* Pas de bordure */
+  border-radius: 16px; /* Coins arrondis */
+  background: var(--accent); /* Fond bleu */
+  color: #ffffff; /* Texte blanc */
+  font: inherit; /* Même police que le reste */
+  font-size: 1.05rem; /* Texte un peu plus grand */
+  font-weight: 600; /* Semi-gras */
+  transition: transform 0.1s ease; /* Animation d'appui */
+} /* Fin des règles du bouton */
+
+.bouton:active {
+  /* Bouton pendant l'appui */
+  transform: scale(0.97); /* Se rétrécit un peu */
+} /* Fin des règles */
+
+.bouton-danger {
+  /* Bouton d'action dangereuse */
+  background: var(--danger); /* Fond rouge */
+} /* Fin des règles */
+
+.bouton-secondaire {
+  /* Bouton secondaire (Annuler...) */
+  background: var(--fond); /* Fond discret */
+  color: var(--texte); /* Texte normal */
+} /* Fin des règles */
+
+.groupe {
+  /* Groupe de boutons */
+  display: grid; /* Disposition en grille */
+  gap: 10px; /* Espace entre les boutons */
+  margin-bottom: 16px; /* Espace sous le groupe */
+} /* Fin des règles */
+
+/* Champs de formulaire */
+.champ {
+  /* Bloc d'un champ */
+  margin-bottom: 14px; /* Espace sous le champ */
+} /* Fin des règles */
+
+.champ-libelle {
+  /* Libellé du champ */
+  display: block; /* Sur sa propre ligne */
+  margin-bottom: 6px; /* Espace sous le libellé */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+.champ-saisie {
+  /* Zone de saisie */
+  width: 100%; /* Pleine largeur */
+  min-height: 52px; /* Grande zone tactile */
+  padding: 0 14px; /* Espace intérieur */
+  border: 1px solid var(--trait); /* Fine bordure */
+  border-radius: 14px; /* Coins arrondis */
+  background: var(--carte); /* Fond de carte */
+  color: var(--texte); /* Texte normal */
+  font: inherit; /* Même police que le reste */
+  font-size: 1rem; /* Taille de texte (16px minimum : évite le zoom automatique) */
+} /* Fin des règles */
+
+.champ-saisie:focus {
+  /* Zone de saisie active */
+  outline: 2px solid var(--accent); /* Contour bleu visible */
+  outline-offset: 1px; /* Léger écart avec la bordure */
+} /* Fin des règles */
+
+.champ-aide {
+  /* Texte d'aide sous un champ */
+  margin-top: 4px; /* Petit espace au-dessus */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.85rem; /* Petit texte */
+} /* Fin des règles */
+
+.champ-message {
+  /* Message d'erreur sous un champ */
+  min-height: 0; /* Aucune hauteur réservée quand il est vide */
+  margin-top: 4px; /* Petit espace au-dessus */
+  color: var(--danger); /* Rouge */
+  font-size: 0.85rem; /* Petit texte */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+.en-erreur .champ-saisie {
+  /* Champ en erreur */
+  border-color: var(--danger); /* Bordure rouge */
+} /* Fin des règles */
+
+/* Diagnostic */
+.liste-diagnostic {
+  /* Liste du diagnostic */
+  margin: 0; /* Pas de marge */
   padding-left: 18px; /* Retrait de la liste */
-  font-size: 0.9rem; /* Texte un peu plus petit */
+  font-size: 0.95rem; /* Taille de texte */
 } /* Fin des règles */
 
-/* Messages d'erreur : retour à la ligne automatique */
 pre {
-  /* Début des règles du texte préformaté */
+  /* Texte préformaté (messages d'erreur) */
   white-space: pre-wrap; /* Coupe les longues lignes au lieu de déborder */
+  word-break: break-word; /* Coupe les mots trop longs */
 } /* Fin des règles */
+
+/* Notifications (toasts) */
+.toasts {
+  /* Zone des notifications */
+  position: fixed; /* Flotte au-dessus de tout */
+  left: 16px; /* Marge à gauche */
+  right: 16px; /* Marge à droite */
+  top: calc(var(--zone-haut) + 12px); /* Sous l'encoche */
+  display: grid; /* Notifications empilées */
+  gap: 8px; /* Espace entre notifications */
+  z-index: 300; /* Au-dessus de la barre et des fenêtres */
+  pointer-events: none; /* Ne bloque pas les touches en dessous */
+} /* Fin des règles */
+
+.toast {
+  /* Une notification */
+  display: flex; /* Icône et texte côte à côte */
+  align-items: center; /* Alignés verticalement */
+  gap: 10px; /* Espace entre l'icône et le texte */
+  max-width: 640px; /* Largeur maximale */
+  margin: 0 auto; /* Centrée */
+  padding: 12px 16px; /* Espace intérieur */
+  border-radius: 14px; /* Coins arrondis */
+  background: var(--carte); /* Fond de carte */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); /* Ombre marquée */
+  font-weight: 600; /* Semi-gras */
+  animation: entree-toast 0.25s ease; /* Petite animation d'arrivée */
+} /* Fin des règles */
+
+.toast-succes .icone {
+  /* Icône d'une notification de succès */
+  color: var(--ok); /* Verte */
+} /* Fin des règles */
+
+.toast-erreur .icone {
+  /* Icône d'une notification d'erreur */
+  color: var(--danger); /* Rouge */
+} /* Fin des règles */
+
+.toast-info .icone {
+  /* Icône d'une notification d'information */
+  color: var(--accent); /* Bleue */
+} /* Fin des règles */
+
+@keyframes entree-toast {
+  /* Animation d'arrivée d'une notification */
+  from { opacity: 0; transform: translateY(-12px); } /* Départ : transparente et un peu plus haut */
+  to { opacity: 1; transform: none; } /* Arrivée : visible à sa place */
+} /* Fin de l'animation */
+
+/* Fenêtre de confirmation */
+.fond-dialogue {
+  /* Fond sombre derrière la fenêtre */
+  position: fixed; /* Couvre tout l'écran */
+  inset: 0; /* De bord à bord */
+  display: grid; /* Pour centrer la fenêtre */
+  place-items: center; /* Centre la fenêtre */
+  padding: 20px; /* Marge autour */
+  background: rgba(0, 0, 0, 0.45); /* Voile sombre */
+  z-index: 200; /* Au-dessus de la barre d'onglets */
+} /* Fin des règles */
+
+.dialogue {
+  /* La fenêtre */
+  width: 100%; /* Pleine largeur disponible */
+  max-width: 360px; /* Largeur maximale */
+  padding: 22px; /* Espace intérieur */
+  border-radius: var(--rayon); /* Coins arrondis */
+  background: var(--carte); /* Fond de carte */
+  animation: entree-toast 0.2s ease; /* Petite animation d'arrivée */
+} /* Fin des règles */
+
+.dialogue-titre {
+  /* Titre de la fenêtre */
+  margin: 0 0 8px; /* Espace sous le titre */
+  font-size: 1.2rem; /* Taille du titre */
+} /* Fin des règles */
+
+.dialogue-message {
+  /* Message de la fenêtre */
+  margin: 0 0 18px; /* Espace sous le message */
+  color: var(--texte-doux); /* Gris */
+} /* Fin des règles */
+
+.dialogue-actions {
+  /* Boutons de la fenêtre */
+  display: grid; /* Deux colonnes */
+  grid-template-columns: 1fr 1fr; /* Deux boutons de même largeur */
+  gap: 10px; /* Espace entre les boutons */
+} /* Fin des règles */
+
+/* Apparition en cascade (désactivée si « réduire les animations ») */
+.apparition {
+  /* Élément qui apparaît progressivement */
+  opacity: 0; /* Invisible au départ */
+  transform: translateY(14px); /* Un peu plus bas au départ */
+} /* Fin des règles */
+
+.apparition.visible {
+  /* Élément devenu visible */
+  opacity: 1; /* Totalement visible */
+  transform: none; /* À sa place */
+  transition: opacity 0.4s ease, transform 0.4s ease; /* Transition douce */
+} /* Fin des règles */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Si l'utilisateur demande de réduire les animations */
+  .apparition { opacity: 1; transform: none; } /* Tout est visible immédiatement */
+  .tuile, .bouton, .toast, .dialogue { transition: none !important; animation: none !important; transform: none !important; } /* Aucune animation */
+} /* Fin de la règle d'accessibilité */

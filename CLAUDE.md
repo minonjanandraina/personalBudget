@@ -62,6 +62,14 @@ Trois couches, pour que la logique métier se teste sans téléphone :
 - `src/ui/` : écrans (tableau de bord, budgets, transactions…). N'appelle que `core/` et `platform/`.
 - `src/platform/` : adaptateurs Android (lecture des SMS, USSD, export de fichiers). Chaque adaptateur a une **version Android** (plugin Kotlin dans `android-plugin/`) et une **version simulée** pour le navigateur (ex. lit un fichier de SMS d'exemple).
 
+### Interface : choix d'implémentation (sprint 3)
+- Pas de framework : les éléments sont fabriqués par `h()` (`src/ui/dom.js`), qui insère toujours le texte comme **texte** (jamais comme HTML) pour empêcher toute injection.
+- Navigation par **adresse avec `#`** (`src/ui/routeur.js`) : le bouton Retour d'Android fonctionne sans code supplémentaire. Les écrans sont dans `src/ui/ecrans/`.
+- Coque (`src/ui/coque.js`) : zone de contenu + barre d'onglets en bas. Un onglet ou une tuile sans route est grisé « bientôt » jusqu'à ce que l'écran existe.
+- Composants réutilisables : `composants.js` (carte, tuile, alerte, bouton, champ avec erreur), `messages.js` (notifications et fenêtre de confirmation), `icones.js` (icônes SVG intégrées, hors ligne), `animations.js` (désactivées si « réduire les animations »).
+- Thème clair et sombre automatiques selon le téléphone.
+- Tests d'interface : Vitest avec `jsdom` (version 25, compatible avec Node 20.17 du poste de dev).
+
 ### Base de données : choix d'implémentation (sprint 2)
 - Deux adaptateurs interchangeables dans `src/platform/` (mêmes fonctions `executer`, `requeter`, `transaction`, `fermer`) : `base-capacitor.js` (SQLite du téléphone, plugin `@capacitor-community/sqlite`) et `base-sqljs.js` (sql.js, SQLite en WebAssembly, pour les tests et le navigateur). `base.js` choisit selon l'environnement.
 - Schéma et migrations dans `src/core/db/` ; version du schéma gardée dans la table `meta`. On n'édite jamais une migration publiée : on en ajoute une.
