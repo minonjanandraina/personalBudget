@@ -3,7 +3,7 @@ import { formaterMontant } from "../core/format.js"; // Reprend la fonction de f
 // Dessine l'écran d'accueil dans l'élément reçu.
 export function afficherAccueil(conteneur) { // Reçoit la zone où dessiner
   conteneur.innerHTML = ` 
-    <h1>Gestion de Budget</h1>
+    <h1>Volako</h1>
     <section class="carte">
       <p>Solde Orange Money</p>
       <strong>${formaterMontant(0)}</strong>

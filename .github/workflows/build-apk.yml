@@ -1,0 +1,74 @@
+# Nom affiché dans l'onglet « Actions » de GitHub
+name: Construire l'APK
+
+# Quand lancer ce workflow
+on:
+  # À chaque envoi de code sur la branche main
+  push:
+    branches: [main]
+  # Et à la demande, avec le bouton « Run workflow »
+  workflow_dispatch:
+
+jobs:
+  # Un seul travail : construire l'APK
+  apk:
+    # Machine Linux fournie par GitHub
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Récupère le code du dépôt
+      - uses: actions/checkout@v4
+      # 2. Installe Node.js 20 (pour construire la partie web)
+      - uses: actions/setup-node@v4
+        with:
+          # Version de Node.js
+          node-version: 20
+          # Garde en cache les paquets téléchargés (build plus rapide)
+          cache: npm
+      # 3. Installe Java 17 (nécessaire à Gradle/Android)
+      - uses: actions/setup-java@v4
+        with:
+          # Distribution Java gratuite
+          distribution: temurin
+          # Version de Java
+          java-version: 17
+      # 4. Installe les paquets du projet exactement comme dans package-lock.json
+      - run: npm ci
+      # 5. Lance les tests : si un test échoue, le workflow s'arrête ici
+      - run: npm test
+      # 6. Construit la version finale de la partie web (dossier dist)
+      - run: npm run build
+      # 7. Copie la partie web dans le projet Android
+      - run: npx cap sync android
+      # 8. Décode la clé de signature depuis le secret GitHub vers un fichier temporaire
+      - run: echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/volako.jks"
+        env:
+          # Secret contenant la clé encodée en texte
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      # 9. Construit l'APK signé avec Gradle
+      - run: |
+          # Autorise l'exécution de gradlew (perdu sous Windows)
+          chmod +x android/gradlew
+          # Se place dans le dossier Android
+          cd android
+          # Construit l'APK « release » (version finale)
+          ./gradlew assembleRelease
+        env:
+          # Chemin de la clé décodée
+          KEYSTORE_PATH: ${{ runner.temp }}/volako.jks
+          # Mot de passe du fichier de clé (secret)
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          # Nom de la clé (secret)
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          # Mot de passe de la clé (secret)
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Numéro de version = numéro d'exécution du workflow (augmente à chaque build)
+          VERSION_CODE: ${{ github.run_number }}
+      # 10. Publie l'APK pour le télécharger depuis GitHub
+      - uses: actions/upload-artifact@v4
+        with:
+          # Nom du fichier téléchargeable
+          name: volako-apk
+          # APK produit par Gradle
+          path: android/app/build/outputs/apk/release/*.apk
+          # Erreur si aucun APK n'est trouvé
+          if-no-files-found: error

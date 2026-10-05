@@ -1,0 +1,76 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "org.minonja.volako"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "org.minonja.volako"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Numéro de version : fourni par GitHub Actions (doit augmenter à chaque APK pour que la mise à jour s'installe)
+        versionCode (System.getenv("VERSION_CODE") ?: "1").toInteger()
+        // Nom de version affiché à l'utilisateur
+        versionName "0.1." + (System.getenv("VERSION_CODE") ?: "1")
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Signature de l'APK : lit la clé depuis des variables d'environnement (secrets GitHub), jamais depuis le dépôt
+    signingConfigs {
+        release {
+            // Chemin du fichier de clé décodé par le workflow
+            if (System.getenv("KEYSTORE_PATH")) {
+                // Fichier de clé (.jks)
+                storeFile file(System.getenv("KEYSTORE_PATH"))
+                // Mot de passe du fichier de clé
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                // Nom de la clé dans le fichier
+                keyAlias System.getenv("KEY_ALIAS")
+                // Mot de passe de la clé
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            // Applique la signature uniquement si la clé est fournie (sinon APK non signé en local)
+            if (System.getenv("KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

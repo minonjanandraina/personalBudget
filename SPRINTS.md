@@ -22,7 +22,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : `npm run dev` et `npm test` fonctionnent sous Windows.
 
-## Sprint 1 — Pipeline APK de bout en bout (réduction du risque)
+## Sprint 1 — Pipeline APK de bout en bout (réduction du risque) — EN COURS
 - Ajout du projet Android généré par Capacitor.
 - Clé de signature créée une fois, stockée dans les secrets GitHub (sauvegarde de la clé documentée).
 - Workflow GitHub Actions : build Gradle → APK signé publié en artefact.
