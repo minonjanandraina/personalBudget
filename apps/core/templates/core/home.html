@@ -8,7 +8,7 @@
     <div class="when">Au {{ solde.datetime|date:"d/m/Y H:i" }}</div>
   {% else %}
     <div class="amount">— Ar</div>
-    <div class="when">Aucun solde enregistré</div>
+    <div class="when">Aucun solde enregistré · <a class="text-white fw-semibold" href="{% url 'core:solde_create' %}">Saisir le solde initial</a></div>
   {% endif %}
 </section>
 

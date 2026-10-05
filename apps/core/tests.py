@@ -102,3 +102,71 @@ class DashboardTests(TestCase):
             "css/app.css", "js/app.js",
         ):
             self.assertIsNotNone(finders.find(path), path)
+
+
+class SoldeViewsTests(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user("moi", password="x")
+        self.client.login(username="moi", password="x")
+
+    def test_saisie_solde(self):
+        from .models import SoldeOM
+
+        r = self.client.post(
+            reverse("core:solde_create"), {"datetime": "2026-10-01T08:30", "balance": 250000}
+        )
+        self.assertRedirects(r, reverse("core:solde_list"))
+        s = SoldeOM.objects.get()
+        self.assertEqual(s.balance, 250000)
+        from django.utils import timezone as tz
+
+        self.assertEqual(tz.localtime(s.datetime).hour, 8)  # saisie en heure locale
+
+    def test_solde_negatif_refuse(self):
+        from .models import SoldeOM
+
+        r = self.client.post(
+            reverse("core:solde_create"), {"datetime": "2026-10-01T08:30", "balance": -1}
+        )
+        self.assertContains(r, "négatif")
+        self.assertFalse(SoldeOM.objects.exists())
+
+    def test_date_future_refusee(self):
+        r = self.client.post(
+            reverse("core:solde_create"), {"datetime": "2999-01-01T08:30", "balance": 1}
+        )
+        self.assertContains(r, "futur")
+
+    def test_historique_et_suppression(self):
+        from django.utils import timezone
+
+        from .models import SoldeOM
+
+        s = SoldeOM.objects.create(datetime=timezone.now(), balance=1234567)
+        self.assertContains(self.client.get(reverse("core:solde_list")), "1 234 567 Ar")
+        r = self.client.post(reverse("core:solde_delete", args=[s.pk]), HTTP_HX_REQUEST="true")
+        self.assertEqual(r.status_code, 204)
+        self.assertFalse(SoldeOM.objects.exists())
+
+    def test_formulaire_prerempli_avec_maintenant(self):
+        r = self.client.get(reverse("core:solde_create"))
+        self.assertContains(r, 'type="datetime-local"')
+        self.assertContains(r, "value=")
+
+    def test_parametres_modifiables(self):
+        from .models import ParametreJob
+
+        r = self.client.post(reverse("core:parametres"), {"start_day_int": 12})
+        self.assertRedirects(r, reverse("core:home"))
+        self.assertEqual(ParametreJob.load().start_day_int, 12)
+
+    def test_parametres_hors_bornes_refuses(self):
+        from .models import ParametreJob
+
+        self.client.post(reverse("core:parametres"), {"start_day_int": 31})
+        self.assertEqual(ParametreJob.load().start_day_int, 20)
+
+    def test_tuiles_actives_sur_accueil(self):
+        r = self.client.get(reverse("core:home"))
+        for name in ("budgets:list", "budgets:type_list", "core:solde_list", "core:parametres"):
+            self.assertContains(r, f'href="{reverse(name)}"')

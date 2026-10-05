@@ -34,7 +34,7 @@ Dépendances externes (à fournir avant le sprint concerné) :
 
 **Livrable** : connexion, navigation et tableau de bord squelette.
 
-## Sprint 3 — Solde OM, types de budget et budgets (CRUD)
+## Sprint 3 — Solde OM, types de budget et budgets (CRUD) ✅ TERMINÉ
 - Saisie manuelle du solde initial OM + historique des soldes.
 - CRUD TypeBudget et Budget (formulaires HTMX, validation).
 - Écran paramètres : `start_day_int` (ParametreJob).
