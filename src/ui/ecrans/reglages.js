@@ -20,6 +20,7 @@ export async function afficherReglages(conteneur, { base }) { // Reçoit la zone
     enteteEcran("Réglages", "Votre application"), // En-tête
     carte(h("h2", { class: "carte-titre" }, "Allocation automatique"), champJour.element, boutonPrincipal("Enregistrer", enregistrer)), // Carte du jour de lancement
     h("div", { class: "espace-haut groupe" }, // Liens vers les autres écrans
+      boutonLien("Sauvegarde et restauration", "/sauvegarde", "sauvegarde"), // Sauvegarde des données
       boutonLien("Solde Orange Money", "/solde", "telephone"), // Historique des soldes
       boutonLien("Types de budget", "/types-budget", "types"), // Types de budget
       boutonLien("Diagnostic et essais", "/diagnostic", "info"), // Diagnostic

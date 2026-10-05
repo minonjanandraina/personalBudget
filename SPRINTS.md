@@ -74,16 +74,16 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : cycle mensuel complet déclenchable par bouton.
 
-## Sprint 7 — Alertes — EN COURS
+## Sprint 7 — Alertes ✅ TERMINÉ
 - Seuil min (`solde_alert`), plafond dépassé, écart solde OM vs réservé (aucune tolérance), aucun solde OM saisi.
 - Affichage sur le tableau de bord (dans l'app uniquement), avec un lien d'action par alerte et un badge sur l'onglet Accueil.
 - Tests unitaires de chaque alerte.
 
 **Livrable** : flux 5 et 6 de CLAUDE.md opérationnels.
 
-## Sprint 8 — Sauvegarde et restauration
-- Export de la base vers un dossier du téléphone, fichier daté `db_YYYY-MM-DD_HH-MM-SS.sqlite3`, copie cohérente.
-- Restauration depuis un fichier choisi, avec confirmation et vérification du fichier.
+## Sprint 8 — Sauvegarde et restauration — EN COURS
+- Sauvegarde en fichier JSON daté `volako_AAAA-MM-JJ_HH-MM-SS.json` (copie cohérente, empreinte SHA-256), envoyée par la fenêtre de partage du téléphone (Google Drive…).
+- Restauration depuis un fichier choisi : vérification du fichier, confirmation avec le détail, tout ou rien, copie de sécurité et annulation possible.
 - Test réel : désinstallation/réinstallation puis restauration.
 
 **Livrable** : les données ne sont plus perdues en cas de changement de clé ou de téléphone.

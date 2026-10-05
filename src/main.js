@@ -6,6 +6,7 @@ import { calculerAlertes } from "./core/alertes.js"; // Alertes (pour le badge)
 import { afficherAccueil } from "./ui/ecrans/accueil.js"; // Écran d'accueil
 import { afficherReglages } from "./ui/ecrans/reglages.js"; // Écran des réglages
 import { afficherDiagnostic } from "./ui/ecrans/diagnostic.js"; // Écran de diagnostic
+import { afficherSauvegarde } from "./ui/ecrans/sauvegarde.js"; // Écran de sauvegarde et restauration
 import { afficherTypes, afficherFormulaireType } from "./ui/ecrans/types-budget.js"; // Écrans des types de budget
 import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.js"; // Écrans des budgets
 import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde OM
@@ -48,6 +49,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/solde/nouveau": (zone) => afficherFormulaireSolde(zone, { base }), // Saisie d'un solde
         "/reglages": (zone) => afficherReglages(zone, { base }), // Réglages
         "/diagnostic": (zone) => afficherDiagnostic(zone, { base }), // Diagnostic
+        "/sauvegarde": (zone) => afficherSauvegarde(zone, { base }), // Sauvegarde et restauration
       }, // Fin des écrans
     }); // Fin du routeur
     await routeur.demarrer(); // Affiche le premier écran

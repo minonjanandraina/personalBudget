@@ -18,6 +18,8 @@
     "@capacitor-community/sqlite": "^7.0.3",
     "@capacitor/android": "^7.6.9",
     "@capacitor/core": "^7.6.9",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/share": "^7.0.4",
     "sql.js": "^1.14.2"
   }
 }
