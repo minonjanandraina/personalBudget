@@ -8,7 +8,7 @@ Dépendances externes (à fournir avant le sprint concerné) :
 
 ---
 
-## Sprint 0 — Initialisation du projet
+## Sprint 0 — Initialisation du projet ✅ TERMINÉ
 - Environnement Termux : Python, pip, venv, installation de Django (sans dépendance à compilation lourde).
 - Création du projet Django et des apps (`core`, `budgets`, `transactions`, `sms`).
 - Settings : SQLite, fuseau `Indian/Antananarivo`, langue `fr`, fichiers statiques.
@@ -17,7 +17,7 @@ Dépendances externes (à fournir avant le sprint concerné) :
 
 **Livrable** : serveur qui démarre sur Termux et page d'accueil accessible depuis le téléphone.
 
-## Sprint 1 — Modèles de données et administration
+## Sprint 1 — Modèles de données et administration ✅ TERMINÉ
 - Modèles : SoldeOM, TypeBudget (code auto `bdg-001`), Budget, AllocationBudget, Transaction (avec `sms`, `trx_id` unique, auto-génération pour saisie manuelle), ParametreJob (ligne unique).
 - Migrations, contraintes (montants entiers, `montant` positif, `debit_credit` ∈ {-1, 1}).
 - Enregistrement dans l'admin Django pour vérifier le modèle.
