@@ -51,9 +51,9 @@ jobs:
           # Se place dans le dossier Android
           cd android
           # Construit l'APK « release » ; garde tout le journal dans un fichier
-          ./gradlew assembleRelease --no-daemon > gradle.log 2>&1 || {
+          ./gradlew assembleRelease --no-daemon --stacktrace > gradle.log 2>&1 || {
             # En cas d'échec : extrait les lignes utiles du journal (10 premières erreurs)
-            MSG=$(grep -E -A8 "What went wrong" gradle.log | head -25 | sed ':a;N;$!ba;s/\n/%0A/g')
+            MSG=$( (grep -E -A3 "What went wrong" gradle.log; grep -E "Caused by|build.gradle" gradle.log | head -12) | sed ':a;N;$!ba;s/\n/%0A/g')
             # Affiche ces lignes comme annotation d'erreur visible sur la page du build
             echo "::error title=Echec Gradle::$MSG"
             # Affiche aussi la fin du journal complet
