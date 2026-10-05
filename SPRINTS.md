@@ -14,7 +14,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 ---
 
-## Sprint 0 — Initialisation du projet
+## Sprint 0 — Initialisation du projet ✅ TERMINÉ
 - Vérifier/installer Node.js sur le poste (voir question ouverte de CLAUDE.md).
 - Création du projet : Vite (serveur de développement navigateur), Capacitor, Vitest.
 - Arborescence `src/core`, `src/ui`, `src/platform`, `android-plugin/`.

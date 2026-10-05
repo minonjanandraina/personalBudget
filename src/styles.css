@@ -1,0 +1,35 @@
+/* Couleurs et tailles réutilisées partout (variables CSS) */
+:root {
+  /* Début du bloc des variables globales */
+  --fond: #f2f2f7; /* Couleur de fond de l'application : gris très clair */
+  --carte: #ffffff; /* Couleur de fond des cartes : blanc */
+  --texte: #1c1c1e; /* Couleur du texte : presque noir */
+  --accent: #0a84ff; /* Couleur principale : bleu */
+  --rayon: 22px; /* Arrondi des coins des cartes */
+} /* Fin du bloc des variables */
+
+/* Réglages de base de la page */
+body {
+  /* Début des règles du corps de la page */
+  margin: 0; /* Supprime la marge par défaut du navigateur */
+  background: var(--fond); /* Applique la couleur de fond */
+  color: var(--texte); /* Applique la couleur du texte */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; /* Police du système (rapide, native) */
+} /* Fin des règles du corps de la page */
+
+/* Zone principale de l'application */
+#app {
+  /* Début des règles de la zone principale */
+  max-width: 640px; /* Largeur maximale : reste lisible sur grand écran */
+  margin: 0 auto; /* Centre la zone horizontalement */
+  padding: 20px 16px; /* Espace intérieur : haut/bas 20px, côtés 16px */
+} /* Fin des règles de la zone principale */
+
+/* Carte blanche aux coins arrondis */
+.carte {
+  /* Début des règles de la carte */
+  background: var(--carte); /* Fond blanc */
+  border-radius: var(--rayon); /* Coins arrondis */
+  padding: 20px; /* Espace intérieur */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05); /* Ombre légère sous la carte */
+} /* Fin des règles de la carte */
