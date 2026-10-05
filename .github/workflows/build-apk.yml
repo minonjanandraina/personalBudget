@@ -24,13 +24,13 @@ jobs:
           node-version: 20
           # Garde en cache les paquets téléchargés (build plus rapide)
           cache: npm
-      # 3. Installe Java 17 (nécessaire à Gradle/Android)
+      # 3. Installe Java 21 (exigé par Capacitor 7 pour construire Android)
       - uses: actions/setup-java@v4
         with:
           # Distribution Java gratuite
           distribution: temurin
           # Version de Java
-          java-version: 17
+          java-version: 21
       # 4. Installe les paquets du projet exactement comme dans package-lock.json
       - run: npm ci
       # 5. Lance les tests : si un test échoue, le workflow s'arrête ici
@@ -50,8 +50,18 @@ jobs:
           chmod +x android/gradlew
           # Se place dans le dossier Android
           cd android
-          # Construit l'APK « release » (version finale)
-          ./gradlew assembleRelease
+          # Construit l'APK « release » ; garde tout le journal dans un fichier
+          ./gradlew assembleRelease --no-daemon > gradle.log 2>&1 || {
+            # En cas d'échec : extrait les lignes utiles du journal (10 premières erreurs)
+            MSG=$(grep -E "What went wrong|error:|Caused by|FAILURE|Could not|not found|invalid" gradle.log | head -15 | sed ':a;N;$!ba;s/
+/%0A/g')
+            # Affiche ces lignes comme annotation d'erreur visible sur la page du build
+            echo "::error title=Echec Gradle::$MSG"
+            # Affiche aussi la fin du journal complet
+            tail -60 gradle.log
+            # Termine en erreur
+            exit 1
+          }
         env:
           # Chemin de la clé décodée
           KEYSTORE_PATH: ${{ runner.temp }}/volako.jks
