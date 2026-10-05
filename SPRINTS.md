@@ -39,7 +39,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : base créée et manipulable depuis le navigateur et depuis l'APK.
 
-## Sprint 3 — Socle UI mobile first — EN COURS
+## Sprint 3 — Socle UI mobile first ✅ TERMINÉ
 - Structure des écrans, navigation par barre basse, grosses tuiles/icônes, zones tactiles ≥ 48 dp.
 - Tableau de bord squelette : solde OM, zone d'alertes, tuiles.
 - Composants communs : cartes, formulaires, messages d'erreur, confirmations.
