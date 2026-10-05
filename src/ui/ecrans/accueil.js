@@ -6,6 +6,7 @@ import { animerCompteur } from "../animations.js"; // Animation du solde
 import { formaterMontant } from "../../core/format.js"; // Formatage des montants
 import { afficherDateHeure } from "../../core/dates.js"; // Date lisible
 import { situationFinanciere, soldesParBudget } from "../../core/soldes.js"; // Situation financière et détail par budget
+import { calculerAlertes } from "../../core/alertes.js"; // Alertes actuelles
 
 // Tuiles de l'accueil. Une tuile sans route est grisée « bientôt » (écran prévu dans un sprint suivant).
 const TUILES = [ // Liste des tuiles
@@ -58,7 +59,6 @@ function carteReserve(situation, detail) { // Reçoit la situation d'ensemble et
   return carte( // Carte complète
     bascule, // Bouton de dépliage
     libre === null ? null : h("div", { class: "reserve-libre" }, h("span", {}, "Libre à allouer"), h("strong", { class: libre < 0 ? "montant-moins" : "" }, formaterMontant(libre))), // Solde libre
-    libre !== null && libre < 0 ? h("div", { class: "espace-haut" }, alerte({ niveau: "attention", message: "Le total réservé dépasse le solde Orange Money disponible : une dépense n'a peut-être pas été enregistrée." })) : null, // Avertissement si le libre est négatif
     liste, // Liste par budget
   ); // Fin de la carte
 } // Fin de carteReserve
@@ -67,11 +67,15 @@ function carteReserve(situation, detail) { // Reçoit la situation d'ensemble et
 export async function afficherAccueil(conteneur, { base }) { // Reçoit la zone et la base
   const situation = await situationFinanciere(base); // Solde OM disponible, réservé et libre
   const detail = await soldesParBudget(base); // Solde de chaque budget
+  const alertes = await calculerAlertes(base); // Alertes actuelles
   conteneur.append( // Ajoute les éléments de l'écran
     enteteEcran("Volako", "Votre budget, hors ligne"), // En-tête
     carteSoldeOM(situation.om), // Solde OM disponible
     carteReserve(situation, detail), // Argent réservé dans les budgets
-    h("div", { class: "zone-alertes" }, alerte({ niveau: "ok", message: "Aucune alerte pour le moment" })), // Zone des alertes (alimentée au sprint 7)
+    h("div", { class: "zone-alertes" }, // Zone des alertes
+      alertes.length > 0 ? h("h2", { class: "section-titre" }, `Alertes (${alertes.length})`) : null, // Titre avec le nombre d'alertes
+      alertes.length === 0 ? alerte({ niveau: "ok", message: "Aucune alerte pour le moment" }) : alertes.map((a) => alerte({ niveau: a.niveau, message: a.message, action: a.action })), // Une alerte par problème, ou « aucune alerte »
+    ), // Fin de la zone des alertes
     h("div", { class: "tuiles" }, ...TUILES.map(tuile)), // Grille de tuiles
   ); // Fin de l'ajout
 } // Fin de afficherAccueil

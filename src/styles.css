@@ -787,3 +787,55 @@ a.solde {
   padding: 8px 0; /* Espace au-dessus et en dessous */
   border-top: 1px solid var(--trait); /* Fin trait de séparation */
 } /* Fin des règles */
+
+/* ===== Alertes avec action et badge (sprint 7) ===== */
+
+.alerte-corps {
+  /* Corps d'une alerte : message puis lien d'action */
+  display: grid; /* Éléments l'un sous l'autre */
+  gap: 4px; /* Petit espace entre le message et le lien */
+  min-width: 0; /* Permet de couper un texte trop long */
+} /* Fin des règles */
+
+.alerte-action {
+  /* Lien pour traiter l'alerte */
+  display: inline-flex; /* Pour la hauteur tactile */
+  align-items: center; /* Texte centré verticalement */
+  min-height: 44px; /* Zone tactile confortable */
+  color: var(--accent); /* Bleu */
+  font-weight: 600; /* Semi-gras */
+  text-decoration: none; /* Pas de soulignement */
+} /* Fin des règles */
+
+.section-titre {
+  /* Titre d'une section (ex. « Alertes (2) ») */
+  margin: 0 0 8px 4px; /* Espace sous le titre */
+  font-size: 1.05rem; /* Taille moyenne */
+} /* Fin des règles */
+
+.onglet {
+  /* Les onglets servent de repère de position pour le badge */
+  position: relative; /* Le badge se place par rapport à l'onglet */
+} /* Fin des règles */
+
+.badge {
+  /* Petite pastille rouge de comptage sur un onglet */
+  position: absolute; /* Placée sur l'icône */
+  top: 4px; /* Distance du haut */
+  left: calc(50% + 6px); /* Au-dessus à droite de l'icône */
+  min-width: 18px; /* Largeur minimale (rond pour un chiffre) */
+  height: 18px; /* Hauteur */
+  padding: 0 5px; /* Espace pour deux chiffres */
+  border-radius: 9px; /* Forme de pilule */
+  background: var(--danger); /* Rouge */
+  color: #ffffff; /* Chiffre blanc */
+  font-size: 0.7rem; /* Petit texte */
+  font-weight: 700; /* Gras */
+  line-height: 18px; /* Chiffre centré */
+  text-align: center; /* Chiffre centré */
+} /* Fin des règles */
+
+.badge[hidden] {
+  /* Badge sans alerte */
+  display: none; /* Caché */
+} /* Fin des règles */

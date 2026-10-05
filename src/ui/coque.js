@@ -24,7 +24,7 @@ export function construireCoque(racine, onglets = ONGLETS) { // Racine et liste 
   const liens = onglets.map((onglet) => { // Fabrique un élément par onglet
     const corps = [icone(onglet.nomIcone, 26), h("span", {}, onglet.libelle)]; // Icône + texte
     if (!onglet.route) return h("span", { class: "onglet desactive", "aria-disabled": "true" }, ...corps); // Onglet grisé, non cliquable
-    return h("a", { class: "onglet", href: `#${onglet.route}`, "data-route": onglet.route }, ...corps); // Onglet cliquable
+    return h("a", { class: "onglet", href: `#${onglet.route}`, "data-route": onglet.route }, h("span", { class: "badge", hidden: true }), ...corps); // Onglet cliquable (avec un badge de comptage caché au départ)
   }); // Fin de la fabrication des onglets
   const barre = h("nav", { class: "barre-onglets", "aria-label": "Navigation principale" }, ...liens); // Barre du bas
   racine.replaceChildren(contenu, barre); // Place la zone de contenu puis la barre dans la page
@@ -38,5 +38,16 @@ export function construireCoque(racine, onglets = ONGLETS) { // Racine et liste 
     }); // Fin de la boucle
   }; // Fin de marquerActif
 
-  return { contenu, marquerActif }; // Renvoie ce dont le reste de l'application a besoin
+  // Affiche (ou cache si 0) un petit nombre rouge sur un onglet, par exemple le nombre d'alertes sur l'accueil.
+  const definirBadge = (route, nombre) => { // Reçoit la route de l'onglet et le nombre à afficher
+    const lien = barre.querySelector(`a.onglet[data-route="${route}"]`); // Retrouve l'onglet
+    if (!lien) return; // Onglet inconnu : rien à faire
+    const badge = lien.querySelector(".badge"); // Pastille de comptage
+    badge.textContent = nombre > 99 ? "99+" : String(nombre); // Texte du badge
+    badge.hidden = !(nombre > 0); // Caché quand il n'y a rien à signaler
+    const onglet = onglets.find((o) => o.route === route); // Description de l'onglet
+    lien.setAttribute("aria-label", nombre > 0 ? `${onglet.libelle}, ${nombre} alerte${nombre > 1 ? "s" : ""}` : onglet.libelle); // Annonce le nombre aux lecteurs d'écran
+  }; // Fin de definirBadge
+
+  return { contenu, marquerActif, definirBadge }; // Renvoie ce dont le reste de l'application a besoin
 } // Fin de construireCoque

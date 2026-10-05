@@ -27,12 +27,15 @@ export function tuile({ libelle, nomIcone, couleur, route = null }) { // Libell�
   return h("a", { class: "tuile apparition", href: `#${route}` }, ...contenu); // Tuile active : lien vers la route
 } // Fin de tuile
 
-// Bandeau d'alerte. Niveaux : ok, attention, danger, info.
-export function alerte({ niveau = "info", message }) { // Niveau et message
+// Bandeau d'alerte. Niveaux : ok, attention, danger, info. « action » (facultatif) : { libelle, route } = lien pour traiter l'alerte.
+export function alerte({ niveau = "info", message, action = null }) { // Niveau, message et action
   const nomIcone = { ok: "succes", attention: "attention", danger: "erreur", info: "info" }[niveau] ?? "info"; // Choisit l'icône selon le niveau
   return h("div", { class: `alerte alerte-${niveau} apparition`, role: niveau === "danger" ? "alert" : "status" }, // Bloc d'alerte (annoncé par les lecteurs d'écran)
     icone(nomIcone, 22), // Icône du niveau
-    h("span", {}, message), // Texte du message
+    h("div", { class: "alerte-corps" }, // Corps : message puis lien d'action
+      h("span", {}, message), // Texte du message
+      action ? h("a", { class: "alerte-action", href: `#${action.route}` }, action.libelle) : null, // Lien d'action éventuel
+    ), // Fin du corps
   ); // Fin de l'alerte
 } // Fin de alerte
 

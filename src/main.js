@@ -2,6 +2,7 @@ import { ouvrirBase } from "./platform/base.js"; // Ouvre la base (SQLite Androi
 import { appliquerMigrations } from "./core/db/migrations.js"; // Crée/met à jour les tables
 import { construireCoque } from "./ui/coque.js"; // Zone de contenu + barre d'onglets
 import { creerRouteur } from "./ui/routeur.js"; // Affichage de l'écran selon l'adresse
+import { calculerAlertes } from "./core/alertes.js"; // Alertes (pour le badge)
 import { afficherAccueil } from "./ui/ecrans/accueil.js"; // Écran d'accueil
 import { afficherReglages } from "./ui/ecrans/reglages.js"; // Écran des réglages
 import { afficherDiagnostic } from "./ui/ecrans/diagnostic.js"; // Écran de diagnostic
@@ -19,11 +20,14 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
   try { // Tente le démarrage normal
     const base = await ouvrirBase(); // Ouvre la base
     await appliquerMigrations(base); // Applique les migrations en attente
-    const { contenu, marquerActif } = construireCoque(racine); // Construit la coque (contenu + barre d'onglets)
+    const { contenu, marquerActif, definirBadge } = construireCoque(racine); // Construit la coque (contenu + barre d'onglets)
     const routeur = creerRouteur({ // Crée le routeur
       conteneur: contenu, // Zone où les écrans s'affichent
       parDefaut: "/", // Écran affiché si l'adresse est inconnue
-      auChangement: marquerActif, // Met à jour l'onglet actif à chaque changement d'écran
+      auChangement: async (chemin) => { // À chaque changement d'écran
+        marquerActif(chemin); // Met à jour l'onglet actif
+        try { definirBadge("/", (await calculerAlertes(base)).length); } catch { /* le badge est facultatif : une erreur ne doit pas gêner l'affichage */ } // Met à jour le nombre d'alertes sur l'onglet Accueil
+      }, // Fin du rappel
       routes: { // Liste des écrans
         "/": (zone) => afficherAccueil(zone, { base }), // Accueil
         "/budgets": (zone) => afficherBudgets(zone, { base }), // Liste des budgets

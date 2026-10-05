@@ -162,6 +162,13 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 
 Les alertes sont affichées **dans l'application uniquement** (bandeau/badge sur le tableau de bord).
 
+**Alertes (sprint 7)** — calculées par `src/core/alertes.js`, **sans aucune tolérance** (le moindre écart déclenche), affichées sur l'accueil avec un lien d'action chacune, et comptées dans un badge rouge sur l'onglet Accueil :
+1. **Écart de solde** (niveau danger) : libre à allouer < 0, c.-à-d. solde OM disponible < total réservé dans les budgets → « une dépense n'a peut-être pas été enregistrée » (action : enregistrer une dépense). Un libre **positif** n'est pas une alerte (c'est de l'argent encore à allouer).
+2. **Seuil d'alerte** (danger) : solde de la période en cours d'un budget **strictement inférieur** à `solde_alert` (action : allouer ce budget). Un budget non alloué sur la période ne déclenche rien ; un seuil à 0 ne déclenche jamais.
+3. **Plafond dépassé** (attention) : solde **strictement supérieur** à `montant_max`, avec l'excédent (action : transférer l'excédent).
+4. **Aucun solde OM saisi** (attention) : tant qu'aucun solde n'existe (action : saisir le solde).
+Ordre d'affichage : écart, seuils, plafonds, solde manquant.
+
 ## Fonctions Android
 
 - **Lecture des SMS OM** : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur Orange Money (nom à confirmer avec les exemples de SMS). Déclenchée à l'ouverture de l'app et par un bouton « Synchroniser ». Le parsing extrait : `trx_id`, montant, débit/crédit, solde après opération, date, code budget éventuel. Chaque SMS crée une `Transaction` (si `trx_id` pas déjà présent) et un `SoldeOM`. L'import est **idempotent** : le relancer ne crée jamais de doublons.

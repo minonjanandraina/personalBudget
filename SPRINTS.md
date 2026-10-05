@@ -55,7 +55,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : flux 1 à 3 de CLAUDE.md utilisable.
 
-## Sprint 5 — Allocations et transactions manuelles — EN COURS
+## Sprint 5 — Allocations et transactions manuelles ✅ TERMINÉ
 - Service d'allocation (période, transactions `debit_credit = 1`).
 - Saisie manuelle des transactions (génération du `trx_id`, `insert_type = manuel`).
 - Contrôles : dépense bloquée si solde du budget < dépense ; allocation refusée si solde après allocation < `montant_min`.
@@ -65,7 +65,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : allocation et dépenses manuelles avec blocages.
 
-## Sprint 6 — Réallocation de fin de période — EN COURS
+## Sprint 6 — Réallocation de fin de période ✅ TERMINÉ
 - Reliquat reporté au mois suivant (montant budget + reliquat, jamais tronqué).
 - Marquage « solde dépassant le plafond » + écran de réallocation manuelle.
 - Bouton d'allocation/réallocation, idempotent (relancer ne duplique pas).
@@ -74,9 +74,9 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : cycle mensuel complet déclenchable par bouton.
 
-## Sprint 7 — Alertes
-- Seuil min (`solde_alert`), plafond dépassé, écart solde OM vs transactions (aucune tolérance).
-- Affichage sur le tableau de bord (dans l'app uniquement).
+## Sprint 7 — Alertes — EN COURS
+- Seuil min (`solde_alert`), plafond dépassé, écart solde OM vs réservé (aucune tolérance), aucun solde OM saisi.
+- Affichage sur le tableau de bord (dans l'app uniquement), avec un lien d'action par alerte et un badge sur l'onglet Accueil.
 - Tests unitaires de chaque alerte.
 
 **Livrable** : flux 5 et 6 de CLAUDE.md opérationnels.
