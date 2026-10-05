@@ -11,22 +11,23 @@ import { listerTransactions } from "../../core/transactions.js"; // Liste des tr
 import { listerBudgets } from "../../core/budgets.js"; // Liste des budgets
 
 // Dessine la liste des transactions dans le conteneur, selon les filtres.
-async function dessinerListe(conteneur, base, { budgetId, sens }, recharger) { // Reçoit la zone, la base, les filtres et la fonction qui redessine la liste
+async function dessinerListe(conteneur, base, { budgetId, sens, nature }, recharger) { // Reçoit la zone, la base, les filtres et la fonction qui redessine la liste
   vider(conteneur); // Efface la liste précédente
-  const transactions = await listerTransactions(base, { budgetId, sens }); // Lit les transactions filtrées
+  const transactions = await listerTransactions(base, { budgetId, sens, nature }); // Lit les transactions filtrées
   if (transactions.length === 0) conteneur.append(alerte({ niveau: "info", message: "Aucune opération pour ces critères." })); // Message si la liste est vide
   for (const t of transactions) { // Pour chaque transaction
-    const entree = t.debitCredit === 1; // Alimentation (entrée d'argent dans le budget) ?
+    const entree = t.debitCredit === 1; // Entrée d'argent dans le budget ?
+    const genre = t.nature === "report" ? "Report" : t.nature === "transfert" ? "Transfert" : entree ? "Allocation" : "Dépense"; // Nature affichée
     conteneur.append(h("div", { class: "carte apparition visible" }, // Une carte par transaction
       h("div", { class: "ligne ligne-sans-carte" }, // Ligne du haut : texte et montant
       h("div", { class: "ligne-texte" }, // Bloc de texte
         h("div", { class: "ligne-titre" }, t.budgetName ?? "Non classée"), // Budget (ou « Non classée »)
-        h("div", { class: "ligne-detail" }, `${afficherDateHeure(t.dateOperation)} · ${entree ? "Allocation" : "Dépense"} · ${t.insertType === "auto" ? "SMS" : "manuel"}`), // Date, nature et origine
+        h("div", { class: "ligne-detail" }, `${afficherDateHeure(t.dateOperation)} · ${genre} · ${t.insertType === "auto" ? "SMS" : t.nature !== "normale" ? "automatique" : "manuel"}`), // Date, nature et origine
         t.note ? h("div", { class: "ligne-detail" }, t.note) : null, // Note éventuelle
       ), // Fin du bloc de texte
       h("div", { class: `ligne-montant ${entree ? "montant-plus" : "montant-moins"}` }, `${entree ? "+" : "−"}${formaterMontant(t.montant)}`), // Montant signé
       ), // Fin de la ligne du haut
-      t.insertType === "manuel" && t.allocationId !== null ? h("div", { class: "actions-ligne" }, // Seules les opérations manuelles rattachées à un budget sont modifiables
+      t.insertType === "manuel" && t.nature === "normale" && t.allocationId !== null ? h("div", { class: "actions-ligne" }, // Seules les saisies manuelles rattachées à un budget sont modifiables (pas les reports ni les transferts)
         boutonIcone({ nomIcone: "modifier", libelle: "Modifier cette opération", route: `/operations/${t.id}` }), // Bouton modifier
         boutonIcone({ nomIcone: "supprimer", libelle: "Supprimer cette opération", danger: true, auClic: async () => { // Bouton supprimer
           const ok = await confirmer({ titre: "Supprimer cette opération ?", message: `${entree ? "L'allocation" : "La dépense"} de ${formaterMontant(t.montant)} sera supprimée définitivement.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
@@ -48,15 +49,20 @@ async function dessinerListe(conteneur, base, { budgetId, sens }, recharger) { /
 export async function afficherOperations(zone, { base }) { // Reçoit la zone et la base
   const budgets = await listerBudgets(base); // Budgets (pour le filtre)
   const filtreBudget = choix({ id: "filtre-budget", libelle: "Budget", options: [{ valeur: "", libelle: "Tous les budgets" }, ...budgets.map((b) => ({ valeur: b.id, libelle: b.name }))] }); // Filtre par budget
-  const filtreSens = choix({ id: "filtre-sens", libelle: "Type", options: [{ valeur: "", libelle: "Toutes" }, { valeur: "-1", libelle: "Dépenses" }, { valeur: "1", libelle: "Allocations" }] }); // Filtre par sens
+  const filtreSens = choix({ id: "filtre-sens", libelle: "Type", options: [{ valeur: "", libelle: "Toutes" }, { valeur: "depense", libelle: "Dépenses" }, { valeur: "allocation", libelle: "Allocations" }, { valeur: "mouvements", libelle: "Reports et transferts" }] }); // Filtre par type d'opération
   const liste = h("div", { class: "liste-operations" }); // Zone de la liste
-  const recharger = () => dessinerListe(liste, base, { budgetId: filtreBudget.lire() === "" ? null : Number(filtreBudget.lire()), sens: filtreSens.lire() === "" ? null : Number(filtreSens.lire()) }, recharger); // Redessine la liste selon les filtres
+  const filtresChoisis = () => { // Traduit les choix des listes en filtres pour la requête
+    const type = filtreSens.lire(); // Type choisi
+    return { budgetId: filtreBudget.lire() === "" ? null : Number(filtreBudget.lire()), sens: type === "depense" ? -1 : type === "allocation" ? 1 : null, nature: type === "depense" || type === "allocation" ? "normale" : type === "mouvements" ? "mouvements" : null }; // Budget, sens et nature
+  }; // Fin de filtresChoisis
+  const recharger = () => dessinerListe(liste, base, filtresChoisis(), recharger); // Redessine la liste selon les filtres
   filtreBudget.element.querySelector("select").addEventListener("change", recharger); // Recharge quand le budget change
   filtreSens.element.querySelector("select").addEventListener("change", recharger); // Recharge quand le type change
   zone.append( // Assemble l'écran
     enteteEcran("Opérations", "Dépenses et allocations"), // En-tête
     boutonLien("Nouvelle dépense", "/operations/depense", "ajouter"), // Bouton de saisie d'une dépense
     h("div", { class: "espace-haut" }, boutonLien("Allouer un budget", "/allocations/nouveau", "allocations")), // Raccourci d'allocation
+    h("div", { class: "espace-haut" }, boutonLien("Transférer entre budgets", "/allocations/transfert", "transactions")), // Raccourci de transfert
     h("div", { class: "filtres espace-haut" }, filtreBudget.element, filtreSens.element), // Filtres
     liste, // Liste
   ); // Fin de l'assemblage

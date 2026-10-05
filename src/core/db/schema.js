@@ -92,4 +92,10 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       `CREATE INDEX idx_transactions_date ON transactions (date_operation)`, // Accélère le tri par date
     ], // Fin des instructions de la migration 2
   }, // Fin de la migration 2
+  { // Début de la migration 3 : nature des transactions (normale, report, transfert)
+    version: 3, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `ALTER TABLE transactions ADD COLUMN nature TEXT NOT NULL DEFAULT 'normale' CHECK (nature IN ('normale', 'report', 'transfert'))`, // « normale » = saisie de l'utilisateur ; « report » et « transfert » = mouvements générés par l'application (lecture seule)
+    ], // Fin des instructions de la migration 3
+  }, // Fin de la migration 3
 ]; // Fin de la liste des migrations

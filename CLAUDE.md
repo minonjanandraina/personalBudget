@@ -121,6 +121,7 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - `insert_date`
 - `date_operation` : date réelle de l'opération (ISO UTC) ; par défaut maintenant, modifiable pour une dépense passée ; pour un SMS, la date du SMS
 - `note` : libellé libre facultatif (200 caractères au plus)
+- `nature` : `normale` (saisie de l'utilisateur ou SMS), `report` ou `transfert` (mouvements générés par l'application, en **lecture seule**)
 - `insert_type` : `manuel` ou `auto` (auto = depuis SMS)
 - `debit_credit` : `-1` dépense, `1` alimentation du budget (lors de l'allocation)
 - `montant` : toujours > 0, le signe vient de `debit_credit`
@@ -138,6 +139,9 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - **Allocation** : crée (ou complète) l'allocation de la période en cours et une transaction `debit_credit = 1`. `montant_alloue` = total des alimentations de la période. Refusée si solde après allocation < `montant_min`. Un plafond dépassé est signalé, jamais tronqué.
 - **Dépense manuelle** : rangée dans l'allocation du budget dont la période contient la `date_operation` ; refusée s'il n'y en a pas, ou si le solde de cette période est inférieur au montant. Date future refusée (5 minutes de tolérance).
 - **Modification / suppression** (décidé au sprint 5) : possibles uniquement pour les opérations **manuelles** rattachées à un budget (jamais celles issues d'un SMS, laissées telles que reçues). On modifie le montant, la note et, pour une dépense, la date (une dépense peut ainsi changer de période). Garde-fou : le solde d'une période ne doit jamais devenir négatif (ni en réduisant une allocation, ni en la supprimant tant que des dépenses en dépendent). Supprimer la dernière opération d'une allocation supprime l'allocation vide : le budget redevient « non alloué ».
+- **Report du reliquat** (décidé au sprint 6) : « Lancer l'allocation de la période » (bouton, tous les budgets ; le lancement automatique du sprint 11 ne traitera que les budgets `autogen_fin_mois`). Pour chaque budget : (1) le solde positif de **chaque période terminée** est reporté sur la période en cours par **deux lignes visibles et en lecture seule** (`nature = report`) : une sortie sur l'ancienne période (qui retombe à 0) et une entrée sur la nouvelle ; (2) si le budget n'a pas d'allocation sur la période en cours et que `montant_budget` > 0, l'allocation mensuelle est créée (refusée si le solde final serait < `montant_min`) ; `montant_alloue` = total des entrées (reports + allocations). Un plafond dépassé est signalé, jamais tronqué. **Idempotent** : relancer ne crée rien (les anciennes périodes sont à 0). Une dépense ne peut plus être saisie sur une période dont le solde est à 0 ; si une dépense ancienne est supprimée, son montant réapparaît et sera reporté au prochain lancement.
+- **Réallocation manuelle = transfert entre deux budgets** pour la période en cours : sortie sur la source, entrée sur la destination (`nature = transfert`, lignes liées, lecture seule ; un transfert se défait par un transfert inverse). Refusé si la source n'a pas le solde, ou si le solde de la destination resterait sous son `montant_min`. Le formulaire propose l'excédent du plafond comme montant quand la source le dépasse.
+- Dans le résumé d'un budget, « dépensé » ne compte que les dépenses normales ; les transferts sortants sont affichés à part (« Transféré »).
 
 ## Flux fonctionnel
 

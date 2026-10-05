@@ -186,7 +186,7 @@ describe("dépenses et liste des opérations (écrans)", () => { // Saisie et li
     choisir("filtre-budget", String(a)); // Filtre sur A
     await vi.waitFor(() => expect(zone.querySelectorAll(".liste-operations .carte")).toHaveLength(1)); // Une seule
     expect(zone.querySelector(".liste-operations").textContent).toContain("10 000 Ar"); // C'est celle de A
-    choisir("filtre-sens", "-1"); // Filtre sur les dépenses
+    choisir("filtre-sens", "depense"); // Filtre sur les dépenses
     await vi.waitFor(() => expect(zone.querySelector(".liste-operations").textContent).toContain("Aucune opération")); // Aucune dépense pour A
   }); // Fin du cas
 

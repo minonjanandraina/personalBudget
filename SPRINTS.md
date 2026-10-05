@@ -65,7 +65,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : allocation et dépenses manuelles avec blocages.
 
-## Sprint 6 — Réallocation de fin de période
+## Sprint 6 — Réallocation de fin de période — EN COURS
 - Reliquat reporté au mois suivant (montant budget + reliquat, jamais tronqué).
 - Marquage « solde dépassant le plafond » + écran de réallocation manuelle.
 - Bouton d'allocation/réallocation, idempotent (relancer ne duplique pas).

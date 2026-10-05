@@ -82,3 +82,15 @@ describe("migration 2 (date de l'opération et note)", () => { // Groupe de test
     await expect(base.executer("INSERT INTO transactions (trx_id, allocation_id, insert_type, debit_credit, montant) VALUES ('Z', 999, 'manuel', 1, 10)")).rejects.toThrow(); // Allocation inexistante refusée
   }); // Fin du cas
 }); // Fin du groupe
+
+describe("migration 3 (nature des transactions)", () => { // Groupe de tests de la migration 3
+  it("donne la nature « normale » aux transactions existantes et refuse une nature inconnue", async () => { // Migration de données et contrainte
+    const base = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(base, MIGRATIONS.slice(0, 2)); // Versions 1 et 2 seulement
+    await base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant) VALUES ('ANCIEN', 'manuel', -1, 500)"); // Transaction de l'ancienne version
+    await appliquerMigrations(base); // Passe à la dernière version
+    expect((await base.requeter("SELECT nature FROM transactions"))[0].nature).toBe("normale"); // Nature par défaut
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, nature) VALUES ('X', 'manuel', 1, 1, 'bizarre')")).rejects.toThrow(); // Nature inconnue refusée
+    await expect(base.executer("INSERT INTO transactions (trx_id, insert_type, debit_credit, montant, nature) VALUES ('Y', 'manuel', 1, 1, 'report')")).resolves.toBeTruthy(); // « report » accepté
+  }); // Fin du cas
+}); // Fin du groupe

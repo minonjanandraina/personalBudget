@@ -8,7 +8,7 @@ import { afficherDiagnostic } from "./ui/ecrans/diagnostic.js"; // Écran de dia
 import { afficherTypes, afficherFormulaireType } from "./ui/ecrans/types-budget.js"; // Écrans des types de budget
 import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.js"; // Écrans des budgets
 import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde OM
-import { afficherAllocations, afficherFormulaireAllocation } from "./ui/ecrans/allocations.js"; // Écrans des allocations
+import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
@@ -32,6 +32,8 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/allocations": (zone) => afficherAllocations(zone, { base }), // Situation des budgets sur la période
         "/allocations/nouveau": (zone) => afficherFormulaireAllocation(zone, { base }), // Allocation d'un budget
         "/allocations/nouveau/:budgetId": (zone, ctx) => afficherFormulaireAllocation(zone, { base, params: ctx.params }), // Allocation d'un budget présélectionné
+        "/allocations/transfert": (zone) => afficherFormulaireTransfert(zone, { base }), // Transfert entre budgets
+        "/allocations/transfert/:sourceId": (zone, ctx) => afficherFormulaireTransfert(zone, { base, params: ctx.params }), // Transfert depuis un budget présélectionné
         "/operations": (zone) => afficherOperations(zone, { base }), // Liste des opérations
         "/operations/depense": (zone) => afficherFormulaireDepense(zone, { base }), // Saisie d'une dépense
         "/operations/:id": (zone, ctx) => afficherFormulaireOperation(zone, { base, params: ctx.params }), // Modification d'une opération

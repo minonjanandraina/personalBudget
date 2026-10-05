@@ -91,7 +91,8 @@ export async function resumeBudgets(base, aujourdhui = new Date()) { // Reçoit 
   const lignes = await base.requeter( // Allocations en cours avec leurs totaux
     `SELECT a.budget_id, a.id AS allocation_id, a.date_from, a.date_to,
        COALESCE(SUM(CASE WHEN t.debit_credit = 1 THEN t.montant END), 0) AS alimente,
-       COALESCE(SUM(CASE WHEN t.debit_credit = -1 THEN t.montant END), 0) AS depense
+       COALESCE(SUM(CASE WHEN t.debit_credit = -1 AND t.nature = 'normale' THEN t.montant END), 0) AS depense,
+       COALESCE(SUM(CASE WHEN t.debit_credit = -1 AND t.nature <> 'normale' THEN t.montant END), 0) AS sorties
      FROM allocation_budget a LEFT JOIN transactions t ON t.allocation_id = a.id
      WHERE a.date_from <= ? AND a.date_to >= ? GROUP BY a.id`, // Totaux par allocation en cours
     [jour, jour], // Jour courant
@@ -100,10 +101,10 @@ export async function resumeBudgets(base, aujourdhui = new Date()) { // Reçoit 
   return budgets.map((b) => { // Pour chaque budget
     const l = parBudget.get(b.id); // Son allocation en cours (ou rien)
     if (!l) return { budget: b, allocation: null, depassePlafond: false, sousSeuil: false }; // Pas d'allocation en cours
-    const alimente = Number(l.alimente); const depense = Number(l.depense); const solde = alimente - depense; // Totaux et solde
+    const alimente = Number(l.alimente); const depense = Number(l.depense); const sorties = Number(l.sorties); const solde = alimente - depense - sorties; // Totaux et solde (sorties = transferts et reports vers d'autres budgets ou périodes)
     return { // Résumé complet
       budget: b, // Le budget
-      allocation: { id: Number(l.allocation_id), dateFrom: l.date_from, dateTo: l.date_to, alimente, depense, solde }, // L'allocation en cours
+      allocation: { id: Number(l.allocation_id), dateFrom: l.date_from, dateTo: l.date_to, alimente, depense, sorties, solde }, // L'allocation en cours
       depassePlafond: solde > b.montantMax, // Solde au-dessus du plafond
       sousSeuil: solde < b.soldeAlert, // Solde sous le seuil d'alerte
     }; // Fin du résumé
@@ -121,12 +122,12 @@ export function libellePeriode({ dateFrom, dateTo }) { // Reçoit la période
 // Lit une transaction avec son budget (null si elle n'existe pas).
 async function lireOperation(base, id) { // Reçoit la base et l'identifiant
   const lignes = await base.requeter( // Lit la transaction et le budget de son allocation
-    "SELECT t.id, t.allocation_id, t.insert_type, t.debit_credit, t.montant, t.date_operation, t.note, a.budget_id FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id WHERE t.id = ?", // Jointure transaction + allocation
+    "SELECT t.id, t.allocation_id, t.insert_type, t.debit_credit, t.montant, t.date_operation, t.note, t.nature, a.budget_id FROM transactions t LEFT JOIN allocation_budget a ON a.id = t.allocation_id WHERE t.id = ?", // Jointure transaction + allocation
     [id], // Identifiant
   ); // Fin de la lecture
   if (lignes.length === 0) return null; // Transaction introuvable
   const l = lignes[0]; // Ligne trouvée
-  return { id: Number(l.id), allocationId: l.allocation_id === null ? null : Number(l.allocation_id), insertType: l.insert_type, debitCredit: Number(l.debit_credit), montant: Number(l.montant), dateOperation: l.date_operation, note: l.note, budgetId: l.budget_id === null ? null : Number(l.budget_id) }; // Objet transaction
+  return { id: Number(l.id), allocationId: l.allocation_id === null ? null : Number(l.allocation_id), insertType: l.insert_type, debitCredit: Number(l.debit_credit), montant: Number(l.montant), dateOperation: l.date_operation, note: l.note, nature: l.nature, budgetId: l.budget_id === null ? null : Number(l.budget_id) }; // Objet transaction
 } // Fin de lireOperation
 
 // Vérifie qu'une opération existe et peut être modifiée ou supprimée ; renvoie l'opération.
@@ -134,6 +135,7 @@ async function operationModifiable(base, id) { // Reçoit la base et l'identifia
   const operation = await lireOperation(base, id); // Lit l'opération
   if (!operation) throw new ErreurMetier("Cette opération n'existe plus."); // Introuvable
   if (operation.insertType !== "manuel") throw new ErreurMetier("Une opération issue d'un SMS ne peut pas être modifiée ni supprimée."); // Les opérations venant d'un SMS restent telles que reçues
+  if (operation.nature !== "normale") throw new ErreurMetier("Un report ou un transfert est généré par l'application : il ne peut pas être modifié ni supprimé."); // Mouvements automatiques en lecture seule (un transfert se défait par un transfert inverse)
   if (operation.allocationId === null) throw new ErreurMetier("Cette opération n'est rattachée à aucun budget."); // Cas non classé : traité plus tard
   return operation; // Opération modifiable
 } // Fin de operationModifiable
