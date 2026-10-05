@@ -47,7 +47,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : navigation fluide sur le navigateur et sur le téléphone.
 
-## Sprint 4 — Solde OM, types de budget, budgets, paramètres — EN COURS
+## Sprint 4 — Solde OM, types de budget, budgets, paramètres ✅ TERMINÉ
 - Saisie manuelle du solde initial OM et historique.
 - Création, modification, suppression des types et des budgets (suppression refusée si utilisé).
 - Écran paramètres : jour de lancement de l'allocation (1 à 28).
@@ -55,7 +55,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : flux 1 à 3 de CLAUDE.md utilisable.
 
-## Sprint 5 — Allocations et transactions manuelles
+## Sprint 5 — Allocations et transactions manuelles — EN COURS
 - Service d'allocation (période, transactions `debit_credit = 1`).
 - Saisie manuelle des transactions (génération du `trx_id`, `insert_type = manuel`).
 - Contrôles : dépense bloquée si solde du budget < dépense ; allocation refusée si solde après allocation < `montant_min`.
