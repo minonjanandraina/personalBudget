@@ -79,5 +79,7 @@ export async function listerBudgets(base) { // Reçoit la base
 export async function supprimerBudget(base, id) { // Reçoit la base et l'identifiant
   const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM allocation_budget WHERE budget_id = ?", [id]); // Compte ses allocations
   if (Number(n) > 0) throw new ErreurMetier(`Suppression impossible : ce budget a ${Number(n)} allocation(s).`); // Refuse avec un message clair
+  const [{ nbOperations }] = await base.requeter("SELECT COUNT(*) AS nbOperations FROM operation_ussd WHERE budget_id = ?", [id]); // Opérations USSD qui débitent ce budget
+  if (Number(nbOperations) > 0) throw new ErreurMetier(`Suppression impossible : ${Number(nbOperations)} opération(s) USSD débitent ce budget.`); // Refuse avec un message clair
   await base.executer("DELETE FROM budget WHERE id = ?", [id]); // Supprime le budget
 } // Fin de supprimerBudget

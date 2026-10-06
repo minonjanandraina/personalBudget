@@ -7,6 +7,7 @@ import { creerTransaction } from "./transactions.js"; // Création des transacti
 import { lireBudget } from "./budgets.js"; // Lecture d'un budget
 import { allocationCouvrant, soldeAllocation } from "./allocations.js"; // Allocation d'une période et son solde
 import { lireMeta, ecrireMeta } from "./meta.js"; // Réglages de fonctionnement
+import { rapprocherEnAttente } from "./ussd-en-attente.js"; // Opérations USSD en attente de leur SMS (classement automatique)
 
 export const EXPEDITEUR_PAR_DEFAUT = "OrangeMoney"; // Nom de l'expéditeur des SMS Orange Money (réglable dans l'écran SMS)
 const CLE_EXPEDITEUR = "sms_expediteur"; // Clé du réglage
@@ -32,7 +33,7 @@ export async function dateDepartImport(base) { // Reçoit la base
 
 // Importe des SMS lus sur le téléphone : messages = [{ corps, date }] (date ISO). Idempotent : relancer ne crée aucun doublon.
 // Renvoie { importes, doublons, anciens, illisibles, ignores } (nombres de SMS dans chaque cas).
-export async function importerSms(base, messages) { // Reçoit la base et les messages
+export async function importerSms(base, messages, maintenant = new Date()) { // Reçoit la base, les messages et l'heure (modifiable pour les tests)
   const depart = await dateDepartImport(base); // Date de départ de l'import
   if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Orange Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
   const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 0 }; // Compteurs (« ignores » : SMS d'épargne, de prêt crédité ou de dépôt, volontairement sans transaction)
@@ -67,6 +68,7 @@ export async function importerSms(base, messages) { // Reçoit la base et les me
       bilan.importes += 1; // Une opération de plus
     } // Fin de la boucle
   }); // Fin de la transaction
+  try { await rapprocherEnAttente(base, maintenant); } catch { /* le rapprochement ne doit jamais faire échouer l'import : les dépenses restent « à classer » */ } // Classe seules les dépenses des opérations USSD envoyées
   return bilan; // Résultat
 } // Fin de importerSms
 

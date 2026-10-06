@@ -110,7 +110,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : solde OM vérifiable à la demande.
 
-## Sprint 11 — Planification et sécurité — EN COURS (code livré, vérification sur téléphone à faire)
+## Sprint 11 — Planification et sécurité ✅ TERMINÉ (code livré ; vérification sur téléphone à faire)
 - **Allocation automatique à l'ouverture** (décidé : à l'ouverture seulement, pas en arrière-plan) : `src/core/allocation-auto.js` lance `lancerAllocationPeriode(..., { seulementAuto: true })` à l'ouverture et à chaque retour sur l'application. Idempotent (relancer ne change rien) ; si le jour J est passé sans ouverture, la période manquée est rattrapée (avec report des reliquats). Tout ou rien pour l'argent frais : sans solde OM ou si le libre à allouer est insuffisant, rien n'est écrit et un message explique pourquoi. Un budget automatique créé en cours de période est alloué à la prochaine ouverture.
 - **Verrouillage par PIN** (décidé : oui) : écran « Réglages > Verrouillage par PIN » (activer, changer, désactiver). PIN de 4 à 8 chiffres, gardé sous forme d'**empreinte salée** (SHA-256 répété 10 000 fois), jamais en clair, dans la table `meta` (clés `verrou_*`, absentes de la sauvegarde JSON ; **conservées** lors d'une restauration). Demandé au démarrage et au retour sur l'application après plus d'une minute (fenêtre plein écran). C'est un verrou d'accès à l'écran : la base n'est pas chiffrée.
 - **Essais** (décidé : attente croissante) : 4 échecs libres, puis blocage de 30 s (5e échec), 1 min (6e), 5 min (7e), 30 min (8e et suivants). Jamais d'effacement des données. Le compteur est commun au PIN et au code de secours.
@@ -118,6 +118,22 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 - **Revue des permissions** : `READ_SMS` (lecture des SMS OM), `RECEIVE_SMS` (notification), `POST_NOTIFICATIONS` (notification, Android 13+), `CALL_PHONE` (USSD) — toutes utilisées. `READ_PHONE_STATE` **retirée** (inutile pour `sendUssdRequest`, seul `CALL_PHONE` est requis). `INTERNET` (ajoutée par défaut par Capacitor) : **à décider** — l'application n'a besoin d'aucun réseau ; la retirer rendrait « 100 % hors ligne » vrai au niveau d'Android, mais ne peut se vérifier que sur le téléphone.
 
 **Livrable** : les allocations du mois se font toutes seules à l'ouverture et l'application est protégée par un PIN (mise à jour des **données** ; la mise à jour de l'**application** est le sprint 14).
+
+
+## Sprint 11 suite — Opérations USSD dynamiques ✅ TERMINÉ (code livré ; vérification sur téléphone à faire)
+Demande du propriétaire (conservée) :
+- Je veux des opérations dynamiques, cad que je veux avoir la possibilité de creer une opération qui est possible d'etre une opération de credit(alimentation de compte) de débit(dépense) assigné a un code ussd et un budget à débiter :
+  1. création de l'opération dans paramètres, spécifier type (opération in ou out), code ussd. Ex. « Opération de retrait Orange Money » : `#144*8*8*Numéro téléphone*PIN#` ; « Opération de paiement marchand » : `#144*6*1*Numéro téléphone*PIN#`.
+  2. faire une opération : clic sur l'opération → saisie du numéro de téléphone → validation par PIN (PIN de l'application) → envoi.
+
+Décisions (chat) :
+- **PIN** : le PIN de **verrouillage de l'application** autorise l'envoi (le verrouillage doit être activé, sinon l'envoi est refusé avec un lien d'activation) ; le **PIN Orange Money** (enregistré chiffré, sprint 10) remplace `{pin}` dans le code **côté Android** : il ne passe jamais par JavaScript.
+- **Montant** : variables dans le code — `{numero}`, `{montant}`, `{pin}`, ex. `#144*8*8*{numero}*{montant}*{pin}#`. Une sortie doit contenir `{montant}` (il sert à débiter le budget).
+- **Enregistrement** : à l'envoi d'une sortie, rien n'est écrit dans le budget ; l'envoi est « en attente ». Quand le SMS de confirmation est importé (même montant, frais exclus ou compris, reçu moins de 24 h après l'envoi), la dépense est **classée automatiquement** dans le budget de l'opération (mêmes contrôles qu'une dépense manuelle ; si refusé, elle reste « à classer » et l'échec est expliqué). Sans SMS sous 24 h : abandonnée ; annulation manuelle possible.
+- **Entrée** : le code est seulement envoyé (le solde OM se met à jour par SMS ou consultation).
+
+Réalisé : migration 6 (tables `operation_ussd`, `ussd_en_attente`, incluses dans la sauvegarde JSON) ; `src/core/operations-ussd.js` et `ussd-en-attente.js` ; plugin Kotlin `envoyerCode` (liste blanche : chiffres, `*`, `#`, `{pin}`) ; écrans « Opérations USSD » (tuile d'accueil) : liste + envois récents, création/modification, lancement avec confirmation (code affiché PIN masqué). Un budget utilisé par un modèle ne peut pas être supprimé.
+**Limite connue** : l'API Android n'envoie qu'**une** requête USSD par appel. Si Orange Money répond par un menu demandant une confirmation (« 1 pour confirmer »), l'application ne peut pas répondre ; à vérifier sur le téléphone avec un vrai retrait.
 
 ## Sprint 12 — Finition
 - Polissage mobile : états vides, messages d'erreur, accessibilité, performances sur téléphone modeste.

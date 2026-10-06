@@ -20,6 +20,7 @@ import { afficherToast } from "./ui/messages.js"; // Notifications
 import { afficherReglageVerrou, demanderDeverrouillage, DELAI_VERROU_MS } from "./ui/ecrans/verrou.js"; // Verrouillage par PIN
 import { verrouActif } from "./core/verrou.js"; // Le verrouillage est-il activé ?
 import { allocationAutomatique } from "./core/allocation-auto.js"; // Allocation automatique à l'ouverture
+import { afficherOperationsUssd, afficherFormulaireOperationUssd, afficherLancerOperationUssd } from "./ui/ecrans/operations-ussd.js"; // Opérations USSD dynamiques
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
 const racine = document.getElementById("app"); // Zone vide définie dans index.html
@@ -60,6 +61,10 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/diagnostic": (zone) => afficherDiagnostic(zone, { base }), // Diagnostic
         "/sauvegarde": (zone) => afficherSauvegarde(zone, { base }), // Sauvegarde et restauration
         "/verrou": (zone) => afficherReglageVerrou(zone, { base }), // Verrouillage par PIN
+        "/operations-ussd": (zone) => afficherOperationsUssd(zone, { base }), // Liste des opérations USSD
+        "/operations-ussd/nouveau": (zone) => afficherFormulaireOperationUssd(zone, { base }), // Création d'une opération USSD
+        "/operations-ussd/lancer/:id": (zone, ctx) => afficherLancerOperationUssd(zone, { base, params: ctx.params }), // Lancement d'une opération USSD
+        "/operations-ussd/:id": (zone, ctx) => afficherFormulaireOperationUssd(zone, { base, params: ctx.params }), // Modification d'une opération USSD
         "/ussd": (zone) => afficherUssd(zone, { base }), // Consultation du solde par USSD
         "/sms": (zone) => afficherSms(zone, { base }), // SMS Orange Money
         "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS

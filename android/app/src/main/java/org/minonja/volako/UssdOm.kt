@@ -14,8 +14,13 @@ object UssdOm { // Objet unique
     // Texte du code USSD pour un PIN donné.
     fun code(pin: String): String = "#144*5*3*$pin*#" // Modèle du code (seul endroit à corriger si le format change)
 
-    // Envoie l'USSD. « fin(reussi, texte) » est appelée UNE fois : texte de la réponse, ou message d'erreur.
+    // Consulte le solde : envoie le code de consultation avec le PIN.
     fun interroger(contexte: Context, pin: String, fin: (Boolean, String) -> Unit) { // Reçoit le contexte, le PIN et la fonction appelée à la fin
+        envoyer(contexte, code(pin), fin) // Envoie le code de consultation
+    } // Fin de interroger
+
+    // Envoie un code USSD quelconque. « fin(reussi, texte) » est appelée UNE fois : texte de la réponse, ou message d'erreur.
+    fun envoyer(contexte: Context, codeUssd: String, fin: (Boolean, String) -> Unit) { // Reçoit le contexte, le code complet et la fonction appelée à la fin
         if (contexte.checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) { // Permission d'appel absente
             fin(false, "Permission « téléphone » non accordée") // Erreur
             return // Arrête ici
@@ -23,7 +28,7 @@ object UssdOm { // Objet unique
         val telephonie = contexte.getSystemService(TelephonyManager::class.java) // API téléphonie
         try { // Tente l'envoi
             telephonie.sendUssdRequest( // Envoie la demande USSD
-                code(pin), // Texte du code
+                codeUssd, // Texte du code
                 object : TelephonyManager.UssdResponseCallback() { // Reçoit la réponse du réseau
                     override fun onReceiveUssdResponse(tm: TelephonyManager, requete: String, reponse: CharSequence) { // Réponse reçue
                         fin(true, reponse.toString()) // Transmet le texte de la réponse
@@ -37,5 +42,5 @@ object UssdOm { // Objet unique
         } catch (erreur: Exception) { // Si Android refuse l'envoi
             fin(false, "Envoi USSD impossible : " + (erreur.message ?: "erreur inconnue")) // Transmet l'erreur
         } // Fin du try/catch
-    } // Fin de interroger
+    } // Fin de envoyer
 } // Fin de l'objet

@@ -117,4 +117,32 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       )`, // Fin de la table sms_illisible
     ], // Fin des instructions de la migration 5
   }, // Fin de la migration 5
+  { // Début de la migration 6 : opérations USSD dynamiques et leur attente de confirmation par SMS
+    version: 6, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `CREATE TABLE operation_ussd ( -- Modèle d'opération lancée par un code USSD (retrait, paiement…)
+        id INTEGER PRIMARY KEY AUTOINCREMENT, -- Identifiant automatique
+        nom TEXT NOT NULL UNIQUE CHECK (length(trim(nom)) BETWEEN 1 AND 60), -- Nom affiché, unique
+        type TEXT NOT NULL CHECK (type IN ('sortie', 'entree')), -- Sortie = dépense d'un budget ; entrée = argent reçu
+        code TEXT NOT NULL CHECK (length(code) BETWEEN 3 AND 100), -- Code USSD avec variables {numero}, {montant}, {pin}
+        budget_id INTEGER REFERENCES budget (id) ON DELETE RESTRICT, -- Budget débité (obligatoire pour une sortie)
+        insert_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), -- Date d'insertion automatique
+        CHECK ((type = 'sortie' AND budget_id IS NOT NULL) OR (type = 'entree' AND budget_id IS NULL)) -- Une sortie a un budget, pas une entrée
+      )`, // Fin de la table operation_ussd
+      `CREATE TABLE ussd_en_attente ( -- Opération USSD envoyée, en attente du SMS de confirmation qui sera classé dans le budget
+        id INTEGER PRIMARY KEY AUTOINCREMENT, -- Identifiant automatique
+        operation_id INTEGER REFERENCES operation_ussd (id) ON DELETE SET NULL, -- Modèle utilisé (peut disparaître ensuite)
+        operation_nom TEXT NOT NULL, -- Nom du modèle au moment de l'envoi
+        numero TEXT, -- Numéro de téléphone utilisé (facultatif)
+        montant INTEGER NOT NULL CHECK (typeof(montant) = 'integer' AND montant > 0), -- Montant demandé, entier
+        budget_id INTEGER NOT NULL REFERENCES budget (id) ON DELETE CASCADE, -- Budget à débiter
+        date_envoi TEXT NOT NULL, -- Instant d'envoi (ISO UTC)
+        reponse TEXT, -- Réponse affichée par Orange Money
+        statut TEXT NOT NULL DEFAULT 'en_attente' CHECK (statut IN ('en_attente', 'classee', 'echec', 'expiree', 'annulee')), -- État
+        raison TEXT, -- Explication en cas d'échec
+        transaction_id INTEGER REFERENCES transactions (id) ON DELETE SET NULL, -- Dépense classée grâce à cette opération
+        insert_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) -- Date d'insertion automatique
+      )`, // Fin de la table ussd_en_attente
+    ], // Fin des instructions de la migration 6
+  }, // Fin de la migration 6
 ]; // Fin de la liste des migrations

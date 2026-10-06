@@ -38,6 +38,22 @@ class UssdOmPlugin : Plugin() { // Début de la classe
         } // Fin de l'envoi
     } // Fin de consulterSolde
 
+    @PluginMethod // Envoie un code USSD préparé par l'application (opérations dynamiques) ; « {pin} » est remplacé ICI par le PIN Orange Money
+    fun envoyerCode(appel: PluginCall) { // Reçoit « code »
+        val modele = appel.getString("code") // Code avec éventuellement « {pin} »
+        if (modele == null || !Regex("^[#*](?:[0-9*#]|\\{pin\\}){1,98}$").matches(modele) || !modele.endsWith("#")) { appel.reject("Code USSD invalide."); return } // Seuls chiffres, *, # et {pin} sont acceptés
+        if (getPermissionState("ussd") != PermissionState.GRANTED) { appel.reject("Permission « téléphone » non accordée."); return } // Permission absente
+        var code = modele // Code final
+        if (modele.contains("{pin}")) { // Le code a besoin du PIN Orange Money
+            val pin = CoffrePin.lire(context) // PIN déchiffré (il ne repasse jamais par la partie web)
+            if (pin == null) { appel.reject("Aucun PIN Orange Money enregistré."); return } // Pas de PIN
+            code = modele.replace("{pin}", pin) // Insère le PIN
+        } // Fin du cas {pin}
+        UssdOm.envoyer(context, code) { reussi, texte -> // Envoie ; la fonction est appelée à la réponse
+            if (reussi) { val r = JSObject(); r.put("texte", texte); appel.resolve(r) } else appel.reject(texte) // Renvoie le texte ou l'erreur
+        } // Fin de l'envoi
+    } // Fin de envoyerCode
+
     @PluginMethod // Active ou arrête la consultation toutes les heures en arrière-plan
     fun programmerAuto(appel: PluginCall) { // Reçoit « actif »
         if (appel.getBoolean("actif") == true) { // Activation

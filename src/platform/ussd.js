@@ -53,3 +53,10 @@ export async function recupererReponses() { // Aucun paramètre
   if (!natif()) return { reponses: [], arret: null }; // Navigateur : jamais d'arrière-plan
   try { return await UssdOm.recupererReponses(); } catch { return { reponses: [], arret: null }; } // Android (silencieux en cas de problème)
 } // Fin de recupererReponses
+
+// Envoie un code USSD préparé par l'application (opérations dynamiques). « {pin} » reste tel quel : il est remplacé côté Android par le PIN Orange Money (chiffré).
+// Renvoie le texte de la réponse d'Orange Money.
+export async function envoyerCode(code) { // Reçoit le code, avec éventuellement {pin}
+  if (!natif()) return `Simulation : le code ${String(code).replaceAll("{pin}", "••••")} serait envoyé sur le téléphone.`; // Navigateur : rien n'est envoyé
+  try { return (await UssdOm.envoyerCode({ code })).texte; } catch (e) { throw new ErreurMetier(e?.message ?? "Envoi impossible."); } // Android
+} // Fin de envoyerCode

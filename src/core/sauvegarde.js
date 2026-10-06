@@ -13,9 +13,9 @@ const CLE_COPIE_AVANT = "copie_avant_restauration"; // Clé : copie de sécurit�
 const CLE_DATE_COPIE_AVANT = "date_copie_avant_restauration"; // Clé : date de cette copie
 
 // Tables de données, dans l'ordre où on les remplit (une table ne dépend que de celles qui la précèdent).
-const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job", "sms_illisible"]; // Ordre d'insertion
-const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "sms_illisible"]; // Tables dont la numérotation ne revient jamais en arrière
-const TABLE_DEPUIS_VERSION = { sms_illisible: 5 }; // Version du schéma qui a créé la table (les autres existent depuis la version 1)
+const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job", "sms_illisible", "operation_ussd", "ussd_en_attente"]; // Ordre d'insertion
+const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "sms_illisible", "operation_ussd", "ussd_en_attente"]; // Tables dont la numérotation ne revient jamais en arrière
+const TABLE_DEPUIS_VERSION = { sms_illisible: 5, operation_ussd: 6, ussd_en_attente: 6 }; // Version du schéma qui a créé la table (les autres existent depuis la version 1)
 
 // Tables qu'une sauvegarde faite à cette version du schéma doit contenir (une ancienne sauvegarde n'a pas les tables récentes).
 function tablesDeLaVersion(versionSchema) { // Reçoit la version du schéma
