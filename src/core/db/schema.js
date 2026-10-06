@@ -104,4 +104,17 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       `ALTER TABLE transactions ADD COLUMN comprise_dans_solde INTEGER NOT NULL DEFAULT 0 CHECK (comprise_dans_solde IN (0, 1))`, // 1 = dépense oubliée, déjà retirée du solde OM réel saisi ensuite : elle ne doit pas être retirée une seconde fois du solde disponible
     ], // Fin des instructions de la migration 4
   }, // Fin de la migration 4
+  { // Début de la migration 5 : SMS Orange Money non compris (à revoir par l'utilisateur)
+    version: 5, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `CREATE TABLE sms_illisible ( -- SMS Orange Money que l'application n'a pas compris
+        id INTEGER PRIMARY KEY AUTOINCREMENT, -- Identifiant automatique
+        date_sms TEXT NOT NULL, -- Date de réception du SMS (ISO UTC)
+        texte TEXT NOT NULL, -- Texte du SMS
+        ignore INTEGER NOT NULL DEFAULT 0 CHECK (ignore IN (0, 1)), -- 1 = l'utilisateur a choisi de l'ignorer
+        insert_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), -- Date d'insertion automatique
+        UNIQUE (date_sms, texte) -- Un même SMS n'est listé qu'une fois (import répétable sans doublon)
+      )`, // Fin de la table sms_illisible
+    ], // Fin des instructions de la migration 5
+  }, // Fin de la migration 5
 ]; // Fin de la liste des migrations

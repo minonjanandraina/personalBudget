@@ -1,8 +1,14 @@
 apply plugin: 'com.android.application'
+// Active le Kotlin (le plugin SMS est écrit en Kotlin)
+apply plugin: 'kotlin-android'
 
 android {
     namespace "org.minonja.volako"
     compileSdk rootProject.ext.compileSdkVersion
+    // Le Kotlin est compilé pour Java 21, comme le reste de l'application
+    kotlinOptions {
+        jvmTarget = '21'
+    }
     defaultConfig {
         applicationId "org.minonja.volako"
         minSdkVersion rootProject.ext.minSdkVersion

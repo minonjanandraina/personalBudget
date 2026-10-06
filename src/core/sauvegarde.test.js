@@ -266,3 +266,25 @@ describe("annulation de la dernière restauration", () => { // Copie de sécurit
     expect(await dateCopieAvantRestauration(cible)).toBe(SEPTEMBRE.toISOString()); // La copie de la première restauration est conservée
   }); // Fin du cas
 }); // Fin du groupe
+
+describe("SMS non compris (table ajoutée à la version 5)", () => { // Nouvelle table de la migration 5
+  it("sauvegarde et restaure les SMS non compris, avec leur état « ignoré »", async () => { // Aller-retour
+    const source = await creerBaseDeTest(); // Base source
+    await source.executer("INSERT INTO sms_illisible (date_sms, texte, ignore) VALUES ('2026-10-05T10:00:00.000Z', 'Promo', 1)"); // Un SMS ignoré
+    const s = await creerSauvegarde(source); // Sauvegarde
+    expect(s.tables.sms_illisible).toHaveLength(1); // La table est dans le fichier
+    const cible = await creerBaseDeTest(); // Autre base
+    await restaurerSauvegarde(cible, JSON.stringify(s)); // Restaure
+    expect(await cible.requeter("SELECT texte, ignore FROM sms_illisible")).toEqual([{ texte: "Promo", ignore: 1 }]); // Retrouvé tel quel
+  }); // Fin du cas
+
+  it("accepte une sauvegarde de la version 4 (sans cette table)", async () => { // Ancienne sauvegarde
+    const ancienne = await ouvrirBaseSqlJs(); // Base vide
+    await appliquerMigrations(ancienne, MIGRATIONS.filter((m) => m.version <= 4)); // Schéma version 4
+    const s = await creerSauvegarde(ancienne); // Sauvegarde sans sms_illisible
+    expect(s.tables.sms_illisible).toBeUndefined(); // Absente du fichier
+    const cible = await creerBaseDeTest(); // Base à jour
+    await restaurerSauvegarde(cible, JSON.stringify(s)); // Restaure sans erreur
+    expect(await cible.requeter("SELECT COUNT(*) AS n FROM sms_illisible")).toEqual([{ n: 0 }]); // La table existe, vide (recréée par la migration 5)
+  }); // Fin du cas
+}); // Fin du groupe

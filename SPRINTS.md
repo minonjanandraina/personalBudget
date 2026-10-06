@@ -1,13 +1,13 @@
 # Plan de sprints — Gestion de Budget (application Android)
 
 Référence fonctionnelle : [CLAUDE.md](CLAUDE.md). Technologie : JavaScript + Capacitor, plugin Kotlin pour SMS/USSD, APK construit par GitHub Actions.
-Statuts : à faire · EN COURS · ✅ TERMINÉ.
+Statuts : à faire · EN COURS · EN ATTENTE (pending) · ✅ TERMINÉ.
 
 Règles pour tous les sprints : un commentaire en français sur chaque ligne de code ; logique métier dans `src/core/` avec tests Vitest ; chaque sprint finit par une démo (navigateur et/ou APK) et des tests verts.
 
 Dépendances externes :
-- Exemples de SMS Orange Money → avant le sprint 9.
-- Code USSD de consultation du solde → avant le sprint 10.
+- Exemples de SMS Orange Money → reçus (sprint 9) ; il manque encore un exemple de SMS de **crédit** (argent reçu).
+- Code USSD de consultation du solde → reçu : `#144*5*3*PIN*` (sprint 10).
 - Réponse sur Node.js sur le poste de dev → avant le sprint 0.
 
 Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [legacy_django/](legacy_django/) et sert de référence pour les règles métier.
@@ -81,23 +81,26 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : flux 5 et 6 de CLAUDE.md opérationnels.
 
-## Sprint 8 — Sauvegarde et restauration — EN COURS
+## Sprint 8 — Sauvegarde et restauration — EN ATTENTE (pending : ne fonctionne pas sur le téléphone, à reprendre plus tard)
 - Sauvegarde en fichier JSON daté `volako_AAAA-MM-JJ_HH-MM-SS.json` (copie cohérente, empreinte SHA-256), envoyée par la fenêtre de partage du téléphone (Google Drive…).
 - Restauration depuis un fichier choisi : vérification du fichier, confirmation avec le détail, tout ou rien, copie de sécurité et annulation possible.
 - Test réel : désinstallation/réinstallation puis restauration.
 
 **Livrable** : les données ne sont plus perdues en cas de changement de clé ou de téléphone.
 
-## Sprint 9 — Lecture et import des SMS Orange Money *(dépend des exemples de SMS)*
-- Plugin Kotlin : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM.
-- Parser (JavaScript, `core`) : `trx_id`, montant, débit/crédit, solde après opération, date, code budget.
-- Import à l'ouverture et par bouton « Synchroniser » ; idempotent via `trx_id` ; création Transaction (champ `sms` rempli) + SoldeOM.
-- Transactions sans code reconnu → « non classées » + écran d'affectation manuelle ; SMS illisibles listés pour revue.
-- Version simulée (fichier de SMS d'exemple) pour le navigateur ; tests du parsing sur les SMS réels anonymisés.
+## Sprint 9 — Lecture et import des SMS Orange Money — EN COURS (code livré, vérification sur téléphone à faire)
+- Plugin Kotlin (`SmsOmPlugin.kt`) : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM (réglable dans l'écran SMS).
+- Parser (JavaScript, `core`) : `trx_id`, montant, frais, solde après opération, type. **Les SMS ne contiennent pas le budget** (le « motif » n'est pas celui saisi par l'utilisateur) : aucune classification automatique, toute transaction SMS arrive « non classée ». Un SMS « virement vers l'épargne » n'a pas de solde OM.
+- Import à l'ouverture (si la permission est déjà accordée) et par bouton « Synchroniser » ; idempotent via `trx_id` ; création Transaction (champ `sms` rempli, montant = total débité, frais compris) + SoldeOM (centimes arrondis à l'entier inférieur). Seuls les SMS postérieurs au solde initial saisi sont importés.
+- Écran « SMS Orange Money » : transactions à classer (affectation manuelle à un budget), SMS non compris listés pour revue (migration 5, table `sms_illisible`) ; alertes correspondantes.
+- Version simulée (SMS d'exemple) pour le navigateur ; tests du parsing sur les SMS réels.
 
 **Livrable** : les SMS OM alimentent transactions et soldes (vérifié sur le téléphone).
 
-## Sprint 10 — Consultation USSD du solde *(dépend du code USSD)*
+## Sprint 10 — Consultation USSD du solde
+- Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Réponse affichée par le téléphone : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… » → à analyser pour créer le SoldeOM.
+- Réglage du PIN OM dans l'application (stockage chiffré par Android, **pas** dans la base ni dans la sauvegarde JSON — à valider avec le propriétaire).
+- Consultation automatique **toutes les heures** (décision à prendre : application ouverte seulement, ou en arrière-plan par WorkManager, plus fragile).
 - Plugin Kotlin : exécution de l'USSD (API 26+), permissions `CALL_PHONE` et `READ_PHONE_STATE`.
 - Bouton « Consulter le solde » → nouveau SoldeOM ; messages d'erreur clairs (permission refusée, réseau absent).
 - Version simulée pour le navigateur.

@@ -38,4 +38,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Lecture des SMS Orange Money (import des opérations) -->
+    <uses-permission android:name="android.permission.READ_SMS" />
 </manifest>

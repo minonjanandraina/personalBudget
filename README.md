@@ -22,7 +22,7 @@ npm run build    # produit la version finale dans dist/
 | `src/core/` | logique métier en JavaScript pur (testable sans téléphone) |
 | `src/ui/` | écrans |
 | `src/platform/` | accès Android (SMS, USSD, fichiers) avec version simulée |
-| `android-plugin/` | plugin Android en Kotlin (sprints 9 et 10) |
+| `android/app/src/main/java/org/minonja/volako/` | plugin Android en Kotlin (SMS au sprint 9, USSD au sprint 10) |
 
 Note : les fichiers JSON (`package.json`) n'acceptent pas de commentaires ; leur rôle est expliqué ici.
 `package.json` liste les outils (Vite = serveur de développement, Vitest = tests, Capacitor = emballage en APK) et les commandes ci-dessus.

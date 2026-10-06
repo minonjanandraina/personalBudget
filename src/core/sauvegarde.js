@@ -13,8 +13,14 @@ const CLE_COPIE_AVANT = "copie_avant_restauration"; // Clé : copie de sécurit�
 const CLE_DATE_COPIE_AVANT = "date_copie_avant_restauration"; // Clé : date de cette copie
 
 // Tables de données, dans l'ordre où on les remplit (une table ne dépend que de celles qui la précèdent).
-const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job"]; // Ordre d'insertion
-const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions"]; // Tables dont la numérotation ne revient jamais en arrière
+const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job", "sms_illisible"]; // Ordre d'insertion
+const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "sms_illisible"]; // Tables dont la numérotation ne revient jamais en arrière
+const TABLE_DEPUIS_VERSION = { sms_illisible: 5 }; // Version du schéma qui a créé la table (les autres existent depuis la version 1)
+
+// Tables qu'une sauvegarde faite à cette version du schéma doit contenir (une ancienne sauvegarde n'a pas les tables récentes).
+function tablesDeLaVersion(versionSchema) { // Reçoit la version du schéma
+  return TABLES.filter((t) => (TABLE_DEPUIS_VERSION[t] ?? 1) <= versionSchema); // Garde les tables déjà créées à cette version
+} // Fin de tablesDeLaVersion
 
 // Nom du fichier de sauvegarde, à l'heure locale : volako_2026-10-05_14-30-00.json.
 export function nomFichierSauvegarde(date = new Date()) { // Reçoit la date
@@ -36,10 +42,10 @@ async function versionSchemaActuelle(base) { // Reçoit la base
 // Crée une sauvegarde (objet) : copie cohérente de toutes les données, prise en une seule transaction.
 export async function creerSauvegarde(base, maintenant = new Date()) { // Reçoit la base et l'heure
   return base.transaction(async () => { // Une seule transaction : les données lues sont cohérentes entre elles
-    const tables = {}; // Contenu de chaque table
-    for (const nom of TABLES) tables[nom] = await base.requeter(`SELECT * FROM ${nom} ORDER BY id`); // Toutes les lignes, dans l'ordre des identifiants
-    const sequences = await base.requeter("SELECT name, seq FROM sqlite_sequence ORDER BY name"); // Compteurs de numérotation (les identifiants et codes ne sont jamais réutilisés)
     const versionSchema = await versionSchemaActuelle(base); // Version du schéma
+    const tables = {}; // Contenu de chaque table
+    for (const nom of tablesDeLaVersion(versionSchema)) tables[nom] = await base.requeter(`SELECT * FROM ${nom} ORDER BY id`); // Toutes les lignes, dans l'ordre des identifiants
+    const sequences = await base.requeter("SELECT name, seq FROM sqlite_sequence ORDER BY name"); // Compteurs de numérotation (les identifiants et codes ne sont jamais réutilisés)
     const contenu = { versionSchema, tables, sequences: sequences.map((s) => ({ name: s.name, seq: Number(s.seq) })) }; // Contenu à protéger
     return { format: FORMAT, versionFormat: VERSION_FORMAT, application: "Volako", date: maintenant.toISOString(), ...contenu, controle: empreinte(contenu) }; // Sauvegarde complète avec son empreinte
   }); // Fin de la transaction
@@ -59,11 +65,12 @@ export async function verifierSauvegarde(texte) { // Reçoit le texte du fichier
   const versionMax = MIGRATIONS[MIGRATIONS.length - 1].version; // Version du schéma de cette application
   if (!Number.isInteger(s.versionSchema) || s.versionSchema < 1) throw new ErreurMetier("Cette sauvegarde est invalide (version de la base manquante)."); // Version absente
   if (s.versionSchema > versionMax) throw new ErreurMetier("Cette sauvegarde vient d'une version plus récente de Volako. Mettez l'application à jour avant de la restaurer."); // Application trop ancienne
-  if (!s.tables || typeof s.tables !== "object" || TABLES.some((t) => !Array.isArray(s.tables[t]))) throw new ErreurMetier("Cette sauvegarde est incomplète : il manque des données."); // Tables manquantes
+  const attendues = tablesDeLaVersion(s.versionSchema); // Tables que ce fichier doit contenir
+  if (!s.tables || typeof s.tables !== "object" || attendues.some((t) => !Array.isArray(s.tables[t]))) throw new ErreurMetier("Cette sauvegarde est incomplète : il manque des données."); // Tables manquantes
   if (!Array.isArray(s.sequences) || s.sequences.some((q) => typeof q?.name !== "string" || !Number.isInteger(q.seq))) throw new ErreurMetier("Cette sauvegarde est invalide (numérotation illisible)."); // Compteurs invalides
   if (typeof s.controle !== "string" || s.controle !== empreinte(s)) throw new ErreurMetier("Ce fichier est abîmé ou a été modifié : l'empreinte de vérification ne correspond pas. Il ne peut pas être restauré."); // Fichier altéré
-  if (TABLES.some((t) => s.tables[t].some((ligne) => ligne === null || typeof ligne !== "object" || Array.isArray(ligne)))) throw new ErreurMetier("Cette sauvegarde est invalide (lignes illisibles)."); // Lignes invalides
-  const nombres = Object.fromEntries(TABLES.map((t) => [t, s.tables[t].length])); // Nombre de lignes par table
+  if (attendues.some((t) => s.tables[t].some((ligne) => ligne === null || typeof ligne !== "object" || Array.isArray(ligne)))) throw new ErreurMetier("Cette sauvegarde est invalide (lignes illisibles)."); // Lignes invalides
+  const nombres = Object.fromEntries(attendues.map((t) => [t, s.tables[t].length])); // Nombre de lignes par table
   return { sauvegarde: s, resume: { date: s.date ?? null, versionSchema: s.versionSchema, nombres } }; // Résultat
 } // Fin de verifierSauvegarde
 
@@ -106,7 +113,7 @@ async function ecrireDonnees(base, s, avant, derniere, maintenant) { // Reçoit 
   await base.transaction(async () => { // Tout ou rien
     await toutEffacer(base); // Efface les données actuelles
     await appliquerMigrations(base, MIGRATIONS.filter((m) => m.version <= s.versionSchema)); // Recrée les tables telles qu'elles étaient au moment de la sauvegarde
-    for (const table of TABLES) await insererLignes(base, table, s.tables[table]); // Remplit chaque table
+    for (const table of tablesDeLaVersion(s.versionSchema)) await insererLignes(base, table, s.tables[table]); // Remplit chaque table de la sauvegarde
     for (const q of s.sequences) { // Rétablit la numérotation (jamais de réutilisation d'identifiant ni de code)
       if (!TABLES_AUTOINCREMENT.includes(q.name)) continue; // Seules les tables de l'application sont concernées
       const { changements } = await base.executer("UPDATE sqlite_sequence SET seq = ? WHERE name = ?", [q.seq, q.name]); // Met à jour le compteur
@@ -146,6 +153,7 @@ export async function lireDerniereSauvegarde(base) { // Reçoit la base
 // Nombre de lignes dans chaque table de données (pour montrer ce que contient la base actuelle).
 export async function compterDonnees(base) { // Reçoit la base
   const nombres = {}; // Résultat
-  for (const table of TABLES) nombres[table] = Number((await base.requeter(`SELECT COUNT(*) AS n FROM ${table}`))[0].n); // Compte les lignes de chaque table
+  const versionSchema = await versionSchemaActuelle(base); // Version du schéma de la base actuelle
+  for (const table of tablesDeLaVersion(versionSchema)) nombres[table] = Number((await base.requeter(`SELECT COUNT(*) AS n FROM ${table}`))[0].n); // Compte les lignes de chaque table qui existe
   return nombres; // Renvoie les nombres
 } // Fin de compterDonnees

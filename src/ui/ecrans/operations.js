@@ -47,6 +47,7 @@ async function dessinerListe(conteneur, base, { budgetId, sens, nature }, rechar
           } // Fin du try/catch
         } }), // Fin du bouton supprimer
       ) : null, // Fin des boutons
+      t.insertType === "auto" && t.debitCredit === -1 && t.nature === "normale" ? h("div", { class: "actions-ligne" }, boutonLien(t.allocationId === null ? "Classer dans un budget" : "Changer de budget", `/sms/classer/${t.id}`, "budgets")) : null, // Une dépense issue d'un SMS se classe (ou se reclasse) dans un budget
     )); // Fin de la carte
   } // Fin de la boucle
 } // Fin de dessinerListe

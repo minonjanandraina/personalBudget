@@ -12,6 +12,7 @@ import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.j
 import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde OM
 import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
+import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Orange Money
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
 const racine = document.getElementById("app"); // Zone vide définie dans index.html
@@ -50,9 +51,12 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/reglages": (zone) => afficherReglages(zone, { base }), // Réglages
         "/diagnostic": (zone) => afficherDiagnostic(zone, { base }), // Diagnostic
         "/sauvegarde": (zone) => afficherSauvegarde(zone, { base }), // Sauvegarde et restauration
+        "/sms": (zone) => afficherSms(zone, { base }), // SMS Orange Money
+        "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS
       }, // Fin des écrans
     }); // Fin du routeur
     await routeur.demarrer(); // Affiche le premier écran
+    synchroniserAuDemarrage(base).then((bilan) => { if (bilan && bilan.importes > 0) window.dispatchEvent(new HashChangeEvent("hashchange")); }); // Importe les nouveaux SMS en arrière-plan (téléphone seulement) puis réaffiche l'écran
   } catch (erreur) { // En cas de problème au démarrage
     racine.replaceChildren(h("main", { class: "contenu" }, h("section", { class: "carte visible" }, h("h1", { class: "titre" }, "Volako"), h("p", {}, "Erreur au démarrage :"), h("pre", {}, String(erreur?.message ?? erreur))))); // Affiche l'erreur à l'écran (utile sur téléphone, sans console)
   } // Fin du try/catch

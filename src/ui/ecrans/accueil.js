@@ -15,6 +15,7 @@ const TUILES = [ // Liste des tuiles
   { libelle: "Opérations", nomIcone: "transactions", couleur: "orange", route: "/operations" }, // Dépenses et allocations
   { libelle: "Types de budget", nomIcone: "types", couleur: "violet", route: "/types-budget" }, // Types de budget
   { libelle: "Solde OM", nomIcone: "telephone", couleur: "rouge", route: "/solde" }, // Historique des soldes
+  { libelle: "SMS Orange Money", nomIcone: "message", couleur: "bleu", route: "/sms" }, // Import des SMS
   { libelle: "Réglages", nomIcone: "reglages", couleur: "gris", route: "/reglages" }, // Disponible
 ]; // Fin de la liste
 

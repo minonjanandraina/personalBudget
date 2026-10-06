@@ -60,7 +60,7 @@ Limites assumées :
 Trois couches, pour que la logique métier se teste sans téléphone :
 - `src/core/` : logique métier en **JavaScript pur** (accès base, services d'allocation, contrôles, alertes, parsing SMS). **Aucun appel à Capacitor ni au navigateur.** Entièrement testable avec Vitest sur Windows.
 - `src/ui/` : écrans (tableau de bord, budgets, transactions…). N'appelle que `core/` et `platform/`.
-- `src/platform/` : adaptateurs Android (lecture des SMS, USSD, export de fichiers). Chaque adaptateur a une **version Android** (plugin Kotlin dans `android-plugin/`) et une **version simulée** pour le navigateur (ex. lit un fichier de SMS d'exemple).
+- `src/platform/` : adaptateurs Android (lecture des SMS, USSD, export de fichiers). Chaque adaptateur a une **version Android** (plugin Kotlin dans `android/app/src/main/java/org/minonja/volako/`) et une **version simulée** pour le navigateur (ex. `sms.js` lit les SMS d'exemple de `sms-exemples.js`).
 
 ### Interface : choix d'implémentation (sprint 3)
 - Pas de framework : les éléments sont fabriqués par `h()` (`src/ui/dom.js`), qui insère toujours le texte comme **texte** (jamais comme HTML) pour empêcher toute injection.
@@ -83,6 +83,9 @@ Trois couches, pour que la logique métier se teste sans téléphone :
 ## Modèle de données
 
 Tous les enregistrements ont `insert_date` (date d'insertion automatique).
+
+### SmsIllisible (table `sms_illisible`, migration 5)
+SMS Orange Money que l'application n'a pas compris : `date_sms`, `texte`, `ignore` (0/1), unique sur (`date_sms`, `texte`). Listés pour revue ; « Ignorer » les masque définitivement. Incluse dans la sauvegarde JSON (les sauvegardes d'avant la version 5 restent restaurables).
 
 ### SoldeOM (balance du compte Orange Money)
 Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérification possible via USSD (le code sera fourni plus tard).
@@ -127,7 +130,7 @@ Un solde est enregistré à chaque SMS reçu ou à chaque consultation. Vérific
 - `debit_credit` : `-1` dépense, `1` alimentation du budget (lors de l'allocation)
 - `montant` : toujours > 0, le signe vient de `debit_credit`
 - `sms` : texte brut du SMS OM d'origine ; renseigné uniquement si la transaction vient d'un SMS (`insert_type = auto`), vide pour une saisie manuelle
-- Classement dans un budget : selon le **code budget présent dans l'objet du SMS** ; sans code reconnu, la transaction reste « non classée » et doit être affectée manuellement.
+- Classement dans un budget (décidé au sprint 9) : **les SMS Orange Money ne contiennent pas le budget** (le « Motif » du SMS est générique, pas celui saisi par l'utilisateur). Toute transaction issue d'un SMS arrive donc « non classée » et l'utilisateur la **classe à la main** (écran SMS, ou bouton dans Opérations). Classer = même contrôle qu'une dépense manuelle (allocation couvrant la date de la dépense, solde suffisant). On peut la remettre « à classer ». Une dépense SMS n'est jamais modifiée ni supprimée.
 
 ### ParametreJob (une seule ligne)
 - `id`
@@ -171,8 +174,14 @@ Ordre d'affichage : écart, seuils, plafonds, solde manquant.
 
 ## Fonctions Android
 
-- **Lecture des SMS OM** : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur Orange Money (nom à confirmer avec les exemples de SMS). Déclenchée à l'ouverture de l'app et par un bouton « Synchroniser ». Le parsing extrait : `trx_id`, montant, débit/crédit, solde après opération, date, code budget éventuel. Chaque SMS crée une `Transaction` (si `trx_id` pas déjà présent) et un `SoldeOM`. L'import est **idempotent** : le relancer ne crée jamais de doublons.
-- **Consultation USSD du solde** : via l'API téléphonie d'Android, appelée depuis le plugin Kotlin (permissions `CALL_PHONE` et `READ_PHONE_STATE`). Code USSD à fournir.
+- **Lecture des SMS OM** (sprint 9) : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur (`address LIKE %OrangeMoney%` ; nom réglable dans l'écran SMS, à confirmer sur le téléphone). Déclenchée à l'ouverture de l'app (**seulement si la permission est déjà accordée**, sans demande surprise ; jamais dans le navigateur) et par le bouton « Synchroniser » (qui demande la permission). Plugin Kotlin `SmsOmPlugin.kt` (enregistré dans `MainActivity.java`), parser JavaScript `src/core/sms-om.js`, import `src/core/import-sms.js`. L'import est **idempotent** : le relancer ne crée jamais de doublons (`trx_id` unique, SMS non compris dédoublonnés).
+  - Seuls les SMS **postérieurs au solde initial** (plus ancien SoldeOM) sont importés : les plus anciens sont déjà dans ce solde. Sans solde initial, la synchronisation est refusée avec un message.
+  - SMS **de débit** reconnus (exemples réels reçus) : transfert (« Trans Id »), retrait, remboursement de prêt, virement programmé vers l'épargne (identifiant = « Ref »). **Pas encore** les SMS de crédit (argent reçu) : à fournir ; en attendant ils sont listés « non compris ».
+  - **Frais** (décidé) : une seule transaction dont le `montant` = montant + frais (total réellement débité) ; la note rappelle « dont X Ar de frais ». Note automatique : « Transfert vers PAMF 5969657 », « Retrait auprès du 03… », « Remboursement de prêt », « Virement vers l'épargne ».
+  - **Centimes** (décidé) : les montants du SMS sont convertis en entiers (« jamais de float ») : un **solde** est arrondi à l'entier **inférieur** (5916.47 → 5916), une **sortie** à l'entier supérieur (prudence). Le SMS brut garde les centimes.
+  - Chaque SMS compris crée une `Transaction` (`insert_type = auto`, `debit_credit = -1`, `sms` = texte brut, `date_operation` = date du SMS, **sans allocation**) et, s'il contient un solde OM, un `SoldeOM` à la même date (le virement épargne n'en a pas : « Nouveau solde epargne » n'est pas le solde OM).
+  - Alertes ajoutées (sprint 9, en fin de liste) : « dépenses SMS à classer » (tant qu'elles ne sont pas classées, elles diminuent le libre à allouer) et « SMS non compris » (une opération a peut-être été manquée).
+- **Consultation USSD du solde** (sprint 10, pas encore écrit) : via l'API téléphonie d'Android, appelée depuis le plugin Kotlin (permissions `CALL_PHONE` et `READ_PHONE_STATE`). **Code USSD : `#144*5*3*PIN*`** (PIN = code secret Orange Money). Réponse vue sur le téléphone (fenêtre « Orange Message ») : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM et bénéficiez de 20% de bonus. » → à analyser pour créer un `SoldeOM`. Demandes du propriétaire : **PIN OM réglable dans l'application** et **consultation lancée toutes les heures**. Points à décider avant de coder : (1) où stocker le PIN OM — il doit être relisible pour composer le code, donc pas de hachage ; proposition : stockage chiffré Android (Keystore), **hors base et hors sauvegarde JSON** ; (2) « toutes les heures » : application ouverte seulement, ou en arrière-plan (WorkManager, plus fragile, USSD en arrière-plan non garanti par Android).
 - **Planification** : l'application n'a pas de cron. À chaque ouverture, elle vérifie si le jour `start_day_int` du mois est passé sans allocation pour les budgets `autogen_fin_mois`, et la génère (rattrapage). *(À valider : une exécution en arrière-plan sans ouvrir l'app est possible mais plus complexe.)*
 - **Sauvegarde / restauration** (sprint 8) : fichier **texte JSON** `volako_AAAA-MM-JJ_HH-MM-SS.json` (et non une copie du fichier `.sqlite3`, qu'on ne peut ni tester sous Windows ni lire de façon sûre sur Android). Il contient toutes les tables, les compteurs de numérotation (aucun identifiant ni code `bdg-xxx` supprimé n'est jamais réutilisé après restauration), la version du schéma et une **empreinte SHA-256** qui détecte un fichier abîmé ou modifié. Création en une seule transaction (copie cohérente). Sur Android, le fichier est écrit dans le cache de l'app puis envoyé par la **fenêtre de partage** du téléphone (Google Drive, Fichiers…) ; la restauration passe par le sélecteur de fichiers (Drive compris). **Restauration tout ou rien** : fichier vérifié (format, version, tables, empreinte, colonnes connues — jamais de SQL tiré du fichier), confirmation avec le contenu de la sauvegarde et celui des données actuelles, copie de sécurité des données actuelles conservée (bouton « Annuler la dernière restauration »), tables recréées à la version de la sauvegarde puis migrées (une ancienne sauvegarde reste restaurable), liens entre tables vérifiés ; au moindre échec, rien n'est modifié. Une sauvegarde d'une version plus récente de l'application est refusée avec un message.
 
@@ -200,8 +209,10 @@ Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde
 ## Questions ouvertes
 
 À traiter plus tard :
-- Format exact des SMS Orange Money (3–4 exemples anonymisés : dépense, crédit, consultation de solde) → nécessaire avant d'implémenter le parsing.
-- Code USSD de consultation du solde.
+- SMS Orange Money de **crédit** (argent reçu) : exemple nécessaire pour les reconnaître (les 5 SMS de débit sont déjà gérés).
+- Nom exact de l'expéditeur des SMS (supposé « OrangeMoney », réglable) : à confirmer sur le téléphone.
+- Doublon manuel/SMS : une dépense saisie à la main puis reçue aussi par SMS apparaît deux fois (la dépense SMS reste à classer). Pas de rapprochement automatique pour l'instant : ne pas saisir à la main ce qu'un SMS apportera.
+- Sprint 8 (sauvegarde/restauration) : en attente, ne fonctionne pas sur le téléphone ; cause à diagnostiquer.
 
 À décider avant le sprint 11 :
 - Exécution automatique en arrière-plan de l'allocation (sinon : rattrapage à l'ouverture, voir « Planification »).
@@ -219,3 +230,7 @@ note de travail:
 7- toujours un commentaire sur chaque ligne de code (demandé dans le chat)
 8- cible : APK Android uniquement, hors ligne, développé dans VS Code, transfert de l'APK via Google Drive (demandé dans le chat)
 9- Kivy/Python écarté (ne marche pas sur le PC) : langage choisi par Claude = JavaScript + Capacitor ; Claude écrit tout le code, le propriétaire lit et valide (demandé dans le chat)
+
+10- sprint 8 (sauvegarde) mis en attente (pending) car il ne fonctionne pas sur le téléphone ; sprint 9 (SMS) commencé (demandé dans le chat)
+11- USSD de consultation du solde : #144*5*3*PIN* ; PIN OM réglable dans l'app ; consultation toutes les heures (sprint 10, demandé dans le chat)
+12- les SMS OM ne contiennent pas la raison de la transaction saisie par l'utilisateur : classement manuel dans un budget (demandé dans le chat)
