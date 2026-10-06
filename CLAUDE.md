@@ -239,5 +239,6 @@ note de travail:
 11- USSD de consultation du solde : #144*5*3*PIN* ; PIN OM réglable dans l'app ; consultation toutes les heures (sprint 10, demandé dans le chat)
 12- les SMS OM ne contiennent pas la raison de la transaction saisie par l'utilisateur : classement manuel dans un budget (demandé dans le chat)
 13- PIN OM chiffré (usage personnel) et consultation USSD toutes les heures en les deux modes : application ouverte + arrière-plan (demandé dans le chat)
-15- ignorer les SMS d'épargne (compte epargne, virement programmé), de prêt crédité et de dépôt : aucune transaction (demandé dans le chat)
 14- sprint 9 terminé ; sprint 10 commencé avec la synchronisation automatique par notification à l'arrivée d'un SMS OM (demandé dans le chat)
+15- ignorer les SMS d'épargne (compte epargne, virement programmé), de prêt crédité et de dépôt : aucune transaction (demandé dans le chat)
+16- sprint 14 créé : mise à jour de l'application par Obtainium (Release GitHub), distincte de l'allocation automatique du sprint 11 (demandé dans le chat)

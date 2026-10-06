@@ -115,7 +115,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 - Code PIN de verrouillage (décidé : oui) : saisie à la création, demande à l'ouverture, hachage, limite d'essais, procédure en cas d'oubli.
 - Revue des permissions demandées (minimum nécessaire).
 
-**Livrable** : l'application se met à jour toute seule à l'ouverture.
+**Livrable** : les allocations du mois se font toutes seules à l'ouverture (mise à jour des **données** ; la mise à jour de l'**application** est le sprint 14).
 
 ## Sprint 12 — Finition
 - Polissage mobile : états vides, messages d'erreur, accessibilité, performances sur téléphone modeste.
@@ -131,3 +131,12 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 - Checklist de recette sur téléphone, correction des anomalies, version `v1.0`.
 
 **Livrable** : version 1.0 validée, non-régression rejouable à chaque modification.
+
+## Sprint 14 — Mise à jour de l'application (Obtainium)
+Nouvelles versions de l'APK sur le téléphone, **sans toucher aux données** (même identifiant `org.minonja.volako`, même clé de signature : la base locale est conservée). Aucun code réseau dans Volako, qui reste 100 % hors ligne.
+- Workflow GitHub Actions : publier l'APK dans une **Release GitHub** publique (permission d'écriture sur le contenu du dépôt), avec un numéro de version qui augmente (`v0.1.N`, déjà fourni par le numéro d'exécution). **Décision en attente** : une Release à chaque push sur `main`, ou seulement quand le propriétaire le décide (tag ou lancement manuel — recommandé).
+- Installer **Obtainium** sur le téléphone (F-Droid ou GitHub) et lui donner le dépôt `minonjanandraina/personalBudget` ; il reconnaît Volako déjà installée.
+- Prérequis téléphone (Infinix, XOS) : autoriser les sources inconnues pour Obtainium, désactiver l'optimisation de batterie et autoriser son démarrage automatique, Internet (4G/Wi-Fi), décider du comportement de Play Protect (permission SMS) ; confirmation d'installation demandée à chaque mise à jour.
+- Documentation (CLAUDE.md, README) : remplacer la chaîne « GitHub → Google Drive → téléphone » par « Release GitHub → Obtainium » (Drive reste possible en secours).
+
+**Livrable** : une nouvelle version publiée est proposée puis installée par-dessus l'ancienne, base de données intacte.
