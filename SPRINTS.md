@@ -88,7 +88,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : les données ne sont plus perdues en cas de changement de clé ou de téléphone.
 
-## Sprint 9 — Lecture et import des SMS Orange Money — EN COURS (code livré, vérification sur téléphone à faire)
+## Sprint 9 — Lecture et import des SMS Orange Money — TERMINÉ (code livré ; lecture réelle sur téléphone à confirmer au sprint 10)
 - Plugin Kotlin (`SmsOmPlugin.kt`) : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM (réglable dans l'écran SMS).
 - Parser (JavaScript, `core`) : `trx_id`, montant, frais, solde après opération, type. **Les SMS ne contiennent pas le budget** (le « motif » n'est pas celui saisi par l'utilisateur) : aucune classification automatique, toute transaction SMS arrive « non classée ». Un SMS « virement vers l'épargne » n'a pas de solde OM.
 - Import à l'ouverture (si la permission est déjà accordée) et par bouton « Synchroniser » ; idempotent via `trx_id` ; création Transaction (champ `sms` rempli, montant = total débité, frais compris) + SoldeOM (centimes arrondis à l'entier inférieur). Seuls les SMS postérieurs au solde initial saisi sont importés.
@@ -97,7 +97,9 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : les SMS OM alimentent transactions et soldes (vérifié sur le téléphone).
 
-## Sprint 10 — Consultation USSD du solde
+## Sprint 10 — Synchronisation automatique et consultation USSD du solde — EN COURS
+- **Synchronisation automatique des SMS** (décidé : notification à l'arrivée d'un SMS) : récepteur Kotlin `SmsOmReceiver.kt` (permission `RECEIVE_SMS`, + `POST_NOTIFICATIONS` sur Android 13+) ; il affiche « Nouvelle opération Orange Money » même app fermée, **sans rien écrire en base** (le parser et la base restent en JavaScript). L'import se fait à l'ouverture suivante ; l'expéditeur réglé dans l'écran SMS est mémorisé côté natif à chaque synchronisation. Fait en plus : l'import se relance aussi à chaque retour sur l'application (au plus toutes les 30 s ; l'écran n'est réaffiché que s'il n'a pas de formulaire ouvert). Écarté : import complet en arrière-plan (parser et base à dupliquer en Kotlin). *À vérifier sur le téléphone.*
+- Fait : analyse de la réponse USSD (`src/core/ussd-om.js`, testée) → solde entier.
 - Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Réponse affichée par le téléphone : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… » → à analyser pour créer le SoldeOM.
 - Réglage du PIN OM dans l'application (stockage chiffré par Android, **pas** dans la base ni dans la sauvegarde JSON — à valider avec le propriétaire).
 - Consultation automatique **toutes les heures** (décision à prendre : application ouverte seulement, ou en arrière-plan par WorkManager, plus fragile).

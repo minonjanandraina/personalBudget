@@ -56,7 +56,19 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
       }, // Fin des écrans
     }); // Fin du routeur
     await routeur.demarrer(); // Affiche le premier écran
-    synchroniserAuDemarrage(base).then((bilan) => { if (bilan && bilan.importes > 0) window.dispatchEvent(new HashChangeEvent("hashchange")); }); // Importe les nouveaux SMS en arrière-plan (téléphone seulement) puis réaffiche l'écran
+    const ECRANS_LISTE = ["", "#/", "#/sms", "#/operations", "#/solde", "#/allocations", "#/budgets"]; // Écrans sans formulaire : on peut les réafficher sans perdre une saisie
+    let synchroEnCours = false; // Vrai pendant une synchronisation (évite d'en lancer deux en même temps)
+    let derniereSynchro = 0; // Heure (en ms) de la dernière synchronisation
+    async function synchroniser() { // Importe les nouveaux SMS (téléphone seulement, si la permission est déjà accordée)
+      if (synchroEnCours || Date.now() - derniereSynchro < 30000) return; // Déjà en cours, ou faite il y a moins de 30 secondes
+      synchroEnCours = true; // Marque comme en cours
+      try { // Une erreur ne doit jamais gêner l'application
+        const bilan = await synchroniserAuDemarrage(base); // Lit et importe les SMS
+        if (bilan && bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
+      } finally { synchroEnCours = false; derniereSynchro = Date.now(); } // Libère et note l'heure
+    } // Fin de synchroniser
+    synchroniser(); // Première synchronisation à l'ouverture
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") synchroniser(); }); // Et à chaque retour sur l'application (après passage en arrière-plan)
   } catch (erreur) { // En cas de problème au démarrage
     racine.replaceChildren(h("main", { class: "contenu" }, h("section", { class: "carte visible" }, h("h1", { class: "titre" }, "Volako"), h("p", {}, "Erreur au démarrage :"), h("pre", {}, String(erreur?.message ?? erreur))))); // Affiche l'erreur à l'écran (utile sur téléphone, sans console)
   } // Fin du try/catch

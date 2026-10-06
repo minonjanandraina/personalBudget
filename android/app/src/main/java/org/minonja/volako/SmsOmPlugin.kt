@@ -1,6 +1,7 @@
 package org.minonja.volako // Dossier du code de l'application
 
 import android.Manifest // Liste des permissions Android
+import android.content.Context // Contexte (réglages natifs)
 import android.net.Uri // Adresse (ici : celle de la boîte de réception des SMS)
 import com.getcapacitor.JSArray // Tableau renvoyé à la partie web
 import com.getcapacitor.JSObject // Objet renvoyé à la partie web
@@ -13,7 +14,11 @@ import com.getcapacitor.annotation.Permission // Déclare une permission demand�
 
 // Plugin « SmsOm » : lit les SMS de la boîte de réception qui viennent d'un expéditeur donné (Orange Money).
 // La partie web l'appelle par SmsOm.checkPermissions(), SmsOm.requestPermissions() (fournies par Capacitor) et SmsOm.lireSms(...).
-@CapacitorPlugin(name = "SmsOm", permissions = [Permission(strings = [Manifest.permission.READ_SMS], alias = "sms")]) // Nom du plugin et permission de lire les SMS
+@CapacitorPlugin(name = "SmsOm", permissions = [ // Nom du plugin et permissions demandées ensemble
+    Permission(strings = [Manifest.permission.READ_SMS], alias = "sms"), // Lire les SMS
+    Permission(strings = [Manifest.permission.RECEIVE_SMS], alias = "reception"), // Être prévenu à l'arrivée d'un SMS (notification)
+    Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications") // Afficher des notifications (Android 13 et plus)
+]) // Fin des permissions
 class SmsOmPlugin : Plugin() { // Début de la classe
 
     @PluginMethod // Appelable depuis la partie web
@@ -23,6 +28,8 @@ class SmsOmPlugin : Plugin() { // Début de la classe
             return // Arrête ici
         } // Fin du contrôle de permission
         val expediteur = appel.getString("expediteur") ?: "OrangeMoney" // Nom de l'expéditeur (Orange Money par défaut)
+        context.getSharedPreferences(SmsOmReceiver.PREFERENCES, Context.MODE_PRIVATE) // Réglages natifs
+            .edit().putString(SmsOmReceiver.CLE_EXPEDITEUR, expediteur).apply() // Mémorise l'expéditeur pour que le récepteur de notification le connaisse
         val depuis = appel.getLong("depuis") ?: 0L // Date de départ en millisecondes (0 = depuis toujours)
         val messages = JSArray() // Liste des SMS trouvés
         try { // Tente la lecture

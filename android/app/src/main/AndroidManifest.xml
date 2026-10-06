@@ -24,6 +24,16 @@
 
         </activity>
 
+        <!-- Notification à l'arrivée d'un SMS Orange Money (n'écrit rien dans la base) -->
+        <receiver
+            android:name=".SmsOmReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -40,4 +50,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lecture des SMS Orange Money (import des opérations) -->
     <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Être prévenu à l'arrivée d'un SMS -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- Afficher la notification (Android 13 et plus) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
