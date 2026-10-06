@@ -31,11 +31,11 @@ export async function dateDepartImport(base) { // Reçoit la base
 } // Fin de dateDepartImport
 
 // Importe des SMS lus sur le téléphone : messages = [{ corps, date }] (date ISO). Idempotent : relancer ne crée aucun doublon.
-// Renvoie { importes, doublons, anciens, illisibles } (nombres de SMS dans chaque cas).
+// Renvoie { importes, doublons, anciens, illisibles, ignores } (nombres de SMS dans chaque cas).
 export async function importerSms(base, messages) { // Reçoit la base et les messages
   const depart = await dateDepartImport(base); // Date de départ de l'import
   if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Orange Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
-  const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0 }; // Compteurs
+  const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 0 }; // Compteurs (« ignores » : SMS d'épargne, de prêt crédité ou de dépôt, volontairement sans transaction)
   const tries = messages // Les SMS du plus ancien au plus récent (le solde le plus récent est ainsi enregistré en dernier)
     .map((m) => ({ corps: String(m.corps ?? ""), date: new Date(m.date) })) // Convertit la date
     .filter((m) => !Number.isNaN(m.date.getTime())) // Ignore un SMS sans date valide
@@ -50,6 +50,16 @@ export async function importerSms(base, messages) { // Reçoit la base et les me
         if (changements > 0) bilan.illisibles += 1; // Compte seulement les nouveaux
         continue; // Passe au suivant
       } // Fin du cas non compris
+      if (analyse.ignore) { // SMS à ignorer : aucune transaction, mais le solde OM qu'il contient est gardé
+        if (analyse.soldeApres !== null) { // Le SMS donne le solde OM
+          const [soldeConnu] = await base.requeter("SELECT 1 AS un FROM solde_om WHERE datetime = ? AND balance = ?", [dateIso, analyse.soldeApres]); // Déjà enregistré ? (rend l'import rejouable)
+          if (!soldeConnu) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde OM après l'opération
+        } // Fin du solde
+        await base.executer("UPDATE sms_illisible SET ignore = 1 WHERE texte = ?", [m.corps]); // S'il avait été listé « non compris » avant, il n'apparaît plus
+        await base.executer("DELETE FROM transactions WHERE sms = ? AND insert_type = 'auto' AND allocation_id IS NULL", [m.corps]); // Retire la dépense « à classer » créée avant que ce SMS soit ignoré (jamais une dépense déjà classée dans un budget)
+        bilan.ignores += 1; // Compte
+        continue; // Passe au suivant
+      } // Fin du cas ignoré
       const [existe] = await base.requeter("SELECT 1 AS un FROM transactions WHERE trx_id = ?", [analyse.trxId]); // Déjà importé ?
       if (existe) { bilan.doublons += 1; continue; } // Oui : rien à faire
       await creerTransaction(base, { trxId: analyse.trxId, insertType: "auto", debitCredit: -1, montant: analyse.total, sms: m.corps, dateOperation: dateIso, note: analyse.note }); // Dépense non classée (sans allocation)

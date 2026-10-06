@@ -6,7 +6,7 @@ Statuts : à faire · EN COURS · EN ATTENTE (pending) · ✅ TERMINÉ.
 Règles pour tous les sprints : un commentaire en français sur chaque ligne de code ; logique métier dans `src/core/` avec tests Vitest ; chaque sprint finit par une démo (navigateur et/ou APK) et des tests verts.
 
 Dépendances externes :
-- Exemples de SMS Orange Money → reçus (sprint 9) ; il manque encore un exemple de SMS de **crédit** (argent reçu).
+- Exemples de SMS Orange Money → reçus (sprint 9) ; SMS d'épargne, de prêt crédité et de dépôt **ignorés** (aucune transaction, solde OM conservé) ; il manque encore un exemple de SMS de **crédit** d'un tiers (argent reçu).
 - Code USSD de consultation du solde → reçu : `#144*5*3*PIN*` (sprint 10).
 - Réponse sur Node.js sur le poste de dev → avant le sprint 0.
 

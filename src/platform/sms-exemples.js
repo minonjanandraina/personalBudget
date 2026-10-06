@@ -13,3 +13,16 @@ export function SMS_EXEMPLES(maintenant) { // Reçoit l'heure de référence
   ]; // Fin des textes
   return corps.map((texte, i) => ({ corps: texte, date: new Date(maintenant.getTime() - (corps.length - i) * 1000).toISOString() })); // Une seconde d'écart entre deux SMS
 } // Fin de SMS_EXEMPLES
+
+// SMS réels que l'application IGNORE (aucune transaction) : mouvements avec le compte épargne, prêt crédité, dépôt. Leur solde OM est conservé.
+// Utilisés par les tests ; non proposés dans le navigateur.
+export function SMS_IGNORES(maintenant) { // Reçoit l'heure de référence
+  const corps = [ // Textes des SMS
+    "Votre transfert de 500 Ar de votre compte epargne m-kajy vers votre compte Orange Money a ete effectue avec succes. Nouveau solde Orange Money : 201073.47 Ar. Nouveau solde epargne : 15.27 Ar. Trans Id : CI261006.1157.D91424. PAMF et Orange Money vous remercient.", // Épargne vers OM
+    "Votre transfert de 500 Ar de votre compte Orange Money vers votre compte epargne m-kajy a ete effectue avec succes. Nouveau solde Orange Money : 200573.47 Ar. Nouveau solde epargne : 515.27 Ar. Trans Id : CO261006.1211.C12301. PAMF et Orange Money vous remercient.", // OM vers épargne
+    "Virement programme de 500 Ar de votre compte Orange Money vers compte epargne reussi. Ref: CO261001.0800.A06136.\nNouveau solde epargne : 509.08 Ar.", // Virement programmé vers l'épargne (sans solde OM)
+    "Votre compte Orange Money a ete credite de 1000000 Ar suite a votre demande de pret. Montant a rembourser: 1000000 Ar + Interet : 90000 Ar. Echeance du pret : 04/11/2026. Votre nouveau solde Orange Money est de 1005916.47 Ar. PAMF et Orange Money vous remercient. TrID : CI261005.0818.C46613.", // Prêt crédité
+    "Votre dépot de 60000 Ar  par le 0327573815 est réussi. Nouveau solde: 60416 Ar .Trans Id :CI261005.0752.C42831. Orange Money vous remercie.", // Dépôt
+  ]; // Fin des textes
+  return corps.map((texte, i) => ({ corps: texte, date: new Date(maintenant.getTime() - (corps.length - i) * 1000).toISOString() })); // Une seconde d'écart entre deux SMS
+} // Fin de SMS_IGNORES

@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest"; // Outils de test
 import { analyserSmsOM } from "./sms-om.js"; // Fonction testée
 import { formaterMontant } from "./format.js"; // Pour comparer les notes
-import { SMS_EXEMPLES } from "../platform/sms-exemples.js"; // Les SMS réels
+import { SMS_EXEMPLES, SMS_IGNORES } from "../platform/sms-exemples.js"; // Les SMS réels
 
 const [transfert, epargne, pretSolde, retrait, pretPartiel, promo] = SMS_EXEMPLES(new Date()).map((m) => m.corps); // Les six textes
 
@@ -12,8 +12,17 @@ describe("analyse des SMS Orange Money", () => { // Groupe de tests
     expect(analyserSmsOM(transfert).note).toBe(`Transfert vers PAMF 5969657 (dont ${formaterMontant(400)} de frais)`); // Libellé avec destinataire et frais
   }); // Fin du cas
 
-  it("lit un virement vers l'épargne : l'identifiant est la référence et il n'y a pas de solde OM", () => { // Cas 2
-    expect(analyserSmsOM(epargne)).toMatchObject({ trxId: "CO261001.0800.A06136", type: "epargne", montant: 500, frais: 0, total: 500, soldeApres: null }); // « Nouveau solde epargne » n'est pas le solde OM
+  it("ignore un virement vers l'épargne : pas de transaction, et pas de solde OM (« Nouveau solde epargne » n'est pas le solde OM)", () => { // Cas 2
+    expect(analyserSmsOM(epargne)).toEqual({ ignore: true, trxId: "CO261001.0800.A06136", soldeApres: null }); // Ignoré
+  }); // Fin du cas
+
+  it("ignore les mouvements d'épargne, le prêt crédité et le dépôt, en gardant le solde OM", () => { // SMS demandés à ignorer
+    const [depuisEpargne, versEpargne, virement, pret, depot] = SMS_IGNORES(new Date()).map((m) => m.corps); // Les cinq textes
+    expect(analyserSmsOM(depuisEpargne)).toEqual({ ignore: true, trxId: "CI261006.1157.D91424", soldeApres: 201073 }); // Épargne -> OM : solde OM, pas le solde épargne
+    expect(analyserSmsOM(versEpargne)).toEqual({ ignore: true, trxId: "CO261006.1211.C12301", soldeApres: 200573 }); // OM -> épargne
+    expect(analyserSmsOM(virement)).toMatchObject({ ignore: true, soldeApres: null }); // Virement programmé
+    expect(analyserSmsOM(pret)).toMatchObject({ ignore: true, soldeApres: 1005916 }); // Prêt crédité : « est de », sans « Trans Id »
+    expect(analyserSmsOM(depot)).toEqual({ ignore: true, trxId: "CI261005.0752.C42831", soldeApres: 60416 }); // Dépôt : « Nouveau solde: »
   }); // Fin du cas
 
   it("lit un remboursement de prêt et arrondit le solde à l'entier inférieur", () => { // Cas 3

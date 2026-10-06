@@ -36,7 +36,7 @@ describe("écran SMS Orange Money", () => { // Groupe
     await afficherSms(zone, { base, sms }); // Écran
     expect(zone.textContent).toContain("Aucune dépense à classer"); // Vide au départ
     toucher("Synchroniser maintenant"); // Touche le bouton
-    await vi.waitFor(() => expect(zone.textContent).toContain("À classer (5)")); // Cinq dépenses listées
+    await vi.waitFor(() => expect(zone.textContent).toContain("À classer (4)")); // Cinq dépenses listées
     expect(zone.textContent).toContain("SMS non compris (1)"); // Un SMS non compris
     expect(sms.lireSmsOM).toHaveBeenCalledWith({ expediteur: "OrangeMoney", depuis: "2026-10-05T06:00:00.000Z" }); // Bons paramètres de lecture
   }); // Fin du cas
@@ -65,7 +65,7 @@ describe("synchronisation à l'ouverture", () => { // Groupe
   }); // Fin du cas
 
   it("importe quand la permission est accordée, et ne plante jamais", async () => { // Cas nominal
-    expect((await synchroniserAuDemarrage(base, faux())).importes).toBe(5); // Import
+    expect((await synchroniserAuDemarrage(base, faux())).importes).toBe(4); // Import
     const casse = { autoriseSansDemander: async () => true, lireSmsOM: async () => { throw new Error("boom"); } }; // Lecture en panne
     expect(await synchroniserAuDemarrage(base, casse)).toBeNull(); // Erreur avalée
   }); // Fin du cas
@@ -77,7 +77,7 @@ describe("formulaire de classement", () => { // Groupe
     await allouerBudget(base, { budgetId, montant: 20000 }, APRES); // Alloué
     await afficherSms(zone, { base, sms: faux() }); // Écran
     toucher("Synchroniser maintenant"); // Importe
-    await vi.waitFor(() => expect(zone.textContent).toContain("À classer (5)")); // Importé
+    await vi.waitFor(() => expect(zone.textContent).toContain("À classer (4)")); // Importé
     const id = (await listerNonClassees(base)).find((t) => t.montant === 500).id; // Une petite dépense
     zone.replaceChildren(); // Nouvel écran
     await afficherFormulaireClasser(zone, { base, params: { id: String(id) } }); // Formulaire
