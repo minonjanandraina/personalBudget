@@ -182,11 +182,12 @@ Ordre d'affichage : écart, seuils, plafonds, solde manquant.
   - Chaque SMS compris crée une `Transaction` (`insert_type = auto`, `debit_credit = -1`, `sms` = texte brut, `date_operation` = date du SMS, **sans allocation**) et, s'il contient un solde OM, un `SoldeOM` à la même date (« Nouveau solde epargne » n'est pas le solde OM).
   - Alertes ajoutées (sprint 9, en fin de liste) : « dépenses SMS à classer » (tant qu'elles ne sont pas classées, elles diminuent le libre à allouer) et « SMS non compris » (une opération a peut-être été manquée).
 - **Synchronisation automatique** (sprint 10, décidé : notification) : `SmsOmReceiver.kt` (permissions `RECEIVE_SMS` et `POST_NOTIFICATIONS`) affiche une notification à l'arrivée d'un SMS OM, app fermée ; il n'écrit rien en base, l'import se fait à l'ouverture. L'import est aussi relancé à chaque retour sur l'app (au plus toutes les 30 s). L'expéditeur est mémorisé côté natif (SharedPreferences) lors de chaque synchronisation. Import complet en arrière-plan écarté.
-- **Consultation USSD du solde** (sprint 10, code livré, à vérifier sur le téléphone) : API téléphonie d'Android (`sendUssdRequest`) depuis le plugin Kotlin `UssdOmPlugin.kt` (permissions `CALL_PHONE` et `READ_PHONE_STATE`, demandées à la première consultation). **Code USSD : `#144*5*3*PIN*`** ; l'application envoie `#144*5*3*PIN*#` (« # » final ajouté, à vérifier ; un seul endroit : `UssdOm.code()`). Réponse type : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… » → analysée par `src/core/ussd-om.js` puis enregistrée en `SoldeOM` par `src/core/ussd-solde.js`.
+- **Consultation USSD du solde** (sprint 10, code livré, à vérifier sur le téléphone) : API téléphonie d'Android (`sendUssdRequest`) depuis le plugin Kotlin `UssdOmPlugin.kt` (permission `CALL_PHONE`, demandée à la première consultation ; `READ_PHONE_STATE` retirée au sprint 11, inutile). **Code USSD : `#144*5*3*PIN*`** ; l'application envoie `#144*5*3*PIN*#` (« # » final ajouté, à vérifier ; un seul endroit : `UssdOm.code()`). Réponse type : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… » → analysée par `src/core/ussd-om.js` puis enregistrée en `SoldeOM` par `src/core/ussd-solde.js`.
   - **PIN OM** : réglable dans l'écran « Consultation du solde » ; chiffré AES-256 par le coffre Android (`CoffrePin.kt`), gardé dans les réglages natifs privés, **hors base et hors sauvegarde JSON** (la tâche d'arrière-plan doit pouvoir le relire sans accès à la base). Usage personnel : chiffrement réversible, pas de hachage.
   - **Consultation toutes les heures, les deux modes** : application ouverte (vérification toutes les 5 min, consultation si la dernière a plus de 55 min) et arrière-plan (WorkManager, `ConsultationWorker.kt`, toutes les heures, sans garantie d'Android). L'arrière-plan n'écrit pas en base : il met la réponse en attente, enregistrée à l'ouverture suivante. Solde identique au dernier et sans dépense depuis : pas ré-enregistré.
   - **Sécurité** : une réponse qui n'est pas un solde (PIN refusé…) arrête aussitôt la consultation automatique (jamais de PIN faux répété, risque de blocage du compte OM) et prévient l'utilisateur.
-- **Planification** : l'application n'a pas de cron. À chaque ouverture, elle vérifie si le jour `start_day_int` du mois est passé sans allocation pour les budgets `autogen_fin_mois`, et la génère (rattrapage). *(À valider : une exécution en arrière-plan sans ouvrir l'app est possible mais plus complexe.)*
+- **Planification** (sprint 11, décidé : à l'ouverture seulement) : l'application n'a pas de cron. À chaque ouverture et retour sur l'app, `src/core/allocation-auto.js` crée l'allocation de la période en cours et reporte les reliquats pour les budgets `autogen_fin_mois` (rattrapage si le jour `start_day_int` est passé sans ouverture). Idempotent, tout ou rien pour l'argent frais ; un refus (sans solde OM, libre insuffisant, `montant_min`) est expliqué par un message, rien n'est écrit. Pas d'exécution en arrière-plan.
+- **Verrouillage par PIN** (sprint 11, code livré) : PIN de 4 à 8 chiffres, gardé en **empreinte salée** (SHA-256 répété 10 000 fois) dans `meta` (`verrou_*`), jamais en clair ; demandé au démarrage et au retour après plus d'une minute (`src/core/verrou.js`, `src/ui/ecrans/verrou.js`). **Essais** : 4 échecs libres, puis blocage de 30 s / 1 min / 5 min / 30 min, jamais d'effacement. **PIN oublié** : code de secours `XXXX-XXXX-XXXX` affiché une seule fois à l'activation (empreinte seule gardée, renouvelé à chaque usage). Verrou d'**accès à l'écran** : la base n'est pas chiffrée. Les clés `verrou_*` (et `sms_expediteur`) ne sont pas dans la sauvegarde JSON et sont **conservées** à la restauration.
 - **Sauvegarde / restauration** (sprint 8) : fichier **texte JSON** `volako_AAAA-MM-JJ_HH-MM-SS.json` (et non une copie du fichier `.sqlite3`, qu'on ne peut ni tester sous Windows ni lire de façon sûre sur Android). Il contient toutes les tables, les compteurs de numérotation (aucun identifiant ni code `bdg-xxx` supprimé n'est jamais réutilisé après restauration), la version du schéma et une **empreinte SHA-256** qui détecte un fichier abîmé ou modifié. Création en une seule transaction (copie cohérente). Sur Android, le fichier est écrit dans le cache de l'app puis envoyé par la **fenêtre de partage** du téléphone (Google Drive, Fichiers…) ; la restauration passe par le sélecteur de fichiers (Drive compris). **Restauration tout ou rien** : fichier vérifié (format, version, tables, empreinte, colonnes connues — jamais de SQL tiré du fichier), confirmation avec le contenu de la sauvegarde et celui des données actuelles, copie de sécurité des données actuelles conservée (bouton « Annuler la dernière restauration »), tables recréées à la version de la sauvegarde puis migrées (une ancienne sauvegarde reste restaurable), liens entre tables vérifiés ; au moindre échec, rien n'est modifié. Une sauvegarde d'une version plus récente de l'application est refusée avec un message.
 
 ## Conventions
@@ -207,20 +208,19 @@ Un prototype **Django** (sprints 0 à 3 : modèles, interface mobile, CRUD solde
 - **Nom de l'application : Volako.**
 - **Identifiant de paquet : `org.minonja.volako`** (proposé par Claude, à confirmer : il ne pourra plus changer une fois l'app installée avec des données).
 - **Android 8 (API 26) minimum.**
-- **Verrouillage par code PIN : oui** (PIN demandé à l'ouverture ; PIN stocké sous forme de hachage, jamais en clair ; limite d'essais à définir au sprint 11).
+- **Verrouillage par code PIN : oui** (PIN demandé à l'ouverture ; PIN stocké sous forme d'empreinte, jamais en clair ; essais et code de secours décidés au sprint 11, voir « Fonctions Android »).
 - Node.js 20 est installé sur le poste de dev.
 
 ## Questions ouvertes
 
 À traiter plus tard :
-- SMS Orange Money de **crédit** (argent reçu) : exemple nécessaire pour les reconnaître (les 5 SMS de débit sont déjà gérés).
+- SMS Orange Money de **crédit d'un tiers** (argent reçu d'une autre personne) : exemple nécessaire pour les reconnaître (débits gérés ; épargne, prêt crédité et dépôt ignorés).
 - Nom exact de l'expéditeur des SMS (supposé « OrangeMoney », réglable) : à confirmer sur le téléphone.
 - Doublon manuel/SMS : une dépense saisie à la main puis reçue aussi par SMS apparaît deux fois (la dépense SMS reste à classer). Pas de rapprochement automatique pour l'instant : ne pas saisir à la main ce qu'un SMS apportera.
 - Sprint 8 (sauvegarde/restauration) : en attente, ne fonctionne pas sur le téléphone ; cause à diagnostiquer.
 
-À décider avant le sprint 11 :
-- Exécution automatique en arrière-plan de l'allocation (sinon : rattrapage à l'ouverture, voir « Planification »).
-- Que faire si le PIN est oublié (la base étant locale, un oubli ne doit pas rendre les données inaccessibles : réinitialisation via restauration d'une sauvegarde ?).
+À décider :
+- Retirer la permission `INTERNET` (ajoutée par défaut par Capacitor, inutile : l'application n'utilise aucun réseau) pour que « 100 % hors ligne » soit vrai au niveau d'Android ; à vérifier sur le téléphone après le retrait.
 
 
 note de travail:
@@ -242,3 +242,4 @@ note de travail:
 14- sprint 9 terminé ; sprint 10 commencé avec la synchronisation automatique par notification à l'arrivée d'un SMS OM (demandé dans le chat)
 15- ignorer les SMS d'épargne (compte epargne, virement programmé), de prêt crédité et de dépôt : aucune transaction (demandé dans le chat)
 16- sprint 14 créé : mise à jour de l'application par Obtainium (Release GitHub), distincte de l'allocation automatique du sprint 11 (demandé dans le chat)
+17- sprint 11 : allocation automatique à l'ouverture seulement ; verrou PIN avec attente croissante (30 s, 1 min, 5 min, 30 min) et code de secours (demandé dans le chat)

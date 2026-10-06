@@ -11,7 +11,7 @@ import com.getcapacitor.annotation.Permission // Déclare une permission demand�
 
 // Plugin « UssdOm » : PIN Orange Money chiffré, consultation du solde par USSD, planification toutes les heures.
 // Le texte de la réponse est analysé par la partie web (src/core/ussd-om.js), pas ici.
-@CapacitorPlugin(name = "UssdOm", permissions = [Permission(strings = [Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE], alias = "ussd")]) // Nom et permissions « téléphone »
+@CapacitorPlugin(name = "UssdOm", permissions = [Permission(strings = [Manifest.permission.CALL_PHONE], alias = "ussd")]) // Nom et permissions « téléphone »
 class UssdOmPlugin : Plugin() { // Début de la classe
 
     @PluginMethod // Enregistre le PIN (chiffré par le coffre Android)

@@ -99,8 +99,9 @@ export async function restaurerSauvegarde(base, texte, maintenant = new Date()) 
   const { sauvegarde: s, resume } = await verifierSauvegarde(texte); // Vérifie le fichier (erreur expliquée sinon)
   const avant = await creerTexteSauvegarde(base, maintenant); // Copie de sécurité des données actuelles
   const derniere = await lireMeta(base, CLE_DERNIERE_SAUVEGARDE); // Date de la dernière sauvegarde créée (à conserver)
+  const reglagesLocaux = await base.requeter("SELECT cle, valeur FROM meta WHERE cle LIKE 'verrou!_%' ESCAPE '!' OR cle = 'sms_expediteur'"); // Réglages propres à ce téléphone (verrouillage par PIN, expéditeur des SMS) : absents de la sauvegarde, à conserver
   try { // Une erreur de la base (valeur refusée par une contrainte...) devient un message clair
-    await ecrireDonnees(base, s, avant, derniere, maintenant); // Écrit la sauvegarde (tout ou rien)
+    await ecrireDonnees(base, s, avant, derniere, maintenant, reglagesLocaux); // Écrit la sauvegarde (tout ou rien)
   } catch (erreur) { // Si quelque chose a échoué
     if (erreur instanceof ErreurMetier) throw erreur; // Déjà expliqué en français
     throw new ErreurMetier(`Cette sauvegarde contient des données invalides et ne peut pas être restaurée (${erreur.message}). Vos données actuelles n'ont pas été modifiées.`); // Message clair ; la transaction a tout annulé
@@ -109,7 +110,7 @@ export async function restaurerSauvegarde(base, texte, maintenant = new Date()) 
 } // Fin de restaurerSauvegarde
 
 // Écrit une sauvegarde vérifiée dans la base, en une seule transaction (annulée entièrement en cas d'échec).
-async function ecrireDonnees(base, s, avant, derniere, maintenant) { // Reçoit la base, la sauvegarde, la copie de sécurité, la date de dernière sauvegarde et l'heure
+async function ecrireDonnees(base, s, avant, derniere, maintenant, reglagesLocaux = []) { // Reçoit la base, la sauvegarde, la copie de sécurité, la date de dernière sauvegarde et l'heure
   await base.transaction(async () => { // Tout ou rien
     await toutEffacer(base); // Efface les données actuelles
     await appliquerMigrations(base, MIGRATIONS.filter((m) => m.version <= s.versionSchema)); // Recrée les tables telles qu'elles étaient au moment de la sauvegarde
@@ -125,6 +126,7 @@ async function ecrireDonnees(base, s, avant, derniere, maintenant) { // Reçoit 
     await ecrireMeta(base, CLE_COPIE_AVANT, avant); // Conserve la copie de sécurité
     await ecrireMeta(base, CLE_DATE_COPIE_AVANT, maintenant.toISOString()); // Et sa date
     if (derniere !== null) await ecrireMeta(base, CLE_DERNIERE_SAUVEGARDE, derniere); // Conserve la date de dernière sauvegarde
+    for (const r of reglagesLocaux) await ecrireMeta(base, r.cle, r.valeur); // Conserve le verrouillage et l'expéditeur de CE téléphone
   }); // Fin de la transaction
 } // Fin de ecrireDonnees
 

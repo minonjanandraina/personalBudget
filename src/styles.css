@@ -840,3 +840,47 @@ a.solde {
   /* Badge sans alerte */
   display: none; /* Caché */
 } /* Fin des règles */
+
+/* Verrouillage par PIN */
+.verrou {
+  /* Fenêtre plein écran qui cache toute l'application */
+  position: fixed; /* Fixée à l'écran */
+  inset: 0; /* Couvre tout l'écran */
+  z-index: 400; /* Au-dessus de tout, notifications comprises */
+  background: var(--fond); /* Fond opaque : rien de l'application ne transparaît */
+  display: grid; /* Centre la boîte */
+  place-items: center; /* Au milieu de l'écran */
+  padding: calc(var(--zone-haut) + 16px) 16px calc(var(--zone-bas) + 16px); /* Marges de sécurité */
+} /* Fin des règles */
+
+.verrou-boite {
+  /* Boîte centrale du verrouillage */
+  width: 100%; /* Toute la largeur disponible */
+  max-width: 420px; /* Sans dépasser une largeur de téléphone */
+  display: grid; /* Éléments empilés */
+  gap: 14px; /* Espace entre éléments */
+} /* Fin des règles */
+
+.code-secours {
+  /* Code de secours affiché en grand */
+  font-size: 1.6rem; /* Grande taille */
+  font-weight: 700; /* Gras */
+  letter-spacing: 0.08em; /* Caractères espacés pour la lecture */
+  text-align: center; /* Centré */
+  font-variant-numeric: tabular-nums; /* Chiffres de même largeur */
+  user-select: all; /* Un toucher sélectionne tout le code */
+  padding: 14px 8px; /* Espace autour */
+  border-radius: 14px; /* Coins arrondis */
+  background: var(--fond); /* Légèrement distinct de la carte */
+} /* Fin des règles */
+
+.bouton-texte {
+  /* Bouton discret qui ressemble à un lien */
+  background: none; /* Sans fond */
+  border: 0; /* Sans bordure */
+  color: var(--accent); /* Couleur principale */
+  font: inherit; /* Même police que le texte */
+  min-height: 48px; /* Zone tactile confortable */
+  width: 100%; /* Toute la largeur */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */

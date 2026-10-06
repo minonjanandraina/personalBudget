@@ -97,7 +97,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : les SMS OM alimentent transactions et soldes (vérifié sur le téléphone).
 
-## Sprint 10 — Synchronisation automatique et consultation USSD du solde — EN COURS
+## Sprint 10 — Synchronisation automatique et consultation USSD du solde ✅ TERMINÉ
 - **Synchronisation automatique des SMS** (décidé : notification à l'arrivée d'un SMS) : récepteur Kotlin `SmsOmReceiver.kt` (permission `RECEIVE_SMS`, + `POST_NOTIFICATIONS` sur Android 13+) ; il affiche « Nouvelle opération Orange Money » même app fermée, **sans rien écrire en base** (le parser et la base restent en JavaScript). L'import se fait à l'ouverture suivante ; l'expéditeur réglé dans l'écran SMS est mémorisé côté natif à chaque synchronisation. Fait en plus : l'import se relance aussi à chaque retour sur l'application (au plus toutes les 30 s ; l'écran n'est réaffiché que s'il n'a pas de formulaire ouvert). Écarté : import complet en arrière-plan (parser et base à dupliquer en Kotlin). *À vérifier sur le téléphone.*
 - Fait : analyse de la réponse USSD (`src/core/ussd-om.js`, testée) → solde entier.
 - Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Le code envoyé est `#144*5*3*PIN*#` (le « # » final est ajouté : **à vérifier sur le téléphone**, un seul endroit à corriger : `UssdOm.code()`). Réponse : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… ».
@@ -110,12 +110,14 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 
 **Livrable** : solde OM vérifiable à la demande.
 
-## Sprint 11 — Planification et sécurité
-- Rattrapage à l'ouverture : allocation automatique des budgets `autogen_fin_mois` si le jour `start_day_int` est passé (décision en suspens : exécution en arrière-plan).
-- Code PIN de verrouillage (décidé : oui) : saisie à la création, demande à l'ouverture, hachage, limite d'essais, procédure en cas d'oubli.
-- Revue des permissions demandées (minimum nécessaire).
+## Sprint 11 — Planification et sécurité — EN COURS (code livré, vérification sur téléphone à faire)
+- **Allocation automatique à l'ouverture** (décidé : à l'ouverture seulement, pas en arrière-plan) : `src/core/allocation-auto.js` lance `lancerAllocationPeriode(..., { seulementAuto: true })` à l'ouverture et à chaque retour sur l'application. Idempotent (relancer ne change rien) ; si le jour J est passé sans ouverture, la période manquée est rattrapée (avec report des reliquats). Tout ou rien pour l'argent frais : sans solde OM ou si le libre à allouer est insuffisant, rien n'est écrit et un message explique pourquoi. Un budget automatique créé en cours de période est alloué à la prochaine ouverture.
+- **Verrouillage par PIN** (décidé : oui) : écran « Réglages > Verrouillage par PIN » (activer, changer, désactiver). PIN de 4 à 8 chiffres, gardé sous forme d'**empreinte salée** (SHA-256 répété 10 000 fois), jamais en clair, dans la table `meta` (clés `verrou_*`, absentes de la sauvegarde JSON ; **conservées** lors d'une restauration). Demandé au démarrage et au retour sur l'application après plus d'une minute (fenêtre plein écran). C'est un verrou d'accès à l'écran : la base n'est pas chiffrée.
+- **Essais** (décidé : attente croissante) : 4 échecs libres, puis blocage de 30 s (5e échec), 1 min (6e), 5 min (7e), 30 min (8e et suivants). Jamais d'effacement des données. Le compteur est commun au PIN et au code de secours.
+- **PIN oublié** (décidé : code de secours) : à l'activation, un code `XXXX-XXXX-XXXX` est affiché **une seule fois** à noter sur papier ; il permet de redéfinir le PIN sans perte. Chaque utilisation fabrique un nouveau code ; régénérable avec le PIN.
+- **Revue des permissions** : `READ_SMS` (lecture des SMS OM), `RECEIVE_SMS` (notification), `POST_NOTIFICATIONS` (notification, Android 13+), `CALL_PHONE` (USSD) — toutes utilisées. `READ_PHONE_STATE` **retirée** (inutile pour `sendUssdRequest`, seul `CALL_PHONE` est requis). `INTERNET` (ajoutée par défaut par Capacitor) : **à décider** — l'application n'a besoin d'aucun réseau ; la retirer rendrait « 100 % hors ligne » vrai au niveau d'Android, mais ne peut se vérifier que sur le téléphone.
 
-**Livrable** : les allocations du mois se font toutes seules à l'ouverture (mise à jour des **données** ; la mise à jour de l'**application** est le sprint 14).
+**Livrable** : les allocations du mois se font toutes seules à l'ouverture et l'application est protégée par un PIN (mise à jour des **données** ; la mise à jour de l'**application** est le sprint 14).
 
 ## Sprint 12 — Finition
 - Polissage mobile : états vides, messages d'erreur, accessibilité, performances sur téléphone modeste.

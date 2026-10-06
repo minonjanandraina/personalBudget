@@ -17,6 +17,9 @@ import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du
 import { consultationAutomatique } from "./core/ussd-solde.js"; // Consultation automatique du solde
 import * as ussd from "./platform/ussd.js"; // Accès USSD (téléphone ou simulation)
 import { afficherToast } from "./ui/messages.js"; // Notifications
+import { afficherReglageVerrou, demanderDeverrouillage, DELAI_VERROU_MS } from "./ui/ecrans/verrou.js"; // Verrouillage par PIN
+import { verrouActif } from "./core/verrou.js"; // Le verrouillage est-il activé ?
+import { allocationAutomatique } from "./core/allocation-auto.js"; // Allocation automatique à l'ouverture
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
 const racine = document.getElementById("app"); // Zone vide définie dans index.html
@@ -26,6 +29,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
   try { // Tente le démarrage normal
     const base = await ouvrirBase(); // Ouvre la base
     await appliquerMigrations(base); // Applique les migrations en attente
+    if (await verrouActif(base)) await demanderDeverrouillage(base); // Verrouillage par PIN : rien ne s'affiche avant le bon PIN
     const { contenu, marquerActif, definirBadge } = construireCoque(racine); // Construit la coque (contenu + barre d'onglets)
     const routeur = creerRouteur({ // Crée le routeur
       conteneur: contenu, // Zone où les écrans s'affichent
@@ -55,6 +59,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/reglages": (zone) => afficherReglages(zone, { base }), // Réglages
         "/diagnostic": (zone) => afficherDiagnostic(zone, { base }), // Diagnostic
         "/sauvegarde": (zone) => afficherSauvegarde(zone, { base }), // Sauvegarde et restauration
+        "/verrou": (zone) => afficherReglageVerrou(zone, { base }), // Verrouillage par PIN
         "/ussd": (zone) => afficherUssd(zone, { base }), // Consultation du solde par USSD
         "/sms": (zone) => afficherSms(zone, { base }), // SMS Orange Money
         "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS
@@ -83,10 +88,33 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         if (bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
       } finally { ussdEnCours = false; } // Libère
     } // Fin de consulterSolde
+    let allocationEnCours = false; // Vrai pendant l'allocation automatique (évite d'en lancer deux en même temps)
+    async function allouerAutomatiquement() { // Allocation automatique des budgets « automatiques » (rattrapage à l'ouverture)
+      if (allocationEnCours) return; // Déjà en cours
+      allocationEnCours = true; // Marque comme en cours
+      try { // Une erreur ne doit jamais gêner l'application
+        const bilan = await allocationAutomatique(base); // Crée les allocations manquantes et reporte les reliquats
+        if (bilan.faits > 0) afficherToast(`Allocation automatique : ${bilan.faits} budget${bilan.faits > 1 ? "s" : ""} mis à jour.`, "succes", 6000); // Informe
+        if (bilan.erreur) afficherToast(`Allocation automatique non faite : ${bilan.erreur}`, "erreur", 10000); // Explique pourquoi (ex. libre insuffisant)
+        if (bilan.faits > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
+      } finally { allocationEnCours = false; } // Libère
+    } // Fin de allouerAutomatiquement
+    let masqueDepuis = null; // Heure (en ms) à laquelle l'application est passée en arrière-plan
+    let verrouOuvert = false; // Vrai pendant que la fenêtre de PIN est affichée
+    allouerAutomatiquement(); // Allocation automatique à l'ouverture
     synchroniser(); // Première synchronisation à l'ouverture
     consulterSolde(); // Première consultation à l'ouverture
     setInterval(consulterSolde, 5 * 60 * 1000); // Vérifie toutes les 5 minutes (la consultation n'a lieu que si la dernière date de plus d'une heure)
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { synchroniser(); consulterSolde(); } }); // Et à chaque retour sur l'application (après passage en arrière-plan)
+    document.addEventListener("visibilitychange", async () => { // À chaque passage en arrière-plan ou retour sur l'application
+      if (document.visibilityState === "hidden") { masqueDepuis = Date.now(); return; } // Note l'heure du départ
+      if (!verrouOuvert && masqueDepuis !== null && Date.now() - masqueDepuis > DELAI_VERROU_MS && (await verrouActif(base))) { // Absent depuis plus d'une minute et verrou activé
+        verrouOuvert = true; // Marque la fenêtre comme ouverte
+        await demanderDeverrouillage(base); // Redemande le PIN (couvre tout l'écran)
+        verrouOuvert = false; // Fenêtre refermée
+      } // Fin du verrouillage au retour
+      masqueDepuis = null; // Remet à zéro
+      allouerAutomatiquement(); synchroniser(); consulterSolde(); // Rattrape allocation, SMS et solde
+    }); // Fin de l'écoute
   } catch (erreur) { // En cas de problème au démarrage
     racine.replaceChildren(h("main", { class: "contenu" }, h("section", { class: "carte visible" }, h("h1", { class: "titre" }, "Volako"), h("p", {}, "Erreur au démarrage :"), h("pre", {}, String(erreur?.message ?? erreur))))); // Affiche l'erreur à l'écran (utile sur téléphone, sans console)
   } // Fin du try/catch
