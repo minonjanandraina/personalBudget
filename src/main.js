@@ -13,6 +13,10 @@ import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; 
 import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
 import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Orange Money
+import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du solde par USSD
+import { consultationAutomatique } from "./core/ussd-solde.js"; // Consultation automatique du solde
+import * as ussd from "./platform/ussd.js"; // Accès USSD (téléphone ou simulation)
+import { afficherToast } from "./ui/messages.js"; // Notifications
 import { h } from "./ui/dom.js"; // Fabrication d'éléments
 
 const racine = document.getElementById("app"); // Zone vide définie dans index.html
@@ -51,6 +55,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/reglages": (zone) => afficherReglages(zone, { base }), // Réglages
         "/diagnostic": (zone) => afficherDiagnostic(zone, { base }), // Diagnostic
         "/sauvegarde": (zone) => afficherSauvegarde(zone, { base }), // Sauvegarde et restauration
+        "/ussd": (zone) => afficherUssd(zone, { base }), // Consultation du solde par USSD
         "/sms": (zone) => afficherSms(zone, { base }), // SMS Orange Money
         "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS
       }, // Fin des écrans
@@ -67,8 +72,21 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         if (bilan && bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
       } finally { synchroEnCours = false; derniereSynchro = Date.now(); } // Libère et note l'heure
     } // Fin de synchroniser
+    let ussdEnCours = false; // Vrai pendant une consultation USSD (évite d'en lancer deux en même temps)
+    async function consulterSolde() { // Consultation automatique du solde (réponses de l'arrière-plan + consultation horaire)
+      if (ussdEnCours) return; // Déjà en cours
+      ussdEnCours = true; // Marque comme en cours
+      try { // Une erreur ne doit jamais gêner l'application
+        const bilan = await consultationAutomatique(base, ussd); // Importe et consulte si nécessaire
+        if (bilan.arret) afficherToast(bilan.arret, "erreur", 10000); // Consultation arrêtée en arrière-plan : prévient
+        if (bilan.erreur) afficherToast(bilan.erreur, "erreur", 10000); // Erreur de la consultation (réponse inattendue…)
+        if (bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
+      } finally { ussdEnCours = false; } // Libère
+    } // Fin de consulterSolde
     synchroniser(); // Première synchronisation à l'ouverture
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") synchroniser(); }); // Et à chaque retour sur l'application (après passage en arrière-plan)
+    consulterSolde(); // Première consultation à l'ouverture
+    setInterval(consulterSolde, 5 * 60 * 1000); // Vérifie toutes les 5 minutes (la consultation n'a lieu que si la dernière date de plus d'une heure)
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { synchroniser(); consulterSolde(); } }); // Et à chaque retour sur l'application (après passage en arrière-plan)
   } catch (erreur) { // En cas de problème au démarrage
     racine.replaceChildren(h("main", { class: "contenu" }, h("section", { class: "carte visible" }, h("h1", { class: "titre" }, "Volako"), h("p", {}, "Erreur au démarrage :"), h("pre", {}, String(erreur?.message ?? erreur))))); // Affiche l'erreur à l'écran (utile sur téléphone, sans console)
   } // Fin du try/catch

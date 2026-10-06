@@ -100,12 +100,13 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 ## Sprint 10 — Synchronisation automatique et consultation USSD du solde — EN COURS
 - **Synchronisation automatique des SMS** (décidé : notification à l'arrivée d'un SMS) : récepteur Kotlin `SmsOmReceiver.kt` (permission `RECEIVE_SMS`, + `POST_NOTIFICATIONS` sur Android 13+) ; il affiche « Nouvelle opération Orange Money » même app fermée, **sans rien écrire en base** (le parser et la base restent en JavaScript). L'import se fait à l'ouverture suivante ; l'expéditeur réglé dans l'écran SMS est mémorisé côté natif à chaque synchronisation. Fait en plus : l'import se relance aussi à chaque retour sur l'application (au plus toutes les 30 s ; l'écran n'est réaffiché que s'il n'a pas de formulaire ouvert). Écarté : import complet en arrière-plan (parser et base à dupliquer en Kotlin). *À vérifier sur le téléphone.*
 - Fait : analyse de la réponse USSD (`src/core/ussd-om.js`, testée) → solde entier.
-- Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Réponse affichée par le téléphone : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… » → à analyser pour créer le SoldeOM.
-- Réglage du PIN OM dans l'application (stockage chiffré par Android, **pas** dans la base ni dans la sauvegarde JSON — à valider avec le propriétaire).
-- Consultation automatique **toutes les heures** (décision à prendre : application ouverte seulement, ou en arrière-plan par WorkManager, plus fragile).
-- Plugin Kotlin : exécution de l'USSD (API 26+), permissions `CALL_PHONE` et `READ_PHONE_STATE`.
-- Bouton « Consulter le solde » → nouveau SoldeOM ; messages d'erreur clairs (permission refusée, réseau absent).
-- Version simulée pour le navigateur.
+- Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Le code envoyé est `#144*5*3*PIN*#` (le « # » final est ajouté : **à vérifier sur le téléphone**, un seul endroit à corriger : `UssdOm.code()`). Réponse : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… ».
+- **PIN OM** (décidé : chiffré, usage personnel) : réglable dans l'écran « Consultation du solde » ; chiffré AES-256 par le coffre Android (`CoffrePin.kt`) et gardé dans les réglages privés natifs, **pas dans la base ni dans la sauvegarde JSON** (le PIN doit rester lisible par la tâche d'arrière-plan, qui n'a pas accès à la base ; une copie dans la base n'apporterait rien et se retrouverait dans les sauvegardes). Écart avec la demande « dans la base » : à confirmer.
+- **Consultation toutes les heures, les deux modes** (décidé) : application ouverte (vérification toutes les 5 min, consultation si la dernière date de plus de 55 min) et arrière-plan (WorkManager, `ConsultationWorker.kt`, 1 h). L'arrière-plan n'écrit pas en base : il met la réponse en attente et l'application l'enregistre à l'ouverture (`importerReponsesEnAttente`). Un solde identique au dernier, sans dépense depuis, n'est pas ré-enregistré.
+- **Sécurité** : si la réponse n'est pas un solde (PIN refusé…), la consultation automatique s'arrête aussitôt (jamais de PIN faux répété) et l'utilisateur en est prévenu (notification + message).
+- Plugin Kotlin `UssdOmPlugin.kt` : USSD par `TelephonyManager.sendUssdRequest` (API 26+), permissions `CALL_PHONE` et `READ_PHONE_STATE`, demandées seulement à la première consultation.
+- Écran « Consultation du solde » (réglages) : PIN, « Consulter le solde », activer/arrêter l'automatique ; version simulée pour le navigateur.
+- Fait : analyse de la réponse (`ussd-om.js`), enregistrement et consultation automatique (`ussd-solde.js`), tests. **À vérifier sur le téléphone** (USSD, arrière-plan, notification).
 
 **Livrable** : solde OM vérifiable à la demande.
 

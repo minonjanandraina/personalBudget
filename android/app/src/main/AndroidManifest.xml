@@ -54,4 +54,7 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <!-- Afficher la notification (Android 13 et plus) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Consultation du solde Orange Money par USSD -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 </manifest>

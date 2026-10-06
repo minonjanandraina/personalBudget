@@ -17,7 +17,7 @@ export async function autoriseSansDemander() { // Aucun paramètre
 export async function lireSmsOM({ expediteur, depuis }) { // Reçoit le nom de l'expéditeur et la date de départ
   if (!Capacitor.isNativePlatform()) return SMS_EXEMPLES(new Date()); // Navigateur : SMS d'exemple datés de maintenant
   let etat = (await SmsOm.checkPermissions()).sms; // État de la permission de lire les SMS
-  if (etat !== "granted") etat = (await SmsOm.requestPermissions()).sms; // La demande à l'utilisateur
+  if (etat !== "granted") etat = (await SmsOm.requestPermissions({ permissions: ["sms", "reception", "notifications"] })).sms; // La demande à l'utilisateur
   if (etat !== "granted") throw new ErreurMetier("Permission refusée : Volako ne peut pas lire vos SMS Orange Money. Autorisez « SMS » dans les paramètres Android de l'application."); // Refus
   const { messages } = await SmsOm.lireSms({ expediteur, depuis: new Date(depuis).getTime() }); // Lit la boîte de réception (date en millisecondes)
   return messages.map((m) => ({ corps: m.corps, date: new Date(m.date).toISOString() })); // Convertit les dates en ISO
