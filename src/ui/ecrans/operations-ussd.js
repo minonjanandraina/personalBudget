@@ -8,7 +8,7 @@ import { formaterMontant } from "../../core/format.js"; // Affichage des montant
 import { afficherDateHeure } from "../../core/dates.js"; // Affichage des dates
 import { listerBudgets } from "../../core/budgets.js"; // Budgets
 import { verrouActif } from "../../core/verrou.js"; // Le verrouillage est-il activé ?
-import { creerOperation, modifierOperation, supprimerOperation, listerOperations, lireOperation, lancerOperation, preparerEnvoi, variablesDuCode, TYPES } from "../../core/operations-ussd.js"; // Logique métier
+import { creerOperation, modifierOperation, supprimerOperation, listerOperations, lireOperation, lancerOperation, preparerEnvoi, variablesDuCode, resumeSaisies, TYPES } from "../../core/operations-ussd.js"; // Logique métier
 import { listerEnAttente, annulerEnAttente } from "../../core/ussd-en-attente.js"; // Envois en attente de leur SMS
 import * as ussdPlateforme from "../../platform/ussd.js"; // Accès USSD (téléphone ou simulation)
 
@@ -65,9 +65,11 @@ export async function afficherFormulaireOperationUssd(zone, { base, params = {} 
   const champs = { // Champs du formulaire
     nom: champ({ id: "ussd-nom", libelle: "Nom de l'opération", valeur: existant?.nom ?? "", aide: "Ex. Retrait Orange Money, Paiement marchand" }), // Nom
     type: choix({ id: "ussd-type", libelle: "Type", valeur: existant?.type ?? "sortie", options: TYPES.map((t) => ({ valeur: t.valeur, libelle: t.libelle })) }), // Sortie ou entrée
-    code: champ({ id: "ussd-code", libelle: "Code USSD", valeur: existant?.code ?? "", inputmode: "text", aide: "Ex. #144*8*8*{numero}*{montant}*{pin}# — {numero} : numéro saisi à chaque envoi, {montant} : montant saisi (obligatoire pour une sortie), {pin} : votre PIN Orange Money (enregistré chiffré, jamais affiché)." }), // Code
+    code: champ({ id: "ussd-code", libelle: "Code USSD", valeur: existant?.code ?? "", inputmode: "text", aide: "{numero} : numéro saisi à chaque envoi (à écrire autant de fois que le code le demande, p. ex. retrait : #144*1*2*{numero}*{numero}*{montant}*{pin}#) ; sans {numero} si le parcours n'en a pas besoin (p. ex. remboursement de prêt : #144*4*1*1*{montant}*{pin}#). {montant} : montant saisi (obligatoire pour une sortie). {pin} : votre PIN Orange Money (enregistré chiffré, jamais affiché)." }), // Code
     budgetId: choix({ id: "ussd-budget", libelle: "Budget à débiter (sortie)", valeur: existant?.budgetId === null || existant === null ? "" : String(existant.budgetId), options: [{ valeur: "", libelle: "— Aucun —" }, ...budgets.map((b) => ({ valeur: b.id, libelle: b.name }))] }), // Budget
   }; // Fin des champs
+  const apercu = h("p", { class: "ligne-detail" }, resumeSaisies(existant?.code ?? "")); // Aperçu de ce que l'écran de lancement demandera
+  champs.code.element.querySelector("input").addEventListener("input", () => { apercu.textContent = resumeSaisies(champs.code.lire()); }); // Met l'aperçu à jour à chaque frappe
   const enregistrer = () => { // Enregistre
     const donnees = { nom: champs.nom.lire(), type: champs.type.lire(), code: champs.code.lire(), budgetId: Number(champs.budgetId.lire()) || null }; // Rassemble les valeurs
     return soumettre({ champs, action: () => (id === null ? creerOperation(base, donnees) : modifierOperation(base, id, donnees)), messageSucces: id === null ? "Opération créée." : "Opération modifiée.", routeSucces: "/operations-ussd" }); // Création ou modification
@@ -76,7 +78,7 @@ export async function afficherFormulaireOperationUssd(zone, { base, params = {} 
     if (!(await confirmer({ titre: "Supprimer cette opération ?", message: `« ${existant.nom} » sera supprimée définitivement.`, libelleOk: "Supprimer", danger: true }))) return; // Confirmation
     await soumettre({ champs: {}, action: () => supprimerOperation(base, id), messageSucces: "Opération supprimée.", routeSucces: "/operations-ussd" }); // Supprime (refusé si en attente)
   }; // Fin de supprimer
-  zone.append(carte(champs.nom.element, champs.type.element, champs.code.element, champs.budgetId.element, boutonPrincipal("Enregistrer", enregistrer), existant ? h("div", { class: "espace-haut" }, boutonPrincipal("Supprimer", supprimer, { danger: true })) : null)); // Carte du formulaire
+  zone.append(carte(champs.nom.element, champs.type.element, champs.code.element, apercu, champs.budgetId.element, boutonPrincipal("Enregistrer", enregistrer), existant ? h("div", { class: "espace-haut" }, boutonPrincipal("Supprimer", supprimer, { danger: true })) : null)); // Carte du formulaire
 } // Fin de afficherFormulaireOperationUssd
 
 // Écran de lancement d'une opération (params.id = modèle).

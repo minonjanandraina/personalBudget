@@ -250,4 +250,6 @@ note de travail:
 15- ignorer les SMS d'épargne (compte epargne, virement programmé), de prêt crédité et de dépôt : aucune transaction (demandé dans le chat)
 16- sprint 14 créé : mise à jour de l'application par Obtainium (Release GitHub), distincte de l'allocation automatique du sprint 11 (demandé dans le chat)
 17- sprint 11 : allocation automatique à l'ouverture seulement ; verrou PIN avec attente croissante (30 s, 1 min, 5 min, 30 min) et code de secours (demandé dans le chat)
+19- codes USSD dynamiques : `{numero}` peut être répété (retrait : `#144*1*2*{numero}*{numero}*{montant}*{pin}#`, saisi une seule fois) ou absent (remboursement de prêt : `#144*4*1*1*{montant}*{pin}#`) ; aide et aperçu des saisies demandées dans le formulaire (demandé dans le chat)
+20- types et budgets par défaut (8 types, 9 budgets, allocation automatique oui, `src/core/valeurs-par-defaut.js`) installés une seule fois à la première ouverture, seulement si la base est vierge ; jamais recréés ensuite (demandé dans le chat)
 18- opérations USSD dynamiques : PIN de l'app pour autoriser, variables {numero}/{montant}/{pin} dans le code, dépense classée par le SMS de confirmation, entrée = code seulement (demandé dans le chat)

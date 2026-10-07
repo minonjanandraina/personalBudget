@@ -6,7 +6,7 @@ import { activerVerrou } from "./verrou.js"; // Verrouillage par PIN
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs
 import { importerSms, listerNonClassees } from "./import-sms.js"; // Import des SMS
 import { SMS_EXEMPLES } from "../platform/sms-exemples.js"; // SMS réels
-import { validerOperation, variablesDuCode, creerOperation, modifierOperation, supprimerOperation, listerOperations, preparerEnvoi, lancerOperation } from "./operations-ussd.js"; // Fonctions à tester
+import { validerOperation, variablesDuCode, resumeSaisies, creerOperation, modifierOperation, supprimerOperation, listerOperations, preparerEnvoi, lancerOperation } from "./operations-ussd.js"; // Fonctions à tester
 import { rapprocherEnAttente, listerEnAttente, annulerEnAttente } from "./ussd-en-attente.js"; // Envois en attente
 
 const APRES = new Date("2026-10-05T10:00:00.000Z"); // Heure des SMS d'exemple
@@ -34,6 +34,11 @@ describe("validation d'un modèle", () => { // Contrôles de saisie
   it("reconnaît les variables du code", () => { // Variables
     expect(variablesDuCode(RETRAIT)).toEqual(["numero", "montant", "pin"]); // Dans l'ordre
     expect(variablesDuCode("#144#")).toEqual([]); // Aucune
+  }); // Fin du cas
+  it("résume les saisies demandées (numéro répété, sans numéro, sans rien)", () => { // Aperçu du formulaire
+    expect(resumeSaisies("#144*1*2*{numero}*{numero}*{montant}*{pin}#")).toContain("inséré 2 fois"); // Numéro répété
+    expect(resumeSaisies("#144*4*1*1*{montant}*{pin}#")).toBe("À chaque envoi, on demandera un montant."); // Sans numéro
+    expect(resumeSaisies("#144*1*{pin}#")).toContain("Aucune saisie"); // Rien à saisir
   }); // Fin du cas
   it("accepte un modèle correct", () => { expect(validerOperation(modele())).toEqual({}); }); // Cas nominal
   it("refuse les codes mal formés et les variables inconnues", () => { // Codes invalides
@@ -76,6 +81,17 @@ describe("préparation d'un envoi", () => { // Contrôles avant l'envoi
     const prep = await preparerEnvoi(base, id, { numero: "032 75 738 15", montant: 5000 }, APRES); // Prépare
     expect(prep.code).toBe("#144*8*8*0327573815*5000*{pin}#"); // Le PIN OM reste à insérer côté Android
     expect(prep.codeAffiche).toBe("#144*8*8*0327573815*5000*••••#"); // Masqué
+  }); // Fin du cas
+  it("un numéro retapé : {numero} répété dans le code est remplacé partout, saisi une seule fois", async () => { // Retrait avec confirmation du numéro
+    const id = await creerOperation(base, modele({ code: "#144*1*2*{numero}*{numero}*{montant}*{pin}#" })); // Modèle de retrait
+    const prep = await preparerEnvoi(base, id, { numero: "0327573815", montant: 5000 }, APRES); // Prépare
+    expect(prep.code).toBe("#144*1*2*0327573815*0327573815*5000*{pin}#"); // Numéro inséré aux deux endroits
+  }); // Fin du cas
+  it("sans numéro : un code sans {numero} ne demande aucun numéro", async () => { // Remboursement de prêt
+    const id = await creerOperation(base, modele({ code: "#144*4*1*1*{montant}*{pin}#" })); // Modèle sans numéro
+    const prep = await preparerEnvoi(base, id, { montant: 5000 }, APRES); // Prépare sans numéro
+    expect(prep.code).toBe("#144*4*1*1*5000*{pin}#"); // Pas de numéro dans le code
+    expect(prep.numero).toBe(""); // Aucun numéro retenu
   }); // Fin du cas
   it("refuse un numéro ou un montant invalide", async () => { // Valeurs
     const id = await creerOperation(base, modele()); // Modèle

@@ -1,5 +1,6 @@
 import { ouvrirBase } from "./platform/base.js"; // Ouvre la base (SQLite Android ou navigateur)
 import { appliquerMigrations } from "./core/db/migrations.js"; // Crée/met à jour les tables
+import { installerValeursParDefaut } from "./core/valeurs-par-defaut.js"; // Types et budgets proposés à la première ouverture
 import { construireCoque } from "./ui/coque.js"; // Zone de contenu + barre d'onglets
 import { creerRouteur } from "./ui/routeur.js"; // Affichage de l'écran selon l'adresse
 import { calculerAlertes } from "./core/alertes.js"; // Alertes (pour le badge)
@@ -30,6 +31,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
   try { // Tente le démarrage normal
     const base = await ouvrirBase(); // Ouvre la base
     await appliquerMigrations(base); // Applique les migrations en attente
+    await installerValeursParDefaut(base); // Première ouverture : types et budgets par défaut (jamais sur une base déjà utilisée)
     if (await verrouActif(base)) await demanderDeverrouillage(base); // Verrouillage par PIN : rien ne s'affiche avant le bon PIN
     const { contenu, marquerActif, definirBadge } = construireCoque(racine); // Construit la coque (contenu + barre d'onglets)
     const routeur = creerRouteur({ // Crée le routeur

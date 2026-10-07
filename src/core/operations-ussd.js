@@ -19,6 +19,17 @@ export function variablesDuCode(code) { // Reçoit le code
   return [...new Set([...String(code ?? "").matchAll(RE_VARIABLE)].map((m) => m[1]))]; // Noms trouvés
 } // Fin de variablesDuCode
 
+// Décrit en français ce que l'écran de lancement demandera pour un code (aperçu dans le formulaire du modèle).
+export function resumeSaisies(code) { // Reçoit le code
+  const texte = String(code ?? ""); // Code en texte
+  const nbNumero = (texte.match(/\{numero\}/g) ?? []).length; // Nombre de fois où le numéro est inséré
+  const demandes = []; // Phrases décrivant chaque saisie
+  if (nbNumero === 1) demandes.push("un numéro de téléphone"); // Numéro utilisé une fois
+  if (nbNumero > 1) demandes.push(`un numéro de téléphone (saisi une fois, inséré ${nbNumero} fois dans le code, p. ex. pour la confirmation du numéro)`); // Numéro répété
+  if (texte.includes("{montant}")) demandes.push("un montant"); // Montant
+  return demandes.length === 0 ? "Aucune saisie : le code sera envoyé tel quel." : `À chaque envoi, on demandera ${demandes.join(" et ")}.`; // Phrase finale
+} // Fin de resumeSaisies
+
 // Vérifie un modèle. Renvoie un dictionnaire d'erreurs par champ (vide si tout est correct).
 export function validerOperation({ nom, type, code, budgetId }) { // Reçoit le modèle
   const erreurs = {}; // Erreurs par champ
