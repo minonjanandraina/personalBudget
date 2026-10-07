@@ -15,8 +15,6 @@ import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTr
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
 import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Orange Money
 import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du solde par USSD
-import { consultationAutomatique } from "./core/ussd-solde.js"; // Consultation automatique du solde
-import * as ussd from "./platform/ussd.js"; // Accès USSD (téléphone ou simulation)
 import { afficherToast } from "./ui/messages.js"; // Notifications
 import { afficherReglageVerrou, demanderDeverrouillage, DELAI_VERROU_MS } from "./ui/ecrans/verrou.js"; // Verrouillage par PIN
 import { verrouActif } from "./core/verrou.js"; // Le verrouillage est-il activé ?
@@ -84,17 +82,6 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         if (bilan && bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
       } finally { synchroEnCours = false; derniereSynchro = Date.now(); } // Libère et note l'heure
     } // Fin de synchroniser
-    let ussdEnCours = false; // Vrai pendant une consultation USSD (évite d'en lancer deux en même temps)
-    async function consulterSolde() { // Consultation automatique du solde (réponses de l'arrière-plan + consultation horaire)
-      if (ussdEnCours) return; // Déjà en cours
-      ussdEnCours = true; // Marque comme en cours
-      try { // Une erreur ne doit jamais gêner l'application
-        const bilan = await consultationAutomatique(base, ussd); // Importe et consulte si nécessaire
-        if (bilan.arret) afficherToast(bilan.arret, "erreur", 10000); // Consultation arrêtée en arrière-plan : prévient
-        if (bilan.erreur) afficherToast(bilan.erreur, "erreur", 10000); // Erreur de la consultation (réponse inattendue…)
-        if (bilan.importes > 0 && ECRANS_LISTE.includes(window.location.hash)) window.dispatchEvent(new HashChangeEvent("hashchange")); // Réaffiche l'écran s'il n'y a pas de formulaire ouvert
-      } finally { ussdEnCours = false; } // Libère
-    } // Fin de consulterSolde
     let allocationEnCours = false; // Vrai pendant l'allocation automatique (évite d'en lancer deux en même temps)
     async function allouerAutomatiquement() { // Allocation automatique des budgets « automatiques » (rattrapage à l'ouverture)
       if (allocationEnCours) return; // Déjà en cours
@@ -110,8 +97,6 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
     let verrouOuvert = false; // Vrai pendant que la fenêtre de PIN est affichée
     allouerAutomatiquement(); // Allocation automatique à l'ouverture
     synchroniser(); // Première synchronisation à l'ouverture
-    consulterSolde(); // Première consultation à l'ouverture
-    setInterval(consulterSolde, 5 * 60 * 1000); // Vérifie toutes les 5 minutes (la consultation n'a lieu que si la dernière date de plus d'une heure)
     document.addEventListener("visibilitychange", async () => { // À chaque passage en arrière-plan ou retour sur l'application
       if (document.visibilityState === "hidden") { masqueDepuis = Date.now(); return; } // Note l'heure du départ
       if (!verrouOuvert && masqueDepuis !== null && Date.now() - masqueDepuis > DELAI_VERROU_MS && (await verrouActif(base))) { // Absent depuis plus d'une minute et verrou activé
@@ -120,7 +105,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         verrouOuvert = false; // Fenêtre refermée
       } // Fin du verrouillage au retour
       masqueDepuis = null; // Remet à zéro
-      allouerAutomatiquement(); synchroniser(); consulterSolde(); // Rattrape allocation, SMS et solde
+      allouerAutomatiquement(); synchroniser(); // Rattrape allocation et SMS
     }); // Fin de l'écoute
   } catch (erreur) { // En cas de problème au démarrage
     racine.replaceChildren(h("main", { class: "contenu" }, h("section", { class: "carte visible" }, h("h1", { class: "titre" }, "Volako"), h("p", {}, "Erreur au démarrage :"), h("pre", {}, String(erreur?.message ?? erreur))))); // Affiche l'erreur à l'écran (utile sur téléphone, sans console)

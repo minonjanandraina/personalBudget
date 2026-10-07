@@ -3,7 +3,7 @@ import { creerBaseDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // B
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget, supprimerBudget } from "./budgets.js"; // Budgets
 import { modifierJourJob } from "./parametres.js"; // Jour de lancement
-import { allouerBudget, enregistrerDepense, soldeAllocation, allocationCouvrant, resumeBudgets, libellePeriode } from "./allocations.js"; // Fonctions à tester
+import { allouerBudget, enregistrerDepense, soldeAllocation, allocationCouvrant, resumeBudgets, libellePeriode, supprimerAllocation, raisonRefusSuppressionAllocation } from "./allocations.js"; // Fonctions à tester
 import { listerTransactions } from "./transactions.js"; // Liste des transactions
 import { ErreurValidation, ErreurMetier } from "./erreurs.js"; // Erreurs
 
@@ -217,5 +217,29 @@ describe("listerTransactions", () => { // Liste filtrée
     expect((await listerTransactions(base, { sens: -1 })).map((t) => t.montant)).toEqual([3000]); // Dépenses seulement
     expect((await listerTransactions(base, { budgetId: b, sens: -1 }))).toHaveLength(0); // Aucune dépense pour B
     expect(await listerTransactions(base, { limite: 1 })).toHaveLength(1); // Limite respectée
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("supprimerAllocation", () => { // Suppression de l'allocation d'une période
+  it("supprime l'allocation (et ses alimentations) sans toucher au budget ni au type", async () => { // Cas nominal
+    const budgetId = await nouveauBudget(); // Budget
+    const { allocationId } = await allouerBudget(base, { budgetId, montant: 100000 }, MAINTENANT); // Alloue
+    await allouerBudget(base, { budgetId, montant: 20000 }, MAINTENANT); // Complète l'allocation (deux alimentations)
+    expect(await raisonRefusSuppressionAllocation(base, allocationId)).toBeNull(); // Suppression permise
+    await supprimerAllocation(base, allocationId); // Supprime
+    expect(await allocationCouvrant(base, budgetId, "2026-10-25")).toBeNull(); // Le budget redevient non alloué
+    expect(await listerTransactions(base)).toHaveLength(0); // Plus aucune alimentation
+    expect(await base.requeter("SELECT id FROM budget WHERE id = ?", [budgetId])).toHaveLength(1); // Budget conservé
+    expect(await base.requeter("SELECT id FROM type_budget")).toHaveLength(1); // Type conservé
+  }); // Fin du cas
+  it("refuse s'il existe une dépense dans l'allocation", async () => { // Dépense présente
+    const budgetId = await nouveauBudget(); // Budget
+    const { allocationId } = await allouerBudget(base, { budgetId, montant: 100000 }, MAINTENANT); // Alloue
+    await enregistrerDepense(base, { budgetId, montant: 5000, dateOperation: MAINTENANT.toISOString() }, MAINTENANT); // Dépense
+    await expect(supprimerAllocation(base, allocationId)).rejects.toThrow(ErreurMetier); // Refusé
+    expect(await soldeAllocation(base, allocationId)).toBe(95000); // Rien n'a changé
+  }); // Fin du cas
+  it("refuse une allocation inexistante", async () => { // Introuvable
+    await expect(supprimerAllocation(base, 999)).rejects.toThrow("n'existe plus"); // Message clair
   }); // Fin du cas
 }); // Fin du groupe

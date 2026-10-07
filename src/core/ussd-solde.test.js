@@ -1,18 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "./db/aide-tests.js"; // Base neuve
 import { lireDernierSolde, listerSoldes } from "./soldes.js"; // Soldes
-import { validerPin, enregistrerReponse, consulterEtEnregistrer, importerReponsesEnAttente, consultationAutomatique } from "./ussd-solde.js"; // Fonctions à tester
+import { validerPin, validerCodeSolde, lireCodeSolde, ecrireCodeSolde, reinitialiserCodeSolde, CODE_SOLDE_DEFAUT, enregistrerReponse, consulterEtEnregistrer } from "./ussd-solde.js"; // Fonctions à tester
 
 let base; // Base de chaque cas
 const REPONSE = (n) => `Le solde de votre compte est de ${n} AR. Achetez du crédit via OM.`; // Réponse type
 const MAINTENANT = new Date("2026-10-06T10:00:00.000Z"); // Heure fixe
 
-// Faux accès USSD : réponses programmables, appels comptés.
+// Faux accès USSD : réponse programmable, appels comptés.
 const faux = (extra = {}) => ({ // Fabrique un faux
-  etat: vi.fn(async () => ({ pinDefini: true, actif: true, permission: true, code: "#144*5*3*••••*#" })), // État
-  consulter: vi.fn(async () => REPONSE(150000)), // Réponse du réseau
-  programmerAuto: vi.fn(async () => {}), // Arrêt/activation
-  recupererReponses: vi.fn(async () => ({ reponses: [], arret: null })), // Rien reçu en arrière-plan
+  envoyerCode: vi.fn(async () => REPONSE(150000)), // Réponse du réseau
   ...extra, // Surcharges
 }); // Fin du faux
 
@@ -21,6 +18,24 @@ beforeEach(async () => { base = await creerBaseDeTest(); }); // Base neuve avant
 describe("validerPin", () => { // Format du PIN
   it("accepte 4 à 8 chiffres", () => { expect(() => validerPin("1234")).not.toThrow(); expect(() => validerPin("12345678")).not.toThrow(); }); // Valides
   it("refuse le reste", () => { for (const p of ["", "123", "123456789", "12a4", "12 34", null]) expect(() => validerPin(p)).toThrow(); }); // Invalides
+}); // Fin du groupe
+
+describe("code de consultation réglable", () => { // Code USSD choisi par l'utilisateur
+  it("vaut le code actuel par défaut", async () => { expect(await lireCodeSolde(base)).toBe("#144*5*3*{pin}*#"); expect(CODE_SOLDE_DEFAUT).toBe("#144*5*3*{pin}*#"); }); // Défaut inchangé
+  it("enregistre un autre code, puis revient au défaut", async () => { // Cycle
+    expect(await ecrireCodeSolde(base, "  #144*5*3*{pin}#  ")).toBe("#144*5*3*{pin}#"); // Espaces retirés
+    expect(await lireCodeSolde(base)).toBe("#144*5*3*{pin}#"); // Relu
+    await reinitialiserCodeSolde(base); // Retour au défaut
+    expect(await lireCodeSolde(base)).toBe(CODE_SOLDE_DEFAUT); // Défaut
+  }); // Fin du cas
+  it("refuse un code sans {pin}, mal formé ou avec une autre variable", async () => { // Validation
+    expect(() => validerCodeSolde("#144*5*3#")).toThrow(); // Sans PIN
+    expect(() => validerCodeSolde("144*5*3*{pin}#")).toThrow(); // Ne commence pas par # ou *
+    expect(() => validerCodeSolde("#144*5*3*{pin}")).toThrow(); // Ne finit pas par #
+    expect(() => validerCodeSolde("#144*{montant}*{pin}#")).toThrow(); // Autre variable
+    await expect(ecrireCodeSolde(base, "abc")).rejects.toThrow(); // Refusé à l'enregistrement
+    expect(await lireCodeSolde(base)).toBe(CODE_SOLDE_DEFAUT); // Rien n'a changé
+  }); // Fin du cas
 }); // Fin du groupe
 
 describe("enregistrerReponse", () => { // Enregistrement d'une réponse
@@ -40,55 +55,31 @@ describe("enregistrerReponse", () => { // Enregistrement d'une réponse
 }); // Fin du groupe
 
 describe("consulterEtEnregistrer", () => { // Consultation immédiate
-  it("consulte puis enregistre le solde", async () => { // Cas nominal
+  it("insère le PIN saisi dans le code par défaut, puis enregistre le solde", async () => { // Cas nominal
     const ussd = faux(); // Faux
-    expect(await consulterEtEnregistrer(base, ussd, { forcer: true, maintenant: MAINTENANT })).toEqual({ balance: 150000, enregistre: true }); // Résultat
+    expect(await consulterEtEnregistrer(base, ussd, { pin: "1234", maintenant: MAINTENANT })).toEqual({ balance: 150000, enregistre: true }); // Résultat
+    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*5*3*1234*#"); // Code complet envoyé
     expect((await lireDernierSolde(base)).balance).toBe(150000); // Enregistré
   }); // Fin du cas
-  it("arrête la consultation automatique si la réponse n'est pas un solde", async () => { // Sécurité anti-blocage du PIN
-    const ussd = faux({ consulter: vi.fn(async () => "PIN incorrect") }); // Réponse d'erreur
-    await expect(consulterEtEnregistrer(base, ussd, { maintenant: MAINTENANT })).rejects.toThrow("vérifiez votre PIN"); // Erreur expliquée
-    expect(ussd.programmerAuto).toHaveBeenCalledWith(false); // Arrêt demandé
+  it("utilise le code personnalisé", async () => { // Code réglable
+    await ecrireCodeSolde(base, "#144*9*{pin}#"); // Autre code
+    const ussd = faux(); // Faux
+    await consulterEtEnregistrer(base, ussd, { pin: "4321", maintenant: MAINTENANT }); // Consulte
+    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*9*4321#"); // Code personnalisé envoyé
+  }); // Fin du cas
+  it("refuse un PIN mal formé sans rien envoyer", async () => { // Validation du PIN
+    const ussd = faux(); // Faux
+    await expect(consulterEtEnregistrer(base, ussd, { pin: "12", maintenant: MAINTENANT })).rejects.toThrow("de 4 à 8 chiffres"); // Refusé
+    expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
+  }); // Fin du cas
+  it("explique une réponse qui n'est pas un solde, sans rien enregistrer", async () => { // Réponse d'erreur
+    const ussd = faux({ envoyerCode: vi.fn(async () => "PIN incorrect") }); // Réponse d'erreur
+    await expect(consulterEtEnregistrer(base, ussd, { pin: "1234", maintenant: MAINTENANT })).rejects.toThrow("Vérifiez votre PIN"); // Erreur expliquée
     expect(await lireDernierSolde(base)).toBeNull(); // Rien d'enregistré
   }); // Fin du cas
-}); // Fin du groupe
-
-describe("importerReponsesEnAttente", () => { // Réponses de l'arrière-plan
-  it("enregistre les réponses reçues, de la plus ancienne à la plus récente, et ignore les illisibles", async () => { // Cas nominal
-    const ussd = faux({ recupererReponses: vi.fn(async () => ({ reponses: [ // Trois réponses dans le désordre
-      { texte: REPONSE(900), date: Date.parse("2026-10-06T09:00:00.000Z") }, // Récente
-      { texte: REPONSE(1000), date: Date.parse("2026-10-06T08:00:00.000Z") }, // Ancienne
-      { texte: "bizarre", date: Date.parse("2026-10-06T08:30:00.000Z") }, // Illisible
-    ], arret: "Arrêt pour test" })) }); // Fin du faux
-    expect(await importerReponsesEnAttente(base, ussd)).toEqual({ importes: 2, arret: "Arrêt pour test" }); // Deux soldes, raison transmise
-    expect((await lireDernierSolde(base)).balance).toBe(900); // Le plus récent est le dernier
-  }); // Fin du cas
-}); // Fin du groupe
-
-describe("consultationAutomatique", () => { // Consultation horaire au premier plan
-  it("consulte quand c'est actif et jamais fait", async () => { // Première fois
-    const ussd = faux(); // Faux
-    const bilan = await consultationAutomatique(base, ussd, MAINTENANT); // Appel
-    expect(bilan).toMatchObject({ consulte: true, importes: 1, erreur: null }); // Consulté
-    expect(ussd.consulter).toHaveBeenCalledTimes(1); // Un seul envoi
-  }); // Fin du cas
-  it("ne reconsulte pas avant environ une heure", async () => { // Cadence
-    const ussd = faux(); // Faux
-    await consultationAutomatique(base, ussd, MAINTENANT); // Première
-    await consultationAutomatique(base, ussd, new Date(MAINTENANT.getTime() + 30 * 60 * 1000)); // 30 minutes après
-    expect(ussd.consulter).toHaveBeenCalledTimes(1); // Pas de seconde consultation
-    await consultationAutomatique(base, ussd, new Date(MAINTENANT.getTime() + 56 * 60 * 1000)); // 56 minutes après
-    expect(ussd.consulter).toHaveBeenCalledTimes(2); // Seconde consultation
-  }); // Fin du cas
-  it("ne consulte pas si la consultation automatique est arrêtée, mais importe l'arrière-plan", async () => { // Inactif
-    const ussd = faux({ etat: vi.fn(async () => ({ pinDefini: true, actif: false, permission: true })) }); // Inactif
-    const bilan = await consultationAutomatique(base, ussd, MAINTENANT); // Appel
-    expect(bilan.consulte).toBe(false); // Pas de consultation
-    expect(ussd.recupererReponses).toHaveBeenCalled(); // Mais l'arrière-plan est repris
-  }); // Fin du cas
-  it("renvoie l'erreur sans la lancer", async () => { // Robustesse
-    const ussd = faux({ consulter: vi.fn(async () => "PIN incorrect") }); // Réponse d'erreur
-    const bilan = await consultationAutomatique(base, ussd, MAINTENANT); // Appel
-    expect(bilan.erreur).toContain("vérifiez votre PIN"); // Message gardé
+  it("ne garde le PIN nulle part dans la base", async () => { // Aucun stockage
+    await consulterEtEnregistrer(base, faux(), { pin: "7391", maintenant: MAINTENANT }); // Consulte
+    const meta = JSON.stringify(await base.requeter("SELECT cle, valeur FROM meta")); // Contenu de la table meta
+    expect(meta).not.toContain("7391"); // Le PIN n'y est pas
   }); // Fin du cas
 }); // Fin du groupe

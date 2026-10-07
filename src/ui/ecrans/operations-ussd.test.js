@@ -13,7 +13,6 @@ let zone; // Zone d'écran
 let budgetId; // Budget débité
 
 const faux = () => ({ // Faux téléphone
-  etat: vi.fn(async () => ({ pinDefini: true, actif: false, permission: true })), // PIN OM enregistré
   demanderPermission: vi.fn(async () => true), // Permission accordée
   envoyerCode: vi.fn(async () => "Retrait en cours."), // Réponse d'Orange Money
 }); // Fin du faux
@@ -71,12 +70,13 @@ describe("liste et lancement", () => { // Utilisation
     await afficherLancerOperationUssd(zone, { base, params: { id }, ussd }); // Écran
     saisir("lancer-numero", "0327573815"); // Numéro
     saisir("lancer-montant", "5000"); // Montant
+    saisir("lancer-pin-om", "5678"); // PIN Orange Money (demandé à chaque envoi)
     saisir("lancer-pin", "1234"); // PIN de l'application
     boutons("Envoyer")[0].click(); // Demande l'envoi
     await vi.waitFor(() => expect(document.body.textContent).toContain("Envoyer cette opération ?")); // Fenêtre de confirmation
     expect(document.body.textContent).toContain("••••"); // Le PIN OM n'est pas affiché
     boutons("Envoyer").at(-1).click(); // Confirme dans la fenêtre
-    await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*{pin}#")); // Code envoyé
+    await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#")); // Code envoyé avec le PIN OM saisi
     await vi.waitFor(() => expect(zone.textContent).toContain("Retrait en cours.")); // Réponse montrée
     expect(await listerEnAttente(base)).toMatchObject([{ montant: 5000, statut: "en_attente" }]); // En attente du SMS
   }); // Fin du cas
@@ -88,6 +88,7 @@ describe("liste et lancement", () => { // Utilisation
     await afficherLancerOperationUssd(zone, { base, params: { id }, ussd }); // Écran
     saisir("lancer-numero", "0327573815"); // Numéro
     saisir("lancer-montant", "5000"); // Montant
+    saisir("lancer-pin-om", "5678"); // PIN Orange Money
     saisir("lancer-pin", "0000"); // Mauvais PIN
     boutons("Envoyer")[0].click(); // Demande l'envoi
     await vi.waitFor(() => expect(document.body.textContent).toContain("Envoyer cette opération ?")); // Confirmation

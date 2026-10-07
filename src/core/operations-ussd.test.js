@@ -16,7 +16,6 @@ let budgetId; // Budget débité
 
 // Faux accès USSD : enregistre le dernier code envoyé.
 const faux = (extra = {}) => ({ // Fabrique un faux
-  etat: vi.fn(async () => ({ pinDefini: true, actif: false, permission: true })), // PIN OM enregistré
   envoyerCode: vi.fn(async () => "Operation en cours de traitement."), // Réponse d'Orange Money
   ...extra, // Surcharges
 }); // Fin du faux
@@ -113,7 +112,7 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
   beforeEach(async () => { id = await creerOperation(base, modele()); }); // Modèle
 
   it("exige que le verrouillage par PIN soit activé", async () => { // Autorisation
-    await expect(lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234" }, APRES)).rejects.toThrow("verrouillage"); // Refusé
+    await expect(lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES)).rejects.toThrow("verrouillage"); // Refusé
   }); // Fin du cas
   it("refuse un mauvais PIN de l'application sans rien envoyer", async () => { // PIN
     await activerVerrou(base, "1234"); // Verrou actif
@@ -121,17 +120,17 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
     await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "0000" }, APRES)).rejects.toThrow(ErreurValidation); // Mauvais PIN
     expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
   }); // Fin du cas
-  it("refuse si le PIN Orange Money n'est pas enregistré", async () => { // PIN OM
+  it("refuse si le PIN Orange Money saisi est absent ou mal formé", async () => { // PIN OM
     await activerVerrou(base, "1234"); // Verrou actif
-    const ussd = faux({ etat: vi.fn(async () => ({ pinDefini: false })) }); // Pas de PIN OM
-    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234" }, APRES)).rejects.toThrow("PIN Orange Money"); // Refusé
+    const ussd = faux(); // Faux téléphone
+    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "12" }, APRES)).rejects.toThrow(ErreurValidation); // PIN OM mal formé : refusé sous le champ
     expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
   }); // Fin du cas
   it("envoie le code et met la sortie en attente de son SMS, sans toucher au budget", async () => { // Cas nominal
     await activerVerrou(base, "1234"); // Verrou actif
     const ussd = faux(); // Faux
-    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234" }, APRES); // Lance
-    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*{pin}#"); // Code envoyé, PIN OM non vu par JavaScript
+    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES); // Lance
+    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#"); // Code envoyé avec le PIN OM saisi (jamais enregistré)
     expect(r).toMatchObject({ texte: "Operation en cours de traitement.", enAttente: true }); // Résultat
     expect(await listerEnAttente(base)).toMatchObject([{ operationNom: "Retrait Orange Money", montant: 5000, budgetId, statut: "en_attente" }]); // En attente
     const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE debit_credit = -1"); // Dépenses enregistrées
@@ -140,13 +139,13 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
   it("une opération d'entrée n'attend rien", async () => { // Entrée
     await activerVerrou(base, "1234"); // Verrou actif
     const entree = await creerOperation(base, { nom: "Dépôt", type: "entree", code: "#144*2*{pin}#", budgetId: null }); // Entrée
-    const r = await lancerOperation(base, faux(), entree, { pinApp: "1234" }, APRES); // Lance
+    const r = await lancerOperation(base, faux(), entree, { pinApp: "1234", pinOm: "5678" }, APRES); // Lance
     expect(r.enAttente).toBe(false); // Rien en attente
     expect(await listerEnAttente(base)).toEqual([]); // Aucune ligne
   }); // Fin du cas
   it("supprimer un modèle est refusé tant qu'un envoi attend son SMS", async () => { // Intégrité
     await activerVerrou(base, "1234"); // Verrou actif
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234" }, APRES); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES); // Envoi
     await expect(supprimerOperation(base, id)).rejects.toThrow("attend encore"); // Refusé
   }); // Fin du cas
 }); // Fin du groupe
@@ -155,7 +154,7 @@ describe("rapprochement avec les SMS", () => { // Classement automatique
   const envoyer = async (montant, quand = new Date(APRES.getTime() - 30000)) => { // Envoie une opération 30 s avant les SMS
     await activerVerrou(base, "1234"); // Verrou actif
     const id = await creerOperation(base, modele()); // Modèle
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinApp: "1234" }, quand); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinApp: "1234", pinOm: "5678" }, quand); // Envoi
   }; // Fin de envoyer
 
   beforeEach(async () => { await base.executer("INSERT INTO solde_om (datetime, balance) VALUES ('2026-10-05T06:00:00.000Z', 1000000)"); }); // Solde initial avant les SMS

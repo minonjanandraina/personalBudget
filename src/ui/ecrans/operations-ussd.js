@@ -65,7 +65,7 @@ export async function afficherFormulaireOperationUssd(zone, { base, params = {} 
   const champs = { // Champs du formulaire
     nom: champ({ id: "ussd-nom", libelle: "Nom de l'opération", valeur: existant?.nom ?? "", aide: "Ex. Retrait Orange Money, Paiement marchand" }), // Nom
     type: choix({ id: "ussd-type", libelle: "Type", valeur: existant?.type ?? "sortie", options: TYPES.map((t) => ({ valeur: t.valeur, libelle: t.libelle })) }), // Sortie ou entrée
-    code: champ({ id: "ussd-code", libelle: "Code USSD", valeur: existant?.code ?? "", inputmode: "text", aide: "{numero} : numéro saisi à chaque envoi (à écrire autant de fois que le code le demande, p. ex. retrait : #144*1*2*{numero}*{numero}*{montant}*{pin}#) ; sans {numero} si le parcours n'en a pas besoin (p. ex. remboursement de prêt : #144*4*1*1*{montant}*{pin}#). {montant} : montant saisi (obligatoire pour une sortie). {pin} : votre PIN Orange Money (enregistré chiffré, jamais affiché)." }), // Code
+    code: champ({ id: "ussd-code", libelle: "Code USSD", valeur: existant?.code ?? "", inputmode: "text", aide: "{numero} : numéro saisi à chaque envoi (à écrire autant de fois que le code le demande, p. ex. retrait : #144*1*2*{numero}*{numero}*{montant}*{pin}#) ; sans {numero} si le parcours n'en a pas besoin (p. ex. remboursement de prêt : #144*4*1*1*{montant}*{pin}#). {montant} : montant saisi (obligatoire pour une sortie). {pin} : votre PIN Orange Money, demandé à chaque envoi (jamais enregistré, jamais affiché)." }), // Code
     budgetId: choix({ id: "ussd-budget", libelle: "Budget à débiter (sortie)", valeur: existant?.budgetId === null || existant === null ? "" : String(existant.budgetId), options: [{ valeur: "", libelle: "— Aucun —" }, ...budgets.map((b) => ({ valeur: b.id, libelle: b.name }))] }), // Budget
   }; // Fin des champs
   const apercu = h("p", { class: "ligne-detail" }, resumeSaisies(existant?.code ?? "")); // Aperçu de ce que l'écran de lancement demandera
@@ -94,6 +94,7 @@ export async function afficherLancerOperationUssd(zone, { base, params = {}, uss
   const champs = {}; // Champs du formulaire
   if (variables.includes("numero")) champs.numero = champ({ id: "lancer-numero", libelle: "Numéro de téléphone", inputmode: "numeric", aide: "Chiffres seulement, sans +" }); // Numéro
   if (variables.includes("montant")) champs.montant = champ({ id: "lancer-montant", libelle: "Montant (Ar)", inputmode: "numeric" }); // Montant
+  if (variables.includes("pin")) champs.pinOm = champ({ id: "lancer-pin-om", libelle: "PIN Orange Money", type: "password", inputmode: "numeric", aide: "Demandé à chaque envoi ; jamais enregistré." }); // PIN Orange Money (inséré dans le code, jamais gardé)
   champs.pin = champ({ id: "lancer-pin", libelle: "PIN de l'application", type: "password", inputmode: "numeric", aide: "Le PIN de verrouillage de Volako autorise l'envoi." }); // PIN de l'application
   const zoneResultat = h("div", {}); // Réponse d'Orange Money
   const envoyer = async () => { // Envoie
@@ -106,8 +107,8 @@ export async function afficherLancerOperationUssd(zone, { base, params = {}, uss
       if (!(await ussd.demanderPermission())) throw new ErreurMetier("Permission « téléphone » refusée : autorisez-la dans les paramètres Android de l'application."); // Permission
       const ok = await confirmer({ titre: "Envoyer cette opération ?", message: `${operation.nom}\nCode : ${prep.codeAffiche}${prep.montant ? `\nMontant : ${formaterMontant(prep.montant)}` : ""}${operation.type === "sortie" ? `\nBudget : ${operation.budgetNom}` : ""}\n\nUne opération envoyée ne peut pas être annulée depuis Volako.`, libelleOk: "Envoyer" }); // Confirmation
       if (!ok) return; // Annulé
-      const { texte, enAttente } = await lancerOperation(base, ussd, operation.id, { ...valeurs, pinApp: champs.pin.lire() }); // Envoie
-      champs.pin.ecrire(""); // Efface le PIN saisi
+      const { texte, enAttente } = await lancerOperation(base, ussd, operation.id, { ...valeurs, pinApp: champs.pin.lire(), pinOm: champs.pinOm?.lire() ?? "" }); // Envoie
+      champs.pin.ecrire(""); champs.pinOm?.ecrire(""); // Efface les PIN saisis
       vider(zoneResultat); // Efface l'ancienne réponse
       zoneResultat.append(carte(h("h2", { class: "carte-titre" }, "Réponse d'Orange Money"), h("p", {}, texte), h("p", { class: "ligne-detail" }, enAttente ? "La dépense sera enregistrée dans le budget dès que le SMS de confirmation sera importé." : "Aucune dépense enregistrée (opération d'entrée)."))); // Montre la réponse
       afficherToast("Code envoyé.", "succes"); // Confirme

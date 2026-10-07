@@ -204,6 +204,28 @@ export async function supprimerOperation(base, id) { // Reçoit la base et l'ide
   }); // Fin de la transaction
 } // Fin de supprimerOperation
 
+// Pourquoi une allocation (période d'un budget) ne peut pas être supprimée en entier ? Renvoie le texte du refus, ou null si c'est permis.
+// Permis seulement si elle ne contient que des alimentations normales : aucune dépense (manuelle ou SMS), aucun report, aucun transfert.
+export async function raisonRefusSuppressionAllocation(base, allocationId) { // Reçoit la base et l'identifiant de l'allocation
+  const [existe] = await base.requeter("SELECT id FROM allocation_budget WHERE id = ?", [allocationId]); // L'allocation existe-t-elle ?
+  if (!existe) return "Cette allocation n'existe plus."; // Introuvable
+  const [{ n: depenses }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE allocation_id = ? AND debit_credit = -1 AND nature = 'normale'", [allocationId]); // Dépenses rangées dans cette allocation
+  if (Number(depenses) > 0) return "Suppression impossible : des dépenses sont rangées dans cette allocation."; // Il y a des dépenses
+  const [{ n: mouvements }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE allocation_id = ? AND nature <> 'normale'", [allocationId]); // Reports et transferts liés
+  if (Number(mouvements) > 0) return "Suppression impossible : cette allocation contient un report ou un transfert (un transfert se défait par un transfert inverse)."; // Mouvements automatiques
+  return null; // Aucune raison de refuser
+} // Fin de raisonRefusSuppressionAllocation
+
+// Supprime l'allocation d'un budget pour une période (avec ses alimentations). Le budget et son type ne sont jamais touchés.
+export async function supprimerAllocation(base, allocationId) { // Reçoit la base et l'identifiant de l'allocation
+  return base.transaction(async () => { // Tout ou rien
+    const raison = await raisonRefusSuppressionAllocation(base, allocationId); // Vérifie dans la transaction
+    if (raison) throw new ErreurMetier(raison); // Refuse avec le motif
+    await base.executer("DELETE FROM transactions WHERE allocation_id = ?", [allocationId]); // Supprime les alimentations
+    await base.executer("DELETE FROM allocation_budget WHERE id = ?", [allocationId]); // Supprime l'allocation (le budget redevient « non alloué » sur cette période)
+  }); // Fin de la transaction
+} // Fin de supprimerAllocation
+
 // Lit une opération pour l'afficher dans un formulaire (null si elle n'existe pas) : ajoute le nom du budget.
 export async function lireOperationDetaillee(base, id) { // Reçoit la base et l'identifiant
   const operation = await lireOperation(base, id); // Lit l'opération

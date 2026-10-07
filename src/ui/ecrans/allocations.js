@@ -6,7 +6,7 @@ import { soumettre, lireMontant, effacerErreurs } from "../formulaire.js"; // En
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
 import { periodePour } from "../../core/periodes.js"; // Calcul de la période en cours
 import { lireJourJob } from "../../core/parametres.js"; // Jour de lancement
-import { allouerBudget, resumeBudgets, libellePeriode } from "../../core/allocations.js"; // Logique métier
+import { allouerBudget, resumeBudgets, libellePeriode, supprimerAllocation, raisonRefusSuppressionAllocation } from "../../core/allocations.js"; // Logique métier
 import { lancerAllocationPeriode, transfererEntreBudgets } from "../../core/reallocation.js"; // Report et transferts
 import { situationFinanciere } from "../../core/soldes.js"; // Solde OM disponible et libre à allouer
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
@@ -30,6 +30,19 @@ export async function afficherAllocations(zone, { base, resultat = null }) { // 
   const periode = periodePour(await lireJourJob(base)); // Période en cours
   const resumes = await resumeBudgets(base); // Situation de chaque budget
   const situation = await situationFinanciere(base); // Solde OM disponible et libre à allouer
+  for (const r of resumes) r.supprimable = r.allocation !== null && (await raisonRefusSuppressionAllocation(base, r.allocation.id)) === null; // Le bouton « Supprimer » n'est proposé que si c'est permis
+  const supprimer = async (r) => { // Supprime l'allocation d'un budget
+    const ok = await confirmer({ titre: "Supprimer l'allocation ?", message: `L'allocation de « ${r.budget.name} » (${formaterMontant(r.allocation.alimente)}) pour la période ${libellePeriode(periode)} sera supprimée. Le budget et son type restent.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
+    if (!ok) return; // Annulé
+    try { // Tente la suppression
+      await supprimerAllocation(base, r.allocation.id); // Supprime
+      afficherToast("Allocation supprimée.", "succes"); // Confirme
+    } catch (erreur) { // Refus ou erreur
+      afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur.message}`, "erreur"); // Explique
+    } // Fin du try/catch
+    vider(zone); // Efface l'écran
+    await afficherAllocations(zone, { base }); // Le redessine
+  }; // Fin de supprimer
   const lancer = async () => { // Lance l'allocation de la période
     const ok = await confirmer({ titre: "Lancer l'allocation ?", message: `Tous les budgets seront alloués pour la période ${libellePeriode(periode)}, et les reliquats des périodes précédentes seront reportés.`, libelleOk: "Lancer" }); // Demande confirmation
     if (!ok) return; // Annulé : on s'arrête
@@ -51,12 +64,13 @@ export async function afficherAllocations(zone, { base, resultat = null }) { // 
     const a = r.allocation; // Son allocation en cours
     const excedent = a ? a.solde - r.budget.montantMax : 0; // Montant au-dessus du plafond
     zone.append(h("div", { class: "carte apparition" }, // Une carte par budget
-      h("div", { class: "ligne ligne-sans-carte" }, h("div", { class: "ligne-texte" }, h("div", { class: "ligne-titre" }, r.budget.name), h("div", { class: "ligne-detail" }, r.budget.typeName))), // Nom et type
+      h("div", { class: "ligne ligne-sans-carte" }, h("div", { class: "ligne-texte" }, h("div", { class: "ligne-titre" }, r.budget.name), h("div", { class: "ligne-detail" }, `${r.budget.typeName} · Montant mensuel : ${formaterMontant(r.budget.montantBudget)}`))), // Nom, type et montant d'allocation mensuel du budget
       a // Détail selon qu'une allocation existe ou non
         ? [h("div", { class: "infos" }, info("Alloué", formaterMontant(a.alimente)), info("Dépensé", formaterMontant(a.depense)), info("Solde", formaterMontant(a.solde)), a.sorties > 0 ? info("Transféré", formaterMontant(a.sorties)) : info("Seuil d'alerte", formaterMontant(r.budget.soldeAlert))), // Montants de la période
             r.depassePlafond ? h("div", { class: "espace-haut" }, alerte({ niveau: "attention", message: `Le solde dépasse le plafond (${formaterMontant(r.budget.montantMax)}) de ${formaterMontant(excedent)} : une réallocation manuelle est nécessaire.` }), h("div", { class: "espace-haut" }, boutonLien("Transférer l'excédent", `/allocations/transfert/${r.budget.id}`, "transactions"))) : null, // Plafond dépassé avec raccourci de transfert
             r.sousSeuil ? h("div", { class: "espace-haut" }, alerte({ niveau: "danger", message: "Le solde est sous le seuil d'alerte." })) : null, // Sous le seuil
-            h("div", { class: "espace-haut" }, boutonLien("Allouer de nouveau", `/allocations/nouveau/${r.budget.id}`, "ajouter"))] // Compléter l'allocation
+            h("div", { class: "espace-haut" }, boutonLien("Allouer de nouveau", `/allocations/nouveau/${r.budget.id}`, "ajouter")), // Compléter l'allocation
+            r.supprimable ? h("div", { class: "espace-haut" }, boutonPrincipal("Supprimer l'allocation", () => supprimer(r), { danger: true })) : null] // Supprimer l'allocation (sans dépense)
         : [h("div", { class: "ligne-detail" }, "Pas encore alloué sur cette période."), h("div", { class: "espace-haut" }, boutonLien("Allouer ce budget", `/allocations/nouveau/${r.budget.id}`, "ajouter"))], // Proposer d'allouer
     )); // Fin de la carte
   } // Fin de la boucle

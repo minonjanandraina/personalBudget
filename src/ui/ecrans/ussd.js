@@ -1,56 +1,41 @@
-// Écran « Consultation du solde » : PIN Orange Money, consultation immédiate par USSD, consultation automatique toutes les heures.
-import { h, vider } from "../dom.js"; // Fabrication d'éléments
+// Écran « Consultation du solde » : code USSD réglable et consultation immédiate. Le PIN Orange Money est demandé à chaque consultation, jamais enregistré.
+import { h } from "../dom.js"; // Fabrication d'éléments
 import { enteteEcran, carte, alerte, boutonPrincipal, champ } from "../composants.js"; // Composants
 import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
+import { soumettre, effacerErreurs, appliquerErreurs } from "../formulaire.js"; // Enregistrement de formulaire
 import { ErreurMetier, ErreurValidation } from "../../core/erreurs.js"; // Erreurs expliquées
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
-import { validerPin, consulterEtEnregistrer } from "../../core/ussd-solde.js"; // Logique métier
+import { consulterEtEnregistrer, lireCodeSolde, ecrireCodeSolde, reinitialiserCodeSolde, CODE_SOLDE_DEFAUT } from "../../core/ussd-solde.js"; // Logique métier
 import * as ussdPlateforme from "../../platform/ussd.js"; // Accès USSD (téléphone ou simulation)
-
-const messageErreur = (e) => (e instanceof ErreurMetier || e instanceof ErreurValidation ? (e.message ?? "Saisie invalide.") : `Erreur : ${e?.message ?? e}`); // Texte d'une erreur
 
 // Dessine l'écran dans la zone.
 export async function afficherUssd(zone, { base, ussd = ussdPlateforme }) { // Reçoit la zone, la base et l'accès USSD
-  const contenu = h("div", {}); // Zone redessinée après chaque action
-  const champPin = champ({ id: "ussd-pin", libelle: "PIN Orange Money", type: "password", inputmode: "numeric", aide: "Chiffré par le coffre d'Android sur ce téléphone ; jamais dans la base ni dans les sauvegardes." }); // Saisie du PIN
-  const dessiner = async () => { // Redessine selon l'état
-    const etat = await ussd.etat(); // État actuel (lu AVANT d'effacer, pour ne jamais montrer un écran vide)
-    vider(contenu); // Efface
-    const executer = (action) => async () => { try { if ((await action()) === false) return; } catch (e) { afficherToast(messageErreur(e), "erreur"); } await dessiner(); }; // Exécute une action (faux = rien à redessiner), affiche l'erreur, redessine
-    contenu.append(alerte({ niveau: etat.pinDefini ? "ok" : "attention", message: etat.pinDefini ? "PIN enregistré (chiffré)." : "Aucun PIN enregistré : enregistrez-le pour consulter le solde." })); // État du PIN
-    const enregistrerPin = executer(async () => { // Enregistre le PIN saisi
-      champPin.effacerErreur(); // Repart sans erreur
-      try { validerPin(champPin.lire()); } catch (e) { if (e instanceof ErreurValidation) { champPin.afficherErreur(e.erreurs?.pin ?? "PIN invalide."); return false; } throw e; } // Vérifie le format
-      await ussd.definirPin(champPin.lire()); // Enregistre (chiffré sur Android)
-      champPin.ecrire(""); // Efface la saisie
-      afficherToast("PIN enregistré.", "succes"); // Confirme
-    }); // Fin de enregistrerPin
-    const supprimerPin = executer(async () => { // Supprime le PIN
-      if (!(await confirmer({ titre: "Supprimer le PIN ?", message: "La consultation automatique sera aussi arrêtée.", libelleOk: "Supprimer", danger: true }))) return; // Confirmation
-      await ussd.effacerPin(); // Efface
-      afficherToast("PIN supprimé.", "succes"); // Confirme
-    }); // Fin de supprimerPin
-    const consulter = executer(async () => { // Consulte maintenant
+  const champs = { // Champs du formulaire
+    code: champ({ id: "ussd-code-solde", libelle: "Code USSD de consultation", valeur: await lireCodeSolde(base), inputmode: "text", aide: `Par défaut : ${CODE_SOLDE_DEFAUT} — {pin} est remplacé par le PIN Orange Money que vous saisissez à chaque consultation.` }), // Code réglable
+    pin: champ({ id: "ussd-pin", libelle: "PIN Orange Money", type: "password", inputmode: "numeric", aide: "Demandé à chaque consultation ; jamais enregistré, ni dans la base, ni dans les sauvegardes." }), // PIN saisi à chaque fois
+  }; // Fin des champs
+  const enregistrerCode = () => soumettre({ champs: { code: champs.code }, action: () => ecrireCodeSolde(base, champs.code.lire()), messageSucces: "Code enregistré." }); // Enregistre le code
+  const retablir = async () => { // Revient au code par défaut
+    if (!(await confirmer({ titre: "Rétablir le code par défaut ?", message: CODE_SOLDE_DEFAUT, libelleOk: "Rétablir" }))) return; // Confirmation
+    await reinitialiserCodeSolde(base); // Oublie le code personnalisé
+    champs.code.ecrire(CODE_SOLDE_DEFAUT); // Réaffiche le code par défaut
+    champs.code.effacerErreur(); // Retire une erreur éventuelle
+    afficherToast("Code par défaut rétabli.", "succes"); // Confirme
+  }; // Fin de retablir
+  const consulter = async () => { // Consulte maintenant
+    effacerErreurs(champs); // Repart sans erreur
+    try { // Tente la consultation
       if (!(await ussd.demanderPermission())) throw new ErreurMetier("Permission « téléphone » refusée : Volako ne peut pas envoyer le code USSD. Autorisez-la dans les paramètres Android de l'application."); // Permission
-      const r = await consulterEtEnregistrer(base, ussd, { forcer: true }); // Consulte et enregistre
+      const r = await consulterEtEnregistrer(base, ussd, { pin: champs.pin.lire(), forcer: true }); // Consulte avec le code en vigueur (enregistré, pas celui en cours de frappe)
       afficherToast(`Solde enregistré : ${formaterMontant(r.balance)}.`, "succes"); // Confirme
-    }); // Fin de consulter
-    const basculerAuto = executer(async () => { // Active ou arrête l'automatique
-      if (!etat.actif && !(await ussd.demanderPermission())) throw new ErreurMetier("Permission « téléphone » refusée : autorisez-la dans les paramètres Android de l'application."); // Permission avant activation
-      await ussd.programmerAuto(!etat.actif); // Bascule
-      afficherToast(etat.actif ? "Consultation automatique arrêtée." : "Consultation automatique activée.", "succes"); // Confirme
-    }); // Fin de basculerAuto
-    contenu.append( // Assemble
-      carte(champPin.element, boutonPrincipal(etat.pinDefini ? "Remplacer le PIN" : "Enregistrer le PIN", enregistrerPin), etat.pinDefini ? h("div", { class: "espace-haut" }, boutonPrincipal("Supprimer le PIN", supprimerPin, { danger: true })) : null), // Carte du PIN
-      etat.pinDefini ? carte(h("h2", { class: "carte-titre" }, "Consulter maintenant"), h("p", { class: "ligne-detail" }, `Code envoyé : ${etat.code}`), boutonPrincipal("Consulter le solde", consulter)) : null, // Carte de la consultation immédiate
-      etat.pinDefini ? carte( // Carte de l'automatique
-        h("h2", { class: "carte-titre" }, "Consultation automatique"), // Titre
-        h("p", { class: "ligne-detail" }, "Toutes les heures : application ouverte, et aussi en arrière-plan (Android peut retarder ou refuser l'arrière-plan). Si Orange Money répond autre chose qu'un solde (PIN refusé…), la consultation s'arrête aussitôt, pour ne jamais répéter un PIN faux."), // Explication
-        alerte({ niveau: etat.actif ? "ok" : "info", message: etat.actif ? "Active." : "Arrêtée." }), // État
-        boutonPrincipal(etat.actif ? "Arrêter la consultation automatique" : "Activer la consultation automatique", basculerAuto), // Bouton
-      ) : null, // Rien sans PIN
-    ); // Fin de l'assemblage
-  }; // Fin de dessiner
-  zone.append(enteteEcran("Consultation du solde", "Orange Money par USSD", { retour: "/reglages" }), contenu); // En-tête et contenu
-  await dessiner(); // Premier affichage
+    } catch (erreur) { // Refus ou erreur
+      if (erreur instanceof ErreurValidation) { const orphelins = appliquerErreurs(champs, erreur.erreurs); afficherToast(orphelins[0] ?? "Corrigez le champ en rouge.", "erreur"); } // Erreur sous le champ
+      else afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur?.message ?? erreur}`, "erreur"); // Message unique
+    } finally { champs.pin.ecrire(""); } // Efface toujours le PIN saisi
+  }; // Fin de consulter
+  zone.append( // Assemble
+    enteteEcran("Consultation du solde", "Orange Money par USSD", { retour: "/reglages" }), // En-tête
+    carte(h("h2", { class: "carte-titre" }, "Code USSD"), champs.code.element, boutonPrincipal("Enregistrer le code", enregistrerCode), h("div", { class: "espace-haut" }, boutonPrincipal("Rétablir le code par défaut", retablir))), // Carte du code
+    carte(h("h2", { class: "carte-titre" }, "Consulter maintenant"), alerte({ niveau: "info", message: "Saisissez votre PIN Orange Money : il sert à cet envoi seulement et n'est pas gardé. Aucune consultation automatique (elle exigerait de garder le PIN)." }), champs.pin.element, boutonPrincipal("Consulter le solde", consulter)), // Carte de la consultation
+  ); // Fin de l'assemblage
 } // Fin de afficherUssd

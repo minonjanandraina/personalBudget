@@ -63,7 +63,7 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
-    // WorkManager : planifie la consultation du solde toutes les heures, même application fermée
+    // WorkManager : sert seulement à annuler l'ancienne tâche horaire des versions précédentes (AnciensReglagesOm.kt) ; à retirer dans une version future
     implementation 'androidx.work:work-runtime:2.9.1'
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"

@@ -3,26 +3,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "../../core/db/aide-tests.js"; // Base neuve
 import { lireDernierSolde } from "../../core/soldes.js"; // Dernier solde
+import { lireCodeSolde } from "../../core/ussd-solde.js"; // Code de consultation
 import { afficherUssd } from "./ussd.js"; // Écran à tester
 
 let base; // Base de chaque cas
 let zone; // Zone d'écran
-let pin = null; // PIN du faux accès
-let actif = false; // Automatique du faux accès
 
 const faux = () => ({ // Faux accès USSD
-  etat: vi.fn(async () => ({ pinDefini: pin !== null, actif, permission: true, code: "#144*5*3*••••*#" })), // État
-  definirPin: vi.fn(async (p) => { pin = p; }), // Enregistre
-  effacerPin: vi.fn(async () => { pin = null; actif = false; }), // Efface
   demanderPermission: vi.fn(async () => true), // Permission accordée
-  consulter: vi.fn(async () => "Le solde de votre compte est de 202316 AR."), // Réponse
-  programmerAuto: vi.fn(async (a) => { actif = a; }), // Bascule
-  recupererReponses: vi.fn(async () => ({ reponses: [], arret: null })), // Rien
+  envoyerCode: vi.fn(async () => "Le solde de votre compte est de 202316 AR."), // Réponse
 }); // Fin du faux
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Base neuve
-  pin = null; actif = false; // État initial
   document.body.replaceChildren(); // Page vide
   zone = document.createElement("main"); // Zone d'écran
   document.body.append(zone); // La place dans la page
@@ -33,33 +26,37 @@ beforeEach(async () => { // Avant chaque cas
 const toucher = (texte) => { [...zone.querySelectorAll("button")].find((b) => b.textContent.trim() === texte).click(); }; // Touche un bouton
 
 describe("écran consultation du solde", () => { // Groupe
-  it("refuse un PIN mal formé puis enregistre un PIN valide", async () => { // Saisie du PIN
-    const ussd = faux(); // Faux
-    await afficherUssd(zone, { base, ussd }); // Écran
-    expect(zone.textContent).toContain("Aucun PIN enregistré"); // État initial
-    zone.querySelector("#ussd-pin").value = "12"; // PIN trop court
-    toucher("Enregistrer le PIN"); // Valide
-    await vi.waitFor(() => expect(zone.textContent).toContain("de 4 à 8 chiffres")); // Message sous le champ
-    expect(ussd.definirPin).not.toHaveBeenCalled(); // Rien enregistré
-    zone.querySelector("#ussd-pin").value = "1234"; // PIN valide
-    toucher("Enregistrer le PIN"); // Valide
-    await vi.waitFor(() => expect(ussd.definirPin).toHaveBeenCalledWith("1234")); // Enregistré
-    await vi.waitFor(() => expect(zone.textContent).toContain("PIN enregistré (chiffré)")); // État mis à jour
-  }); // Fin du cas
-
-  it("consulte le solde et l'enregistre", async () => { // Consultation immédiate
-    pin = "1234"; // PIN déjà présent
+  it("montre le code par défaut et ne propose aucun enregistrement de PIN ni consultation automatique", async () => { // Contenu
     await afficherUssd(zone, { base, ussd: faux() }); // Écran
-    toucher("Consulter le solde"); // Touche
-    await vi.waitFor(async () => expect((await lireDernierSolde(base))?.balance).toBe(202316)); // Solde créé
+    expect(zone.querySelector("#ussd-code-solde").value).toBe("#144*5*3*{pin}*#"); // Code par défaut
+    expect(zone.textContent).not.toContain("Enregistrer le PIN"); // Pas de stockage du PIN
+    expect(zone.textContent).not.toContain("Activer la consultation automatique"); // Pas d'automatique
   }); // Fin du cas
 
-  it("active puis arrête la consultation automatique", async () => { // Bascule
-    pin = "1234"; // PIN déjà présent
+  it("refuse un code sans {pin} puis enregistre un code valide, et rétablit le code par défaut", async () => { // Code réglable
+    await afficherUssd(zone, { base, ussd: faux() }); // Écran
+    zone.querySelector("#ussd-code-solde").value = "#144*5*3#"; // Sans {pin}
+    toucher("Enregistrer le code"); // Valide
+    await vi.waitFor(() => expect(zone.textContent).toContain("doit contenir {pin}")); // Message sous le champ
+    zone.querySelector("#ussd-code-solde").value = "#144*5*3*{pin}#"; // Valide
+    toucher("Enregistrer le code"); // Valide
+    await vi.waitFor(async () => expect(await lireCodeSolde(base)).toBe("#144*5*3*{pin}#")); // Enregistré
+    toucher("Rétablir le code par défaut"); // Demande le retour au défaut
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Rétablir le code par défaut ?")); // Confirmation
+    [...document.querySelectorAll("button")].filter((b) => b.textContent.trim() === "Rétablir").at(-1).click(); // Confirme
+    await vi.waitFor(async () => expect(await lireCodeSolde(base)).toBe("#144*5*3*{pin}*#")); // Défaut rétabli
+  }); // Fin du cas
+
+  it("exige le PIN à chaque consultation, l'insère dans le code, enregistre le solde puis efface la saisie", async () => { // Consultation
     const ussd = faux(); // Faux
     await afficherUssd(zone, { base, ussd }); // Écran
-    toucher("Activer la consultation automatique"); // Active
-    await vi.waitFor(() => expect(ussd.programmerAuto).toHaveBeenCalledWith(true)); // Activée
-    await vi.waitFor(() => expect(zone.textContent).toContain("Arrêter la consultation automatique")); // Bouton inversé
+    toucher("Consulter le solde"); // Sans PIN
+    await vi.waitFor(() => expect(zone.textContent).toContain("de 4 à 8 chiffres")); // Refusé sous le champ
+    expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
+    zone.querySelector("#ussd-pin").value = "1234"; // PIN saisi
+    toucher("Consulter le solde"); // Consulte
+    await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*5*3*1234*#")); // Code complet
+    await vi.waitFor(async () => expect((await lireDernierSolde(base))?.balance).toBe(202316)); // Solde créé
+    expect(zone.querySelector("#ussd-pin").value).toBe(""); // PIN effacé de l'écran
   }); // Fin du cas
 }); // Fin du groupe

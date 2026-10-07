@@ -7,17 +7,9 @@ import android.os.Handler // File d'attente où Android rend la réponse
 import android.os.Looper // Fil principal de l'application
 import android.telephony.TelephonyManager // API téléphonie d'Android (envoi d'USSD, Android 8 et plus)
 
-// Envoi du code USSD de consultation du solde Orange Money.
-// Code : #144*5*3*PIN*# (le « # » final est ajouté ici ; à vérifier sur le téléphone : seul « #144*5*3*PIN* » figurait dans la demande).
+// Envoi d'un code USSD complet (consultation du solde, opérations dynamiques) par l'API téléphonie d'Android.
 object UssdOm { // Objet unique
 
-    // Texte du code USSD pour un PIN donné.
-    fun code(pin: String): String = "#144*5*3*$pin*#" // Modèle du code (seul endroit à corriger si le format change)
-
-    // Consulte le solde : envoie le code de consultation avec le PIN.
-    fun interroger(contexte: Context, pin: String, fin: (Boolean, String) -> Unit) { // Reçoit le contexte, le PIN et la fonction appelée à la fin
-        envoyer(contexte, code(pin), fin) // Envoie le code de consultation
-    } // Fin de interroger
 
     // Envoie un code USSD quelconque. « fin(reussi, texte) » est appelée UNE fois : texte de la réponse, ou message d'erreur.
     fun envoyer(contexte: Context, codeUssd: String, fin: (Boolean, String) -> Unit) { // Reçoit le contexte, le code complet et la fonction appelée à la fin

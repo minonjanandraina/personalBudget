@@ -22,7 +22,7 @@ export async function afficherReglages(conteneur, { base }) { // Reçoit la zone
     h("div", { class: "espace-haut groupe" }, // Liens vers les autres écrans
       boutonLien("Sauvegarde et restauration", "/sauvegarde", "sauvegarde"), // Sauvegarde des données
       boutonLien("Verrouillage par PIN", "/verrou", "info"), // Code PIN de l'application
-      boutonLien("Consultation du solde (USSD)", "/ussd", "telephone"), // PIN et consultation par USSD
+      boutonLien("Consultation du solde (USSD)", "/ussd", "telephone"), // Code USSD et consultation du solde (PIN demandé à chaque fois)
       boutonLien("Solde Orange Money", "/solde", "telephone"), // Historique des soldes
       boutonLien("Types de budget", "/types-budget", "types"), // Types de budget
       boutonLien("Diagnostic et essais", "/diagnostic", "info"), // Diagnostic
