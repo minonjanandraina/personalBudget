@@ -1,12 +1,14 @@
 // Consultation du solde Mobile Money par USSD : code réglable, PIN demandé à chaque consultation (jamais enregistré), enregistrement de la réponse en SoldeMM.
 // Aucun appel à Capacitor : l'accès au téléphone (« ussd ») est fourni par src/platform/ussd.js, ou par un faux dans les tests.
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs expliquées à l'utilisateur
-import { analyserReponseUssd } from "./ussd-mm.js"; // Lecture du solde dans la réponse
+import { analyserReponseUssd, validerGabaritSolde, GABARIT_SOLDE_DEFAUT } from "./ussd-mm.js"; // Lecture du solde dans la réponse
+import { envoyerSurSimChoisie } from "./sim.js"; // Envoi sur la SIM choisie
 import { creerSolde, soldeMMDisponible } from "./soldes.js"; // Soldes Mobile Money
 import { lireMeta, ecrireMeta, supprimerMeta } from "./meta.js"; // Petites informations de fonctionnement
 
 export const CODE_SOLDE_DEFAUT = "#144*5*3*{pin}*#"; // Code par défaut ({pin} = PIN Mobile Money saisi à chaque consultation) ; le « # » final est à vérifier sur le téléphone
 const CLE_CODE = "ussd_code_solde"; // Clé (table meta) du code choisi par l'utilisateur
+const CLE_GABARIT = "ussd_gabarit_solde"; // Clé (table meta) du gabarit de la réponse choisi par l'utilisateur
 
 // Vérifie le format du PIN Mobile Money (4 à 8 chiffres). Lance ErreurValidation sinon.
 export function validerPin(pin) { // Reçoit le texte saisi
@@ -38,10 +40,27 @@ export async function reinitialiserCodeSolde(base) { // Reçoit la base
   await supprimerMeta(base, CLE_CODE); // Oublie le code personnalisé
 } // Fin de reinitialiserCodeSolde
 
+// Gabarit de réponse en vigueur (celui de l'utilisateur, ou le gabarit par défaut).
+export async function lireGabaritSolde(base) { // Reçoit la base
+  return (await lireMeta(base, CLE_GABARIT)) ?? GABARIT_SOLDE_DEFAUT; // Gabarit enregistré ou gabarit par défaut
+} // Fin de lireGabaritSolde
+
+// Enregistre le gabarit de réponse choisi. Renvoie le gabarit enregistré.
+export async function ecrireGabaritSolde(base, gabarit) { // Reçoit la base et le gabarit
+  const propre = validerGabaritSolde(gabarit); // Vérifie
+  await ecrireMeta(base, CLE_GABARIT, propre); // Enregistre
+  return propre; // Gabarit enregistré
+} // Fin de ecrireGabaritSolde
+
+// Revient au gabarit par défaut.
+export async function reinitialiserGabaritSolde(base) { // Reçoit la base
+  await supprimerMeta(base, CLE_GABARIT); // Oublie le gabarit personnalisé
+} // Fin de reinitialiserGabaritSolde
+
 // Enregistre une réponse USSD comme SoldeMM à la date donnée. Renvoie { balance, enregistre }.
 // Sauf « forcer », un solde identique au dernier, sans dépense enregistrée depuis, n'est pas ré-enregistré.
 export async function enregistrerReponse(base, texte, dateIso, { forcer = false } = {}) { // Reçoit la base, la réponse et sa date
-  const balance = analyserReponseUssd(texte); // Solde lu dans la réponse
+  const balance = analyserReponseUssd(texte, await lireGabaritSolde(base)); // Solde lu dans la réponse avec le gabarit en vigueur
   if (balance === null) throw new ErreurMetier("La réponse de Mobile Money ne contient pas de solde."); // Réponse inattendue
   if (!forcer) { // Évite les doublons inutiles
     const mm = await soldeMMDisponible(base); // Situation actuelle
@@ -55,7 +74,7 @@ export async function enregistrerReponse(base, texte, dateIso, { forcer = false 
 export async function consulterEtEnregistrer(base, ussd, { pin, forcer = true, maintenant = new Date() } = {}) { // Reçoit la base, l'accès USSD et le PIN saisi
   validerPin(pin); // Format du PIN
   const code = (await lireCodeSolde(base)).replaceAll("{pin}", pin); // Code complet avec le PIN
-  const texte = await ussd.envoyerCode(code); // Envoie l'USSD et attend la réponse
-  if (analyserReponseUssd(texte) === null) throw new ErreurMetier(`Réponse inattendue de Mobile Money : « ${String(texte).slice(0, 200)} ». Vérifiez votre PIN et le code USSD.`); // Explique (sans répéter le PIN)
+  const texte = await envoyerSurSimChoisie(base, ussd, code); // Envoie l'USSD sur la SIM choisie et attend la réponse
+  if (analyserReponseUssd(texte, await lireGabaritSolde(base)) === null) throw new ErreurMetier(`Réponse inattendue de Mobile Money : « ${String(texte).slice(0, 200)} ». Vérifiez votre PIN, le code USSD et le texte de réponse attendu.`); // Explique (sans répéter le PIN)
   return enregistrerReponse(base, texte, maintenant.toISOString(), { forcer }); // Enregistre le solde
 } // Fin de consulterEtEnregistrer

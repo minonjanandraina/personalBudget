@@ -3,6 +3,7 @@
 // Exemple : #144*8*8*{numero}*{montant}*{pin}#
 // Autorisation de l'envoi : PIN de verrouillage de l'application (obligatoire : le verrouillage doit être activé).
 // Une opération de SORTIE n'enregistre rien tout de suite : elle est « en attente » et le SMS de confirmation est classé seul dans le budget (voir ussd-en-attente.js).
+import { envoyerSurSimChoisie } from "./sim.js"; // Envoi sur la SIM choisie
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs expliquées à l'utilisateur
 import { formaterMontant } from "./format.js"; // Affichage des montants
 import { jourLocal, afficherJour } from "./periodes.js"; // Jour d'une date
@@ -124,7 +125,7 @@ export async function lancerOperation(base, ussd, operationId, { numero, montant
   try { await verifierPin(base, pinApp, maintenant); } catch (e) { throw new ErreurValidation({ pin: e.message }); } // Mauvais PIN : message sous le champ
   const prep = await preparerEnvoi(base, operationId, { numero, montant }, maintenant); // Contrôles et code
   if (prep.code.includes("{pin}") && !/^\d{4,8}$/.test(String(pinMm ?? ""))) throw new ErreurValidation({ pinMm: "Saisissez votre PIN Mobile Money (4 à 8 chiffres) : il est demandé à chaque envoi." }); // Le code a besoin du PIN Mobile Money
-  const texte = await ussd.envoyerCode(prep.code.replaceAll("{pin}", pinMm)); // Envoi avec le PIN Mobile Money saisi (jamais enregistré)
+  const texte = await envoyerSurSimChoisie(base, ussd, prep.code.replaceAll("{pin}", pinMm)); // Envoi sur la SIM choisie avec le PIN Mobile Money saisi (jamais enregistré)
   const enAttente = prep.operation.type === "sortie"; // Une sortie attend son SMS
   if (enAttente) await base.executer( // Note l'attente
     "INSERT INTO ussd_en_attente (operation_id, operation_nom, numero, montant, budget_id, date_envoi, reponse) VALUES (?, ?, ?, ?, ?, ?, ?)", // Requête

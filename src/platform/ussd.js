@@ -15,8 +15,21 @@ export async function demanderPermission() { // Aucun paramètre
   return (await UssdMm.requestPermissions({ permissions: ["ussd"] })).ussd === "granted"; // Demande à l'utilisateur
 } // Fin de demanderPermission
 
-// Envoie un code USSD COMPLET (PIN déjà inséré). Renvoie le texte de la réponse de Mobile Money.
-export async function envoyerCode(code) { // Reçoit le code complet
+// Demande la permission « état du téléphone » (nécessaire pour lister les cartes SIM). Renvoie vrai si elle est accordée.
+export async function demanderPermissionSim() { // Aucun paramètre
+  if (!natif()) return true; // Navigateur : rien à demander
+  if ((await UssdMm.checkPermissions()).sim === "granted") return true; // Déjà accordée
+  return (await UssdMm.requestPermissions({ permissions: ["sim"] })).sim === "granted"; // Demande à l'utilisateur
+} // Fin de demanderPermissionSim
+
+// Liste les cartes SIM actives : [{ id, emplacement, nom }]. Dans le navigateur : deux SIM d'exemple.
+export async function listerSim() { // Aucun paramètre
+  if (!natif()) return [{ id: 1, emplacement: 1, nom: "SIM 1 (exemple)" }, { id: 2, emplacement: 2, nom: "SIM 2 (exemple)" }]; // Simulation
+  try { return (await UssdMm.listerSim()).sims; } catch (e) { throw new ErreurMetier(e?.message ?? "Impossible de lister les cartes SIM."); } // Android
+} // Fin de listerSim
+
+// Envoie un code USSD COMPLET (PIN déjà inséré), sur la SIM donnée si elle est précisée. Renvoie le texte de la réponse de Mobile Money.
+export async function envoyerCode(code, sim = null) { // Reçoit le code complet et la SIM choisie (facultative)
   if (!natif()) return /^#144\*5\*3\*/.test(code) ? "Le solde de votre compte est de 202316 AR. Achetez du crédit via Mobile Money et bénéficiez de 20% de bonus." : "Simulation : un code USSD serait envoyé sur le téléphone."; // Navigateur : rien n'est envoyé (la réponse d'exemple ne répète jamais le code, donc jamais le PIN)
-  try { return (await UssdMm.envoyerCode({ code })).texte; } catch (e) { throw new ErreurMetier(e?.message ?? "Envoi impossible."); } // Android
+  try { return (await UssdMm.envoyerCode(sim ? { code, subId: sim.id } : { code })).texte; } catch (e) { throw new ErreurMetier(e?.message ?? "Envoi impossible."); } // Android
 } // Fin de envoyerCode

@@ -169,7 +169,7 @@ Objectif général (demande du propriétaire) : adapter l'application à **tout 
 
 **Livrable** : plus aucune mention d'Orange Money dans l'interface ; tests verts ; sauvegardes existantes toujours restaurables.
 
-## Sprint 16 — USSD de consultation du solde dynamique + choix de la SIM
+## Sprint 16 — USSD de consultation du solde dynamique + choix de la SIM ✅ TERMINÉ (code livré ; choix de SIM et envoi à vérifier sur le téléphone)
 - **Réponse USSD par gabarit** : le texte de la réponse est analysé par un gabarit réglable avec la variable `{solde}` (ex. `Le solde de votre compte est de {solde} AR`), à la place du parser écrit en dur. Le gabarit actuel est le réglage par défaut. Gabarit stocké dans `meta` (comme `ussd_code_solde`), conservé à la restauration. Une réponse qui ne correspond pas au gabarit est expliquée sans rien enregistrer et sans répéter le PIN.
 - Le **code USSD** reste réglable (déjà fait) ; l'écran de réglage regroupe code + gabarit de réponse + aperçu d'essai du gabarit sur un texte d'exemple.
 - **Choix de la SIM** (décidé : oui) : permission `READ_PHONE_STATE` remise (demandée au moment du choix) ; plugin Kotlin qui liste les SIM actives (`SubscriptionManager` : emplacement 1 ou 2, nom de l'opérateur) ; la SIM choisie est mémorisée (identifiant + emplacement, revérifié à chaque envoi) et utilisée via `createForSubscriptionId` pour la consultation du solde **et** les opérations USSD. Une seule SIM ou aucun choix fait : SIM par défaut du téléphone. Si la SIM choisie a disparu : message clair, aucun envoi.

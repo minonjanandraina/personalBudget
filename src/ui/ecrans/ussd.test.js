@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "../../core/db/aide-tests.js"; // Base neuve
 import { lireDernierSolde } from "../../core/soldes.js"; // Dernier solde
 import { lireCodeSolde } from "../../core/ussd-solde.js"; // Code de consultation
+import { lireSimChoisie } from "../../core/sim.js"; // SIM choisie
 import { afficherUssd } from "./ussd.js"; // Écran à tester
 
 let base; // Base de chaque cas
@@ -58,5 +59,36 @@ describe("écran consultation du solde", () => { // Groupe
     await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*5*3*1234*#")); // Code complet
     await vi.waitFor(async () => expect((await lireDernierSolde(base))?.balance).toBe(202316)); // Solde créé
     expect(zone.querySelector("#ussd-pin").value).toBe(""); // PIN effacé de l'écran
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("écran de consultation : gabarit de réponse et SIM", () => { // Sprint 16
+  const cliquer = (texte) => [...zone.querySelectorAll("button")].find((b) => b.textContent.includes(texte)).click(); // Clique sur un bouton par son texte
+  const attendre = () => new Promise((r) => setTimeout(r, 20)); // Laisse les actions asynchrones se terminer
+  it("essaie le gabarit sur une réponse sans rien enregistrer", async () => { // Essai
+    await afficherUssd(zone, { base, ussd: faux() }); // Affiche l'écran
+    cliquer("Essayer ce texte"); // Essai avec le gabarit par défaut et la réponse d'exemple
+    await attendre(); // Attend
+    expect(document.body.textContent).toContain("Solde lu"); // Reconnu
+    expect(await lireDernierSolde(base)).toBeNull(); // Rien n'est enregistré
+  }); // Fin du cas
+  it("refuse un gabarit sans {solde} sous le champ", async () => { // Validation
+    await afficherUssd(zone, { base, ussd: faux() }); // Affiche l'écran
+    zone.querySelector("#ussd-gabarit").value = "texte sans variable"; // Saisie invalide
+    cliquer("Enregistrer le texte"); // Enregistre
+    await attendre(); // Attend
+    expect(zone.querySelector("#ussd-gabarit-message").textContent).toContain("{solde}"); // Message sous le champ
+  }); // Fin du cas
+  it("détecte les SIM puis enregistre le choix", async () => { // Choix de SIM
+    const ussd = { ...faux(), demanderPermissionSim: vi.fn(async () => true), listerSim: vi.fn(async () => [{ id: 4, emplacement: 1, nom: "Orange" }, { id: 9, emplacement: 2, nom: "Telma" }]) }; // Deux SIM
+    await afficherUssd(zone, { base, ussd }); // Affiche l'écran
+    cliquer("Détecter les cartes SIM"); // Détection
+    await attendre(); // Attend
+    const liste = zone.querySelector("#ussd-sim"); // Liste de choix
+    expect([...liste.options].map((o) => o.textContent)).toContain("SIM 2 — Telma"); // SIM proposée
+    liste.value = "9"; // Choisit la SIM 2
+    cliquer("Enregistrer la SIM"); // Enregistre
+    await attendre(); // Attend
+    expect(await lireSimChoisie(base)).toEqual({ id: 9, emplacement: 2, nom: "Telma" }); // Choix gardé
   }); // Fin du cas
 }); // Fin du groupe

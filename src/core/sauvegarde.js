@@ -99,7 +99,7 @@ export async function restaurerSauvegarde(base, texte, maintenant = new Date()) 
   const { sauvegarde: s, resume } = await verifierSauvegarde(texte); // Vérifie le fichier (erreur expliquée sinon)
   const avant = await creerTexteSauvegarde(base, maintenant); // Copie de sécurité des données actuelles
   const derniere = await lireMeta(base, CLE_DERNIERE_SAUVEGARDE); // Date de la dernière sauvegarde créée (à conserver)
-  const reglagesLocaux = await base.requeter("SELECT cle, valeur FROM meta WHERE cle LIKE 'verrou!_%' ESCAPE '!' OR cle IN ('sms_expediteur', 'ussd_code_solde')"); // Réglages propres à ce téléphone (verrouillage par PIN, expéditeur des SMS, code USSD de consultation du solde) : absents de la sauvegarde, à conserver
+  const reglagesLocaux = await base.requeter("SELECT cle, valeur FROM meta WHERE cle LIKE 'verrou!_%' ESCAPE '!' OR cle IN ('sms_expediteur', 'ussd_code_solde', 'ussd_gabarit_solde', 'ussd_sim')"); // Réglages propres à ce téléphone (verrouillage par PIN, expéditeur des SMS, code USSD de consultation du solde) : absents de la sauvegarde, à conserver
   try { // Une erreur de la base (valeur refusée par une contrainte...) devient un message clair
     await ecrireDonnees(base, s, avant, derniere, maintenant, reglagesLocaux); // Écrit la sauvegarde (tout ou rien)
   } catch (erreur) { // Si quelque chose a échoué

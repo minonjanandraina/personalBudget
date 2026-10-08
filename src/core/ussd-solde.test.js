@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "./db/aide-tests.js"; // Base neuve
 import { lireDernierSolde, listerSoldes } from "./soldes.js"; // Soldes
+import { lireGabaritSolde, ecrireGabaritSolde, reinitialiserGabaritSolde } from "./ussd-solde.js"; // Gabarit de réponse
+import { GABARIT_SOLDE_DEFAUT } from "./ussd-mm.js"; // Gabarit par défaut
+import { ecrireSimChoisie } from "./sim.js"; // Choix de SIM
 import { validerPin, validerCodeSolde, lireCodeSolde, ecrireCodeSolde, reinitialiserCodeSolde, CODE_SOLDE_DEFAUT, enregistrerReponse, consulterEtEnregistrer } from "./ussd-solde.js"; // Fonctions à tester
 
 let base; // Base de chaque cas
@@ -81,5 +84,37 @@ describe("consulterEtEnregistrer", () => { // Consultation immédiate
     await consulterEtEnregistrer(base, faux(), { pin: "7391", maintenant: MAINTENANT }); // Consulte
     const meta = JSON.stringify(await base.requeter("SELECT cle, valeur FROM meta")); // Contenu de la table meta
     expect(meta).not.toContain("7391"); // Le PIN n'y est pas
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("gabarit de réponse et SIM dans la consultation", () => { // Sprint 16
+  it("vaut le gabarit par défaut, s'enregistre, puis se rétablit", async () => { // Cycle
+    expect(await lireGabaritSolde(base)).toBe(GABARIT_SOLDE_DEFAUT); // Défaut
+    expect(await ecrireGabaritSolde(base, " Solde Mvola: {solde} Ar ")).toBe("Solde Mvola: {solde} Ar"); // Espaces retirés
+    expect(await lireGabaritSolde(base)).toBe("Solde Mvola: {solde} Ar"); // Relu
+    await expect(ecrireGabaritSolde(base, "sans variable")).rejects.toThrow(); // Refusé
+    expect(await lireGabaritSolde(base)).toBe("Solde Mvola: {solde} Ar"); // Inchangé
+    await reinitialiserGabaritSolde(base); // Retour au défaut
+    expect(await lireGabaritSolde(base)).toBe(GABARIT_SOLDE_DEFAUT); // Défaut
+  }); // Fin du cas
+  it("enregistre le solde d'une réponse d'un autre opérateur", async () => { // Gabarit personnalisé
+    await ecrireGabaritSolde(base, "Solde Mvola: {solde} Ar"); // Gabarit de l'opérateur
+    const ussd = faux({ envoyerCode: vi.fn(async () => "Solde Mvola: 45 000 Ar. Merci.") }); // Réponse de l'opérateur
+    const r = await consulterEtEnregistrer(base, ussd, { pin: "1234", maintenant: MAINTENANT }); // Consultation
+    expect(r).toEqual({ balance: 45000, enregistre: true }); // Solde lu
+  }); // Fin du cas
+  it("explique une réponse qui ne correspond pas au gabarit, sans répéter le PIN ni rien enregistrer", async () => { // Réponse inattendue
+    await ecrireGabaritSolde(base, "Solde Mvola: {solde} Ar"); // Gabarit qui ne correspond pas à REPONSE
+    let message = ""; // Message d'erreur
+    try { await consulterEtEnregistrer(base, faux(), { pin: "4321", maintenant: MAINTENANT }); } catch (e) { message = e.message; } // Réponse standard
+    expect(message).toContain("Réponse inattendue"); // Expliqué
+    expect(message).not.toContain("4321"); // PIN jamais répété
+    expect(await lireDernierSolde(base)).toBeNull(); // Rien enregistré
+  }); // Fin du cas
+  it("envoie sur la SIM choisie", async () => { // Choix de SIM
+    await ecrireSimChoisie(base, { id: 5, emplacement: 2, nom: "Telma" }); // SIM choisie
+    const ussd = faux(); // Faux accès
+    await consulterEtEnregistrer(base, ussd, { pin: "1234", maintenant: MAINTENANT }); // Consultation
+    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*5*3*1234*#", { id: 5, emplacement: 2, nom: "Telma" }); // SIM transmise
   }); // Fin du cas
 }); // Fin du groupe
