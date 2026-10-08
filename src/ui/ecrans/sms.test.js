@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Tests d'intégration des écrans SMS Orange Money (faux accès aux SMS, vraie logique et vraie base).
+// Tests d'intégration des écrans SMS Mobile Money (faux accès aux SMS, vraie logique et vraie base).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest, creerBudgetDeTest } from "../../core/db/aide-tests.js"; // Base neuve et budget
 import { allouerBudget } from "../../core/allocations.js"; // Allocation
@@ -21,10 +21,10 @@ beforeEach(async () => { // Avant chaque cas
   window.location.hash = ""; // Adresse vide
 }); // Fin de la préparation
 
-const faux = (autorise = true) => ({ lireSmsOM: vi.fn(async () => SMS_EXEMPLES(APRES)), autoriseSansDemander: vi.fn(async () => autorise) }); // Faux accès aux SMS
+const faux = (autorise = true) => ({ lireSmsMM: vi.fn(async () => SMS_EXEMPLES(APRES)), autoriseSansDemander: vi.fn(async () => autorise) }); // Faux accès aux SMS
 const toucher = (texte) => { [...zone.querySelectorAll("button")].find((b) => b.textContent.trim() === texte).click(); }; // Touche un bouton
 
-describe("écran SMS Orange Money", () => { // Groupe
+describe("écran SMS Mobile Money", () => { // Groupe
   it("décrit le bilan d'une synchronisation", () => { // Phrase
     expect(decrireBilan({ importes: 0, illisibles: 0 })).toBe("Aucune nouvelle opération."); // Rien de neuf
     expect(decrireBilan({ importes: 1, illisibles: 2 })).toBe("1 nouvelle opération, 2 SMS non compris."); // Singulier et SMS non compris
@@ -38,7 +38,7 @@ describe("écran SMS Orange Money", () => { // Groupe
     toucher("Synchroniser maintenant"); // Touche le bouton
     await vi.waitFor(() => expect(zone.textContent).toContain("À classer (4)")); // Cinq dépenses listées
     expect(zone.textContent).toContain("SMS non compris (1)"); // Un SMS non compris
-    expect(sms.lireSmsOM).toHaveBeenCalledWith({ expediteur: "OrangeMoney", depuis: "2026-10-05T06:00:00.000Z" }); // Bons paramètres de lecture
+    expect(sms.lireSmsMM).toHaveBeenCalledWith({ expediteur: "OrangeMoney", depuis: "2026-10-05T06:00:00.000Z" }); // Bons paramètres de lecture
   }); // Fin du cas
 
   it("explique l'erreur quand il n'y a pas de solde initial", async () => { // Message clair
@@ -61,12 +61,12 @@ describe("synchronisation à l'ouverture", () => { // Groupe
   it("ne fait rien tant que la permission n'est pas accordée", async () => { // Pas de demande surprise
     const sms = faux(false); // Permission non accordée
     expect(await synchroniserAuDemarrage(base, sms)).toBeNull(); // Rien
-    expect(sms.lireSmsOM).not.toHaveBeenCalled(); // Aucune lecture
+    expect(sms.lireSmsMM).not.toHaveBeenCalled(); // Aucune lecture
   }); // Fin du cas
 
   it("importe quand la permission est accordée, et ne plante jamais", async () => { // Cas nominal
     expect((await synchroniserAuDemarrage(base, faux())).importes).toBe(4); // Import
-    const casse = { autoriseSansDemander: async () => true, lireSmsOM: async () => { throw new Error("boom"); } }; // Lecture en panne
+    const casse = { autoriseSansDemander: async () => true, lireSmsMM: async () => { throw new Error("boom"); } }; // Lecture en panne
     expect(await synchroniserAuDemarrage(base, casse)).toBeNull(); // Erreur avalée
   }); // Fin du cas
 }); // Fin du groupe

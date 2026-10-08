@@ -17,12 +17,12 @@ beforeEach(async () => { // Avant chaque cas
   typeId = await creerTypeBudget(base, { name: "Loisir" }); // Crée un type
 }); // Fin de la préparation
 
-const poserSolde = (balance, quand = local(2026, 10, 1, 8)) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde OM
+const poserSolde = (balance, quand = local(2026, 10, 1, 8)) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde Mobile Money
 const nouveauBudget = (surcharges = {}) => creerBudget(base, { name: "Loisirs", typeId, montantBudget: 100000, montantMax: 500000, montantMin: 0, soldeAlert: 30000, autogenFinMois: false, ...surcharges }); // Crée un budget
 const depenser = (budgetId, montant, quand = OCTOBRE) => enregistrerDepense(base, { budgetId, montant, dateOperation: quand.toISOString() }, quand); // Dépense
 const types = async (quand = OCTOBRE) => (await calculerAlertes(base, quand)).map((a) => a.type); // Types des alertes actuelles
 
-describe("alerte « aucun solde Orange Money »", () => { // Démarrage
+describe("alerte « aucun solde Mobile Money »", () => { // Démarrage
   it("est levée tant qu'aucun solde n'est saisi, avec un lien vers la saisie", async () => { // Sans solde
     const [alerte] = await calculerAlertes(base, OCTOBRE); // Alertes
     expect(alerte).toMatchObject({ type: "sans_solde", niveau: "attention", action: { route: "/solde/nouveau" } }); // Alerte de démarrage
@@ -36,7 +36,7 @@ describe("alerte « aucun solde Orange Money »", () => { // Démarrage
 
 describe("alerte « seuil d'alerte »", () => { // Solde sous le seuil
   it("se déclenche quand le solde d'un budget passe SOUS son seuil, pas à égalité", async () => { // Limite exacte
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await nouveauBudget({ soldeAlert: 30000 }); // Seuil 30 000
     await allouerBudget(base, { budgetId: id, montant: 100000 }, OCTOBRE); // Solde 100 000
     await depenser(id, 70000); // Solde 30 000 : égal au seuil
@@ -49,7 +49,7 @@ describe("alerte « seuil d'alerte »", () => { // Solde sous le seuil
   }); // Fin du cas
 
   it("ne se déclenche pas si le seuil est 0 (un solde ne peut pas être négatif)", async () => { // Seuil nul
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await nouveauBudget({ soldeAlert: 0 }); // Seuil 0
     await allouerBudget(base, { budgetId: id, montant: 1000 }, OCTOBRE); // 1 000
     await depenser(id, 1000); // Solde 0
@@ -57,13 +57,13 @@ describe("alerte « seuil d'alerte »", () => { // Solde sous le seuil
   }); // Fin du cas
 
   it("ignore un budget non alloué sur la période en cours", async () => { // Sans allocation
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     await nouveauBudget({ soldeAlert: 30000 }); // Budget jamais alloué
     expect(await types()).toEqual([]); // Pas d'alerte
   }); // Fin du cas
 
   it("disparaît quand on alloue de nouveau le budget", async () => { // Résolution
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await nouveauBudget({ soldeAlert: 30000 }); // Seuil 30 000
     await allouerBudget(base, { budgetId: id, montant: 20000 }, OCTOBRE); // 20 000 < 30 000
     expect(await types()).toEqual(["seuil"]); // Alerte
@@ -72,7 +72,7 @@ describe("alerte « seuil d'alerte »", () => { // Solde sous le seuil
   }); // Fin du cas
 
   it("une alerte par budget concerné, avec le nom de chacun", async () => { // Plusieurs budgets
-    await poserSolde(900000); // Solde OM
+    await poserSolde(900000); // Solde Mobile Money
     const a = await nouveauBudget({ name: "A" }); // Budget A
     const b = await nouveauBudget({ name: "B" }); // Budget B
     const c = await nouveauBudget({ name: "C", soldeAlert: 0 }); // Budget C (pas d'alerte possible)
@@ -84,7 +84,7 @@ describe("alerte « seuil d'alerte »", () => { // Solde sous le seuil
 
 describe("alerte « plafond dépassé »", () => { // Solde au-dessus du plafond
   it("se déclenche quand le solde dépasse le plafond, pas à égalité, avec l'excédent", async () => { // Limite exacte
-    await poserSolde(900000); // Solde OM
+    await poserSolde(900000); // Solde Mobile Money
     const id = await nouveauBudget({ montantMax: 120000, soldeAlert: 0 }); // Plafond 120 000
     await allouerBudget(base, { budgetId: id, montant: 120000 }, OCTOBRE); // Solde 120 000 : égal au plafond
     expect(await types()).toEqual([]); // Pas d'alerte à égalité
@@ -95,7 +95,7 @@ describe("alerte « plafond dépassé »", () => { // Solde au-dessus du plafond
   }); // Fin du cas
 
   it("apparaît après un report qui fait dépasser le plafond, et disparaît après un transfert de l'excédent", async () => { // Cycle complet
-    await poserSolde(900000, local(2026, 9, 1)); // Solde OM
+    await poserSolde(900000, local(2026, 9, 1)); // Solde Mobile Money
     const a = await nouveauBudget({ name: "A", montantMax: 120000, soldeAlert: 0, autogenFinMois: true }); // Plafond 120 000
     const b = await nouveauBudget({ name: "B", soldeAlert: 0 }); // Budget B
     await allouerBudget(base, { budgetId: a, montant: 100000 }, SEPTEMBRE); // Septembre
@@ -111,7 +111,7 @@ describe("alerte « plafond dépassé »", () => { // Solde au-dessus du plafond
 describe("alerte « écart de solde » (dépense non enregistrée)", () => { // Libre négatif
   it("se déclenche dès le moindre écart négatif (aucune tolérance), mais pas à zéro ni en positif", async () => { // Aucune tolérance
     const id = await nouveauBudget({ soldeAlert: 0, montantMax: 900000 }); // Budget
-    await poserSolde(100000); // Solde OM 100 000
+    await poserSolde(100000); // Solde Mobile Money 100 000
     await allouerBudget(base, { budgetId: id, montant: 100000 }, OCTOBRE); // Réserve 100 000 : libre 0
     expect(await types()).toEqual([]); // Écart nul : pas d'alerte
     await poserSolde(99999, local(2026, 10, 26)); // Vrai solde : 1 Ar de moins
@@ -122,7 +122,7 @@ describe("alerte « écart de solde » (dépense non enregistrée)", () => { // 
   }); // Fin du cas
 
   it("ne signale pas l'argent libre (solde supérieur au réservé) comme une erreur", async () => { // Libre positif
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await nouveauBudget({ soldeAlert: 0 }); // Budget
     await allouerBudget(base, { budgetId: id, montant: 100000 }, OCTOBRE); // Réserve 100 000 : libre 400 000
     expect(await types()).toEqual([]); // Pas d'alerte
@@ -157,7 +157,7 @@ describe("ensemble des alertes", () => { // Combinaison
   it("trie les alertes : écart, puis seuils, puis plafonds, puis solde manquant", async () => { // Ordre
     const a = await nouveauBudget({ name: "A", soldeAlert: 30000, montantMax: 500000 }); // Sous le seuil
     const b = await nouveauBudget({ name: "B", soldeAlert: 0, montantMax: 50000, montantBudget: 20000 }); // Au-dessus du plafond
-    await poserSolde(200000, local(2026, 10, 1)); // Solde OM 200 000
+    await poserSolde(200000, local(2026, 10, 1)); // Solde Mobile Money 200 000
     await allouerBudget(base, { budgetId: a, montant: 10000 }, OCTOBRE); // A : 10 000 (sous 30 000)
     await allouerBudget(base, { budgetId: b, montant: 60000 }, OCTOBRE); // B : 60 000 > 50 000
     await poserSolde(30000, local(2026, 10, 26)); // Vrai solde 30 000 : réservé 70 000 > 30 000 → écart
@@ -166,7 +166,7 @@ describe("ensemble des alertes", () => { // Combinaison
   }); // Fin du cas
 
   it("ne renvoie aucune alerte quand tout va bien", async () => { // Situation saine
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await nouveauBudget({ soldeAlert: 30000 }); // Budget
     await allouerBudget(base, { budgetId: id, montant: 100000 }, OCTOBRE); // 100 000
     await depenser(id, 10000); // Reste 90 000

@@ -6,7 +6,7 @@ beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve et vide
 }); // Fin de la préparation
 
-describe("solde_om", () => { // Règles du solde Orange Money
+describe("solde_om", () => { // Règles du solde Mobile Money
   it("accepte un solde entier positif", async () => { // Cas valide
     await base.executer("INSERT INTO solde_om (datetime, balance) VALUES ('2026-10-01T08:00:00.000Z', 250000)"); // Insère
     const lignes = await base.requeter("SELECT balance, insert_date FROM solde_om"); // Relit

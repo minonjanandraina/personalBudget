@@ -6,7 +6,7 @@ import { periodePour, jourLocal, formaterJour, afficherJour } from "./periodes.j
 import { lireBudget, listerBudgets } from "./budgets.js"; // Lecture des budgets
 import { lireJourJob } from "./parametres.js"; // Jour de lancement de l'allocation
 import { creerTransaction } from "./transactions.js"; // Création des transactions
-import { situationFinanciere } from "./soldes.js"; // Solde OM disponible et argent réservé
+import { situationFinanciere } from "./soldes.js"; // Solde Mobile Money disponible et argent réservé
 
 const TOLERANCE_FUTUR_MS = 5 * 60 * 1000; // On accepte jusqu'à 5 minutes d'avance (décalage d'horloge)
 
@@ -27,14 +27,14 @@ export async function allocationCouvrant(base, budgetId, jour) { // Reçoit la b
   return { id: Number(l.id), dateFrom: l.date_from, dateTo: l.date_to, montantAlloue: Number(l.montant_alloue) }; // Objet allocation
 } // Fin de allocationCouvrant
 
-// Message affiché quand aucun solde OM n'a été saisi.
-export const MESSAGE_SANS_SOLDE = "Saisissez d'abord le solde de votre compte Orange Money avant d'allouer un budget."; // Texte commun
+// Message affiché quand aucun solde Mobile Money n'a été saisi.
+export const MESSAGE_SANS_SOLDE = "Saisissez d'abord le solde de votre compte Mobile Money avant d'allouer un budget."; // Texte commun
 
-// Vérifie que « montantNouveau » d'argent frais peut être alloué : le total réservé dans les budgets ne doit pas dépasser le solde OM disponible.
+// Vérifie que « montantNouveau » d'argent frais peut être alloué : le total réservé dans les budgets ne doit pas dépasser le solde Mobile Money disponible.
 export async function verifierSoldeLibre(base, montantNouveau) { // Reçoit la base et le montant à réserver en plus
-  const { om, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
-  if (om === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde OM saisi : on ne peut pas contrôler
-  if (montantNouveau > libre) throw new ErreurValidation({ montant: `Solde libre insuffisant : il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde OM disponible ${formaterMontant(om.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}).` }); // Allocation trop grande
+  const { mm, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
+  if (mm === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde Mobile Money saisi : on ne peut pas contrôler
+  if (montantNouveau > libre) throw new ErreurValidation({ montant: `Solde libre insuffisant : il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde Mobile Money disponible ${formaterMontant(mm.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}).` }); // Allocation trop grande
 } // Fin de verifierSoldeLibre
 
 // Vérifie qu'un montant est un entier strictement positif.
@@ -60,7 +60,7 @@ export async function allouerBudget(base, { budgetId, montant, periode = null, n
     let allocationId = allocation ? Number(allocation.id) : null; // Son identifiant, ou null
     const soldeAvant = allocationId === null ? 0 : await soldeAllocation(base, allocationId); // Solde actuel de la période
     const soldeApres = soldeAvant + montant; // Solde après cette allocation
-    await verifierSoldeLibre(base, montant); // Contrôle : le total réservé ne dépasse pas le solde OM disponible
+    await verifierSoldeLibre(base, montant); // Contrôle : le total réservé ne dépasse pas le solde Mobile Money disponible
     if (soldeApres < budget.montantMin) { // Contrôle du minimum
       throw new ErreurValidation({ montant: `Après cette allocation, le solde serait de ${formaterMontant(soldeApres)}, en dessous du minimum de ${formaterMontant(budget.montantMin)}.` }); // Refus avec explication
     } // Fin du contrôle
@@ -85,7 +85,7 @@ export async function enregistrerDepense(base, { budgetId, montant, dateOperatio
   if (!budget) erreurs.budgetId = "Choisissez un budget."; // Budget inexistant
   let noteNette = null; // Note nettoyée
   try { noteNette = nettoyerNote(note); } catch (e) { Object.assign(erreurs, e.erreurs); } // Vérifie la note
-  if (compriseDansSolde && (await situationFinanciere(base)).om === null) erreurs.compriseDansSolde = "Aucun solde Orange Money saisi : il n'y a rien à rattraper."; // Cette case n'a de sens qu'avec un solde OM
+  if (compriseDansSolde && (await situationFinanciere(base)).mm === null) erreurs.compriseDansSolde = "Aucun solde Mobile Money saisi : il n'y a rien à rattraper."; // Cette case n'a de sens qu'avec un solde Mobile Money
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse si une saisie est incorrecte
   return base.transaction(async () => { // Tout ou rien
     const allocation = await allocationCouvrant(base, budgetId, jourLocal(dateOperation)); // Allocation de la période de la dépense
@@ -172,7 +172,7 @@ export async function modifierOperation(base, id, { montant, dateOperation, note
   return base.transaction(async () => { // Tout ou rien
     if (estDepense) { // Dépense : elle peut changer de période si la date change
       const drapeau = compriseDansSolde === undefined ? operation.compriseDansSolde : Boolean(compriseDansSolde); // « Déjà comprise dans le solde » : inchangé si non précisé
-      if (drapeau && (await situationFinanciere(base)).om === null) throw new ErreurValidation({ compriseDansSolde: "Aucun solde Orange Money saisi : il n'y a rien à rattraper." }); // Impossible sans solde OM
+      if (drapeau && (await situationFinanciere(base)).mm === null) throw new ErreurValidation({ compriseDansSolde: "Aucun solde Mobile Money saisi : il n'y a rien à rattraper." }); // Impossible sans solde Mobile Money
       const allocation = await allocationCouvrant(base, operation.budgetId, jourLocal(nouvelleDate)); // Allocation de la nouvelle date
       if (!allocation) throw new ErreurMetier("Aucune allocation pour ce budget à cette date. Allouez d'abord le budget."); // Pas d'allocation à cette date
       const soldeSansElle = (await soldeAllocation(base, allocation.id)) + (allocation.id === operation.allocationId ? operation.montant : 0); // Solde de la période sans cette dépense
@@ -182,7 +182,7 @@ export async function modifierOperation(base, id, { montant, dateOperation, note
     } // Fin du cas dépense
     const soldeApres = (await soldeAllocation(base, operation.allocationId)) - operation.montant + montant; // Solde de la période après la modification d'une allocation
     if (soldeApres < 0) throw new ErreurValidation({ montant: `Impossible : des dépenses de cette période dépasseraient alors le solde (${formaterMontant(soldeApres)}).` }); // Le solde deviendrait négatif
-    if (montant > operation.montant) await verifierSoldeLibre(base, montant - operation.montant); // Une augmentation réserve de l'argent frais : elle doit tenir dans le solde OM disponible
+    if (montant > operation.montant) await verifierSoldeLibre(base, montant - operation.montant); // Une augmentation réserve de l'argent frais : elle doit tenir dans le solde Mobile Money disponible
     await base.executer("UPDATE transactions SET montant = ?, note = ? WHERE id = ?", [montant, noteNette, id]); // Met à jour l'allocation
     await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue + ? WHERE id = ?", [montant - operation.montant, operation.allocationId]); // Tient à jour le total alloué
     return { allocationId: operation.allocationId, soldeApres }; // Résultat

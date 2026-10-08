@@ -12,7 +12,7 @@ export async function allocationAutomatique(base, maintenant = new Date()) { // 
     const faits = resultats.filter((r) => r.statut === "alloue" || r.statut === "reporte").length; // Budgets modifiés
     const problemes = resultats.filter((r) => r.statut === "erreur" || r.statut === "refuse"); // Budgets refusés (ex. solde minimal) ou en échec inattendu
     return { faits, erreur: problemes.length > 0 ? problemes.map((r) => `${r.nom} : ${r.raison}`).join(" ") : null, resultats }; // Résultat
-  } catch (erreur) { // Refus de règle de gestion (aucun solde OM, libre insuffisant…) ou problème inattendu
+  } catch (erreur) { // Refus de règle de gestion (aucun solde Mobile Money, libre insuffisant…) ou problème inattendu
     return { faits: 0, erreur: erreur instanceof ErreurMetier ? erreur.message : String(erreur?.message ?? erreur), resultats: [] }; // Message à montrer
   } // Fin du try/catch
 } // Fin de allocationAutomatique

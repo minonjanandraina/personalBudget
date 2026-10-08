@@ -1,4 +1,4 @@
-// Écran « Consultation du solde » : code USSD réglable et consultation immédiate. Le PIN Orange Money est demandé à chaque consultation, jamais enregistré.
+// Écran « Consultation du solde » : code USSD réglable et consultation immédiate. Le PIN Mobile Money est demandé à chaque consultation, jamais enregistré.
 import { h } from "../dom.js"; // Fabrication d'éléments
 import { enteteEcran, carte, alerte, boutonPrincipal, champ } from "../composants.js"; // Composants
 import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
@@ -11,8 +11,8 @@ import * as ussdPlateforme from "../../platform/ussd.js"; // Accès USSD (télé
 // Dessine l'écran dans la zone.
 export async function afficherUssd(zone, { base, ussd = ussdPlateforme }) { // Reçoit la zone, la base et l'accès USSD
   const champs = { // Champs du formulaire
-    code: champ({ id: "ussd-code-solde", libelle: "Code USSD de consultation", valeur: await lireCodeSolde(base), inputmode: "text", aide: `Par défaut : ${CODE_SOLDE_DEFAUT} — {pin} est remplacé par le PIN Orange Money que vous saisissez à chaque consultation.` }), // Code réglable
-    pin: champ({ id: "ussd-pin", libelle: "PIN Orange Money", type: "password", inputmode: "numeric", aide: "Demandé à chaque consultation ; jamais enregistré, ni dans la base, ni dans les sauvegardes." }), // PIN saisi à chaque fois
+    code: champ({ id: "ussd-code-solde", libelle: "Code USSD de consultation", valeur: await lireCodeSolde(base), inputmode: "text", aide: `Par défaut : ${CODE_SOLDE_DEFAUT} — {pin} est remplacé par le PIN Mobile Money que vous saisissez à chaque consultation.` }), // Code réglable
+    pin: champ({ id: "ussd-pin", libelle: "PIN Mobile Money", type: "password", inputmode: "numeric", aide: "Demandé à chaque consultation ; jamais enregistré, ni dans la base, ni dans les sauvegardes." }), // PIN saisi à chaque fois
   }; // Fin des champs
   const enregistrerCode = () => soumettre({ champs: { code: champs.code }, action: () => ecrireCodeSolde(base, champs.code.lire()), messageSucces: "Code enregistré." }); // Enregistre le code
   const retablir = async () => { // Revient au code par défaut
@@ -34,8 +34,8 @@ export async function afficherUssd(zone, { base, ussd = ussdPlateforme }) { // R
     } finally { champs.pin.ecrire(""); } // Efface toujours le PIN saisi
   }; // Fin de consulter
   zone.append( // Assemble
-    enteteEcran("Consultation du solde", "Orange Money par USSD", { retour: "/reglages" }), // En-tête
+    enteteEcran("Consultation du solde", "Mobile Money par USSD", { retour: "/reglages" }), // En-tête
     carte(h("h2", { class: "carte-titre" }, "Code USSD"), champs.code.element, boutonPrincipal("Enregistrer le code", enregistrerCode), h("div", { class: "espace-haut" }, boutonPrincipal("Rétablir le code par défaut", retablir))), // Carte du code
-    carte(h("h2", { class: "carte-titre" }, "Consulter maintenant"), alerte({ niveau: "info", message: "Saisissez votre PIN Orange Money : il sert à cet envoi seulement et n'est pas gardé. Aucune consultation automatique (elle exigerait de garder le PIN)." }), champs.pin.element, boutonPrincipal("Consulter le solde", consulter)), // Carte de la consultation
+    carte(h("h2", { class: "carte-titre" }, "Consulter maintenant"), alerte({ niveau: "info", message: "Saisissez votre PIN Mobile Money : il sert à cet envoi seulement et n'est pas gardé. Aucune consultation automatique (elle exigerait de garder le PIN)." }), champs.pin.element, boutonPrincipal("Consulter le solde", consulter)), // Carte de la consultation
   ); // Fin de l'assemblage
 } // Fin de afficherUssd

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Tests d'intégration : solde OM disponible, détail par budget et limite du solde libre (écrans).
+// Tests d'intégration : solde Mobile Money disponible, détail par budget et limite du solde libre (écrans).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas
 import { creerTypeBudget } from "../../core/types-budget.js"; // Types
@@ -14,7 +14,7 @@ let zone; // Zone où l'écran est dessiné
 let typeId; // Type de budget disponible
 
 beforeEach(async () => { // Avant chaque cas
-  base = await creerBaseDeTest(); // Repart d'une base neuve, SANS solde OM
+  base = await creerBaseDeTest(); // Repart d'une base neuve, SANS solde Mobile Money
   document.body.replaceChildren(); // Page vide
   zone = document.createElement("main"); // Zone d'écran neuve
   document.body.append(zone); // La place dans la page
@@ -23,14 +23,14 @@ beforeEach(async () => { // Avant chaque cas
   typeId = await creerTypeBudget(base, { name: "Loisir" }); // Crée un type
 }); // Fin de la préparation
 
-const poserSolde = (balance, quand = "2020-01-01T00:00:00.000Z") => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand, balance]); // Enregistre un solde OM
+const poserSolde = (balance, quand = "2020-01-01T00:00:00.000Z") => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand, balance]); // Enregistre un solde Mobile Money
 const budget = (surcharges = {}) => creerBudget(base, { name: "Sorties", typeId, montantBudget: 100000, montantMax: 500000, montantMin: 0, soldeAlert: 10000, autogenFinMois: true, ...surcharges }); // Crée un budget
 const monter = async (ecran, params = undefined) => { await ecran(zone, { base, params }); }; // Dessine un écran
 const saisir = (id, valeur) => { zone.querySelector(`#${id}`).value = valeur; }; // Remplit un champ
 const toucher = (texte) => { [...zone.querySelectorAll("button, a.bouton")].find((b) => b.textContent.trim() === texte).click(); }; // Touche un bouton
 const erreurDe = (id) => zone.querySelector(`#${id}-message`).textContent; // Message d'erreur sous un champ
 
-describe("accueil : solde OM disponible et réservé", () => { // Accueil
+describe("accueil : solde Mobile Money disponible et réservé", () => { // Accueil
   it("invite à saisir le solde tant qu'aucun n'existe", async () => { // Sans solde
     await monter(afficherAccueil); // Accueil
     expect(zone.textContent).toContain("Aucun solde enregistré"); // Invitation
@@ -42,7 +42,7 @@ describe("accueil : solde OM disponible et réservé", () => { // Accueil
     const id = await budget(); // Budget
     await allouerBudget(base, { budgetId: id, montant: 100000 }); // Allocation
     await monter(afficherAccueil); // Accueil
-    expect(zone.querySelector(".solde-montant").textContent).toBe("150 000 Ar"); // L'allocation ne diminue pas le solde OM
+    expect(zone.querySelector(".solde-montant").textContent).toBe("150 000 Ar"); // L'allocation ne diminue pas le solde Mobile Money
     zone.replaceChildren(); // Vide la zone
     await enregistrerDepense(base, { budgetId: id, montant: 30000, dateOperation: new Date().toISOString() }); // Dépense de 30 000
     await monter(afficherAccueil); // Accueil
@@ -82,7 +82,7 @@ describe("accueil : solde OM disponible et réservé", () => { // Accueil
     expect(detail.hidden).toBe(true); // Repliée
   }); // Fin du cas
 
-  it("avertit quand le total réservé dépasse le solde OM disponible", async () => { // Libre négatif
+  it("avertit quand le total réservé dépasse le solde Mobile Money disponible", async () => { // Libre négatif
     await poserSolde(500000); // Solde
     const id = await budget({ montantMax: 900000 }); // Budget
     await allouerBudget(base, { budgetId: id, montant: 400000 }); // Réserve 400 000
@@ -93,7 +93,7 @@ describe("accueil : solde OM disponible et réservé", () => { // Accueil
 }); // Fin du groupe
 
 describe("allocation : limite du solde libre (écrans)", () => { // Allocation manuelle et lancement
-  it("explique qu'il faut saisir le solde OM avant d'allouer, sans afficher le formulaire", async () => { // Sans solde
+  it("explique qu'il faut saisir le solde Mobile Money avant d'allouer, sans afficher le formulaire", async () => { // Sans solde
     await budget(); // Budget
     await monter(afficherFormulaireAllocation); // Formulaire
     expect(zone.textContent).toContain("Saisissez d'abord le solde"); // Message
@@ -115,10 +115,10 @@ describe("allocation : limite du solde libre (écrans)", () => { // Allocation m
     await vi.waitFor(async () => expect(await listerTransactions(base)).toHaveLength(1)); // Accepté
   }); // Fin du cas
 
-  it("la situation des allocations affiche le libre, ou demande le solde OM", async () => { // Écran des allocations
+  it("la situation des allocations affiche le libre, ou demande le solde Mobile Money", async () => { // Écran des allocations
     await budget(); // Budget
     await monter(afficherAllocations); // Écran
-    expect(zone.textContent).toContain("Aucun solde Orange Money saisi"); // Sans solde
+    expect(zone.textContent).toContain("Aucun solde Mobile Money saisi"); // Sans solde
     zone.replaceChildren(); // Vide la zone
     await poserSolde(250000); // Solde
     await monter(afficherAllocations); // Écran

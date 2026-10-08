@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Tests d'intégration : rattrapage d'une dépense oubliée (case « déjà comprise dans mon dernier solde OM »).
+// Tests d'intégration : rattrapage d'une dépense oubliée (case « déjà comprise dans mon dernier solde Mobile Money »).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas
 import { creerTypeBudget } from "../../core/types-budget.js"; // Types
@@ -14,13 +14,13 @@ let base; // Base utilisée par les cas de test
 let zone; // Zone où l'écran est dessiné
 let budgetId; // Budget alloué de 100 000
 
-const poserSolde = (balance, quand) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde OM
+const poserSolde = (balance, quand) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde Mobile Money
 const monter = async (ecran, params = undefined) => { zone.replaceChildren(); await ecran(zone, { base, params }); }; // Dessine un écran (en vidant la zone d'abord)
 const saisir = (id, valeur) => { zone.querySelector(`#${id}`).value = valeur; }; // Remplit un champ
 const choisir = (id, valeur) => { const s = zone.querySelector(`#${id}`); s.value = valeur; s.dispatchEvent(new Event("change")); }; // Change une liste déroulante
 const toucher = (texte) => { [...zone.querySelectorAll("button, a.bouton")].find((b) => b.textContent.trim() === texte).click(); }; // Touche un bouton
 
-// Scénario : solde OM 150 000, 100 000 alloués, puis le vrai solde saisi est 90 000 (60 000 dépensés sans être enregistrés).
+// Scénario : solde Mobile Money 150 000, 100 000 alloués, puis le vrai solde saisi est 90 000 (60 000 dépensés sans être enregistrés).
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
   document.body.replaceChildren(); // Page vide
@@ -40,7 +40,7 @@ describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de
     await monter(afficherAccueil); // Accueil
     expect(zone.textContent).toContain("n'a peut-être pas été enregistrée"); // Avertissement de l'accueil
     await monter(afficherFormulaireDepense); // Formulaire de dépense
-    expect(zone.textContent).toContain("cochez « Déjà comprise dans mon dernier solde OM »"); // Aide dans le formulaire
+    expect(zone.textContent).toContain("cochez « Déjà comprise dans mon dernier solde Mobile Money »"); // Aide dans le formulaire
     expect(zone.querySelector("#dep-comprise")).not.toBeNull(); // Case présente
   }); // Fin du cas
 
@@ -68,7 +68,7 @@ describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de
     expect(zone.querySelector(".solde-montant").textContent).toBe("90 000 Ar"); // Solde disponible inchangé
   }); // Fin du cas
 
-  it("n'affiche pas la case quand aucun solde OM n'existe", async () => { // Sans solde
+  it("n'affiche pas la case quand aucun solde Mobile Money n'existe", async () => { // Sans solde
     await base.executer("DELETE FROM solde_om"); // Supprime les soldes
     await monter(afficherFormulaireDepense); // Formulaire
     expect(zone.querySelector("#dep-comprise")).toBeNull(); // Pas de case
@@ -84,7 +84,7 @@ describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de
   it("la liste marque la dépense rattrapée, et le formulaire de modification permet de décocher la case", async () => { // Liste et modification
     const id = (await enregistrerDepense(base, { budgetId, montant: 60000, dateOperation: new Date().toISOString(), compriseDansSolde: true })).idTransaction; // Dépense rattrapée
     await monter(afficherOperations); // Liste
-    expect(zone.textContent).toContain("Déjà comprise dans le solde OM"); // Mention dans la liste
+    expect(zone.textContent).toContain("Déjà comprise dans le solde Mobile Money"); // Mention dans la liste
     await monter(afficherFormulaireOperation, { id: String(id) }); // Formulaire de modification
     expect(zone.querySelector("#op-comprise").checked).toBe(true); // Case préremplie
     zone.querySelector("#op-comprise").click(); // Décoche

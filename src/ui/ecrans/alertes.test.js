@@ -24,7 +24,7 @@ beforeEach(async () => { // Avant chaque cas
   typeId = await creerTypeBudget(base, { name: "Loisir" }); // Crée un type
 }); // Fin de la préparation
 
-const poserSolde = (balance, quand = new Date(Date.now() - 3 * 24 * 3600 * 1000)) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde OM
+const poserSolde = (balance, quand = new Date(Date.now() - 3 * 24 * 3600 * 1000)) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde Mobile Money
 const budget = (surcharges = {}) => creerBudget(base, { name: "Loisirs", typeId, montantBudget: 100000, montantMax: 500000, montantMin: 0, soldeAlert: 30000, autogenFinMois: false, ...surcharges }); // Crée un budget
 const monter = async (ecran) => { zone.replaceChildren(); await ecran(zone, { base }); }; // Dessine un écran
 
@@ -39,7 +39,7 @@ describe("composant d'alerte avec action", () => { // Lien d'action
 
 describe("accueil : bandeau d'alertes", () => { // Alertes de l'accueil
   it("affiche « Aucune alerte » quand tout va bien", async () => { // Situation saine
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await budget(); // Budget
     await allouerBudget(base, { budgetId: id, montant: 100000 }); // 100 000
     await monter(afficherAccueil); // Accueil
@@ -47,14 +47,14 @@ describe("accueil : bandeau d'alertes", () => { // Alertes de l'accueil
     expect(zone.querySelector(".section-titre")).toBeNull(); // Pas de titre de comptage
   }); // Fin du cas
 
-  it("invite à saisir le solde OM tant qu'il n'existe pas", async () => { // Sans solde
+  it("invite à saisir le solde Mobile Money tant qu'il n'existe pas", async () => { // Sans solde
     await monter(afficherAccueil); // Accueil
     expect(zone.querySelector(".section-titre").textContent).toBe("Alertes (1)"); // Une alerte
     expect(zone.querySelector(".zone-alertes a.alerte-action").getAttribute("href")).toBe("#/solde/nouveau"); // Lien de saisie
   }); // Fin du cas
 
   it("affiche le seuil, le plafond et l'écart, chacun avec son lien d'action, dans l'ordre", async () => { // Plusieurs alertes
-    await poserSolde(300000); // Solde OM 300 000
+    await poserSolde(300000); // Solde Mobile Money 300 000
     const a = await budget({ name: "A", soldeAlert: 30000 }); // Sera sous son seuil
     const b = await budget({ name: "B", soldeAlert: 0, montantMax: 50000, montantBudget: 20000 }); // Sera au-dessus de son plafond
     await allouerBudget(base, { budgetId: a, montant: 10000 }); // A : 10 000 < 30 000
@@ -68,7 +68,7 @@ describe("accueil : bandeau d'alertes", () => { // Alertes de l'accueil
   }); // Fin du cas
 
   it("une dépense qui fait passer un budget sous son seuil déclenche l'alerte, avec le nom du budget", async () => { // Réaction aux opérations
-    await poserSolde(500000); // Solde OM
+    await poserSolde(500000); // Solde Mobile Money
     const id = await budget({ soldeAlert: 30000 }); // Seuil 30 000
     await allouerBudget(base, { budgetId: id, montant: 100000 }); // 100 000
     await monter(afficherAccueil); // Accueil

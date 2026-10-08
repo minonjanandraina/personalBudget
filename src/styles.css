@@ -103,7 +103,7 @@ body {
   font-size: 1.1rem; /* Taille moyenne */
 } /* Fin des règles du titre de carte */
 
-/* Carte du solde Orange Money */
+/* Carte du solde Mobile Money */
 .solde {
   /* Début des règles du bloc de solde */
   margin: -20px; /* Annule l'espace intérieur de la carte pour que le dégradé remplisse tout */

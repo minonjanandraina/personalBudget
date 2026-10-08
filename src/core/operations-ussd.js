@@ -1,5 +1,5 @@
 // Opérations USSD dynamiques : modèles créés par l'utilisateur (nom, type, code USSD à variables, budget à débiter) et leur lancement.
-// Variables du code : {numero} (numéro de téléphone), {montant} (montant entier) et {pin} (PIN Orange Money, demandé à chaque envoi et jamais enregistré).
+// Variables du code : {numero} (numéro de téléphone), {montant} (montant entier) et {pin} (PIN Mobile Money, demandé à chaque envoi et jamais enregistré).
 // Exemple : #144*8*8*{numero}*{montant}*{pin}#
 // Autorisation de l'envoi : PIN de verrouillage de l'application (obligatoire : le verrouillage doit être activé).
 // Une opération de SORTIE n'enregistre rien tout de suite : elle est « en attente » et le SMS de confirmation est classé seul dans le budget (voir ussd-en-attente.js).
@@ -117,14 +117,14 @@ export async function preparerEnvoi(base, operationId, { numero = "", montant = 
   return { operation, code, codeAffiche: code.replaceAll("{pin}", "••••"), montant, numero: numeroPropre }; // Résultat
 } // Fin de preparerEnvoi
 
-// Lance une opération : vérifie le PIN de l'application, prépare le code, y insère le PIN Orange Money saisi, l'envoie, puis note l'attente du SMS (sorties).
-// « ussd » = accès au téléphone (platform/ussd.js ou faux de test). Le PIN Orange Money (« pinOm ») n'est gardé nulle part. Renvoie { texte (réponse d'Orange Money), enAttente }.
-export async function lancerOperation(base, ussd, operationId, { numero, montant, pinApp, pinOm = "" }, maintenant = new Date()) { // Reçoit la base, l'accès USSD, le modèle et les valeurs
+// Lance une opération : vérifie le PIN de l'application, prépare le code, y insère le PIN Mobile Money saisi, l'envoie, puis note l'attente du SMS (sorties).
+// « ussd » = accès au téléphone (platform/ussd.js ou faux de test). Le PIN Mobile Money (« pinMm ») n'est gardé nulle part. Renvoie { texte (réponse de Mobile Money), enAttente }.
+export async function lancerOperation(base, ussd, operationId, { numero, montant, pinApp, pinMm = "" }, maintenant = new Date()) { // Reçoit la base, l'accès USSD, le modèle et les valeurs
   if (!(await verrouActif(base))) throw new ErreurMetier("Activez d'abord le verrouillage par PIN (Réglages) : le PIN de l'application autorise l'envoi des opérations USSD."); // Verrou obligatoire
   try { await verifierPin(base, pinApp, maintenant); } catch (e) { throw new ErreurValidation({ pin: e.message }); } // Mauvais PIN : message sous le champ
   const prep = await preparerEnvoi(base, operationId, { numero, montant }, maintenant); // Contrôles et code
-  if (prep.code.includes("{pin}") && !/^\d{4,8}$/.test(String(pinOm ?? ""))) throw new ErreurValidation({ pinOm: "Saisissez votre PIN Orange Money (4 à 8 chiffres) : il est demandé à chaque envoi." }); // Le code a besoin du PIN OM
-  const texte = await ussd.envoyerCode(prep.code.replaceAll("{pin}", pinOm)); // Envoi avec le PIN OM saisi (jamais enregistré)
+  if (prep.code.includes("{pin}") && !/^\d{4,8}$/.test(String(pinMm ?? ""))) throw new ErreurValidation({ pinMm: "Saisissez votre PIN Mobile Money (4 à 8 chiffres) : il est demandé à chaque envoi." }); // Le code a besoin du PIN Mobile Money
+  const texte = await ussd.envoyerCode(prep.code.replaceAll("{pin}", pinMm)); // Envoi avec le PIN Mobile Money saisi (jamais enregistré)
   const enAttente = prep.operation.type === "sortie"; // Une sortie attend son SMS
   if (enAttente) await base.executer( // Note l'attente
     "INSERT INTO ussd_en_attente (operation_id, operation_nom, numero, montant, budget_id, date_envoi, reponse) VALUES (?, ?, ?, ?, ?, ?, ?)", // Requête

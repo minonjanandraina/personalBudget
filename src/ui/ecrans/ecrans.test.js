@@ -189,7 +189,7 @@ describe("budgets", () => { // Écrans des budgets
   }); // Fin du cas
 }); // Fin du groupe
 
-describe("solde OM", () => { // Écrans du solde
+describe("solde Mobile Money", () => { // Écrans du solde
   it("affiche un message quand l'historique est vide", async () => { // Liste vide
     await monter(afficherSoldes); // Dessine l'historique
     expect(zone.textContent).toContain("Aucun solde enregistré"); // Message d'aide

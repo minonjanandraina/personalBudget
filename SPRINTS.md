@@ -89,7 +89,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 **Livrable** : les données ne sont plus perdues en cas de changement de clé ou de téléphone.
 
 ## Sprint 9 — Lecture et import des SMS Orange Money — TERMINÉ (code livré ; lecture réelle sur téléphone à confirmer au sprint 10)
-- Plugin Kotlin (`SmsOmPlugin.kt`) : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM (réglable dans l'écran SMS).
+- Plugin Kotlin (`SmsMmPlugin.kt`) : permission `READ_SMS`, lecture de la boîte de réception filtrée sur l'expéditeur OM (réglable dans l'écran SMS).
 - Parser (JavaScript, `core`) : `trx_id`, montant, frais, solde après opération, type. **Les SMS ne contiennent pas le budget** (le « motif » n'est pas celui saisi par l'utilisateur) : aucune classification automatique, toute transaction SMS arrive « non classée ». Un SMS « virement vers l'épargne » n'a pas de solde OM.
 - Import à l'ouverture (si la permission est déjà accordée) et par bouton « Synchroniser » ; idempotent via `trx_id` ; création Transaction (champ `sms` rempli, montant = total débité, frais compris) + SoldeOM (centimes arrondis à l'entier inférieur). Seuls les SMS postérieurs au solde initial saisi sont importés.
 - Écran « SMS Orange Money » : transactions à classer (affectation manuelle à un budget), SMS non compris listés pour revue (migration 5, table `sms_illisible`) ; alertes correspondantes.
@@ -98,7 +98,7 @@ Historique : le prototype Django (anciens sprints 0 à 3) est archivé dans [leg
 **Livrable** : les SMS OM alimentent transactions et soldes (vérifié sur le téléphone).
 
 ## Sprint 10 — Synchronisation automatique et consultation USSD du solde ✅ TERMINÉ
-- **Synchronisation automatique des SMS** (décidé : notification à l'arrivée d'un SMS) : récepteur Kotlin `SmsOmReceiver.kt` (permission `RECEIVE_SMS`, + `POST_NOTIFICATIONS` sur Android 13+) ; il affiche « Nouvelle opération Orange Money » même app fermée, **sans rien écrire en base** (le parser et la base restent en JavaScript). L'import se fait à l'ouverture suivante ; l'expéditeur réglé dans l'écran SMS est mémorisé côté natif à chaque synchronisation. Fait en plus : l'import se relance aussi à chaque retour sur l'application (au plus toutes les 30 s ; l'écran n'est réaffiché que s'il n'a pas de formulaire ouvert). Écarté : import complet en arrière-plan (parser et base à dupliquer en Kotlin). *À vérifier sur le téléphone.*
+- **Synchronisation automatique des SMS** (décidé : notification à l'arrivée d'un SMS) : récepteur Kotlin `SmsMmReceiver.kt` (permission `RECEIVE_SMS`, + `POST_NOTIFICATIONS` sur Android 13+) ; il affiche « Nouvelle opération Orange Money » même app fermée, **sans rien écrire en base** (le parser et la base restent en JavaScript). L'import se fait à l'ouverture suivante ; l'expéditeur réglé dans l'écran SMS est mémorisé côté natif à chaque synchronisation. Fait en plus : l'import se relance aussi à chaque retour sur l'application (au plus toutes les 30 s ; l'écran n'est réaffiché que s'il n'a pas de formulaire ouvert). Écarté : import complet en arrière-plan (parser et base à dupliquer en Kotlin). *À vérifier sur le téléphone.*
 - Fait : analyse de la réponse USSD (`src/core/ussd-om.js`, testée) → solde entier.
 - Code USSD reçu : `#144*5*3*PIN*` (PIN = code secret Orange Money). Le code envoyé est `#144*5*3*PIN*#` (le « # » final est ajouté : **à vérifier sur le téléphone**, un seul endroit à corriger : `UssdOm.code()`). Réponse : « Le solde de votre compte est de 202316 AR. Achetez du crédit via OM… ».
 - **PIN OM** (décidé : chiffré, usage personnel) : réglable dans l'écran « Consultation du solde » ; chiffré AES-256 par le coffre Android (`CoffrePin.kt`) et gardé dans les réglages privés natifs, **pas dans la base ni dans la sauvegarde JSON** (le PIN doit rester lisible par la tâche d'arrière-plan, qui n'a pas accès à la base ; une copie dans la base n'apporterait rien et se retrouverait dans les sauvegardes). Écart avec la demande « dans la base » : à confirmer.
@@ -158,3 +158,33 @@ Nouvelles versions de l'APK sur le téléphone, **sans toucher aux données** (m
 - Documentation (CLAUDE.md, README) : remplacer la chaîne « GitHub → Google Drive → téléphone » par « Release GitHub → Obtainium » (Drive reste possible en secours).
 
 **Livrable** : une nouvelle version publiée est proposée puis installée par-dessus l'ancienne, base de données intacte.
+
+## Sprint 15 — Renommage « Orange Money / OM » → « Mobile Money » (tout opérateur) ✅ TERMINÉ
+Objectif général (demande du propriétaire) : adapter l'application à **tout opérateur** Mobile Money, **un seul opérateur à la fois**. Les sprints 15, 16 et 17 se suivent dans cet ordre.
+- Textes affichés, aides, messages, notifications : « Orange Money », « OM » → « Mobile Money » (ou « MM » seulement si la place manque).
+- Code : fichiers, fonctions, variables, plugins Kotlin (`sms-mm.js`, `ussd-om.js`, `SmsMmPlugin`, `UssdOm`…) renommés avec « mm » / « mobile-money » ; commentaires mis à jour ; tests adaptés.
+- **Base de données inchangée** (décidé) : aucun nom de table ni de colonne ne change (`solde_om`…), aucune migration, les anciennes sauvegardes JSON restent restaurables. Clés de la table `meta` conservées.
+- Valeurs par défaut (expéditeur « OrangeMoney », code USSD de solde, modèles) inchangées à ce stade : elles deviennent des réglages aux sprints 16 et 17.
+- CLAUDE.md : renommage dans toute la documentation (sauf mentions historiques et noms de tables).
+
+**Livrable** : plus aucune mention d'Orange Money dans l'interface ; tests verts ; sauvegardes existantes toujours restaurables.
+
+## Sprint 16 — USSD de consultation du solde dynamique + choix de la SIM
+- **Réponse USSD par gabarit** : le texte de la réponse est analysé par un gabarit réglable avec la variable `{solde}` (ex. `Le solde de votre compte est de {solde} AR`), à la place du parser écrit en dur. Le gabarit actuel est le réglage par défaut. Gabarit stocké dans `meta` (comme `ussd_code_solde`), conservé à la restauration. Une réponse qui ne correspond pas au gabarit est expliquée sans rien enregistrer et sans répéter le PIN.
+- Le **code USSD** reste réglable (déjà fait) ; l'écran de réglage regroupe code + gabarit de réponse + aperçu d'essai du gabarit sur un texte d'exemple.
+- **Choix de la SIM** (décidé : oui) : permission `READ_PHONE_STATE` remise (demandée au moment du choix) ; plugin Kotlin qui liste les SIM actives (`SubscriptionManager` : emplacement 1 ou 2, nom de l'opérateur) ; la SIM choisie est mémorisée (identifiant + emplacement, revérifié à chaque envoi) et utilisée via `createForSubscriptionId` pour la consultation du solde **et** les opérations USSD. Une seule SIM ou aucun choix fait : SIM par défaut du téléphone. Si la SIM choisie a disparu : message clair, aucun envoi.
+- Version simulée pour le navigateur (liste de SIM d'exemple). Le choix de SIM n'est vérifiable que sur le téléphone.
+- Tests Vitest : gabarit de réponse (formats, centimes, échec), conservation des réglages à la restauration.
+
+**Livrable** : solde consultable avec le code et la réponse de n'importe quel opérateur, sur la SIM de son choix.
+
+## Sprint 17 — Modèles de SMS dynamiques (reconnaissance des champs)
+- **Modèles de SMS** (table dédiée, migration 7, incluse dans la sauvegarde JSON ; anciennes sauvegardes restaurables) : un gabarit par type de SMS, avec les variables `{montant_debit}`, `{montant_credit}`, `{ref_trx}`, `{date_trx}`, `{numero_source}`, `{numero_destination}` et, en plus (décidé) `{frais}` et `{solde}`. Le gabarit est converti en expression régulière **par le code** : l'utilisateur n'écrit jamais de regex.
+- Chaque modèle précise son **sens** : débit (crée une dépense à classer), crédit (argent reçu, désormais gérable), ou à ignorer (solde conservé, aucune transaction) ; et un **libellé de note** (ex. « Transfert vers {numero_destination} »). Règles conservées : frais compris dans le montant, centimes arrondis (solde vers le bas, sortie vers le haut), `ref_trx` unique contre les doublons, import idempotent.
+- **Modèles par défaut** = les formats Orange Money actuels (transfert, retrait, remboursement de prêt, ignorés : épargne, prêt crédité, dépôt), installés une seule fois comme les budgets par défaut ; le parser en dur disparaît.
+- **Expéditeur réglable** par opérateur (déjà réglable dans l'écran SMS) et nom du service affiché.
+- Écran « Modèles de SMS » : liste, création/modification, **essai** d'un SMS d'exemple collé avec les champs reconnus affichés, avertissement si un modèle est trop vague. Un SMS non compris peut servir de point de départ à un nouveau modèle.
+- `{date_trx}` : format de date réglable dans le modèle, sinon date de réception du SMS.
+- Tests Vitest : chaque variable, gabarits invalides, modèles qui se chevauchent (ordre/priorité), idempotence de l'import, anciens SMS Orange Money toujours reconnus (non-régression).
+
+**Livrable** : l'utilisateur adapte l'application aux SMS de son opérateur sans toucher au code.

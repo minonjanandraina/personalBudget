@@ -1,8 +1,8 @@
-// Tests de l'import des SMS Orange Money : idempotence, soldes, doublons, anciens SMS, classement.
+// Tests de l'import des SMS Mobile Money : idempotence, soldes, doublons, anciens SMS, classement.
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
 import { creerBaseDeTest, creerBudgetDeTest } from "./db/aide-tests.js"; // Base neuve et budget
 import { importerSms, synchroniserSms, listerNonClassees, classerTransaction, listerSmsIllisibles, ignorerSmsIllisible, lireExpediteur, modifierExpediteur, dateDepartImport } from "./import-sms.js"; // Fonctions testées
-import { soldeOMDisponible, lireDernierSolde } from "./soldes.js"; // Soldes
+import { soldeMMDisponible, lireDernierSolde } from "./soldes.js"; // Soldes
 import { allouerBudget, soldeAllocation } from "./allocations.js"; // Allocation
 import { calculerAlertes } from "./alertes.js"; // Alertes
 import { SMS_EXEMPLES, SMS_IGNORES } from "../platform/sms-exemples.js"; // Les SMS réels
@@ -42,7 +42,7 @@ describe("import des SMS", () => { // Groupe
     expect(await base.requeter(requete)).toEqual(avant); // Identiques
   }); // Fin du cas
 
-  it("enregistre le solde OM de chaque SMS qui en contient un, et le plus récent fait foi", async () => { // Soldes
+  it("enregistre le solde Mobile Money de chaque SMS qui en contient un, et le plus récent fait foi", async () => { // Soldes
     await importerSms(base, sms()); // Import
     const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM solde_om"); // Soldes enregistrés
     expect(Number(n)).toBe(1 + 4); // Solde initial + 4 SMS avec solde (l'épargne n'en a pas)
@@ -51,7 +51,7 @@ describe("import des SMS", () => { // Groupe
 
   it("ne retire pas une seconde fois du solde disponible les dépenses déjà comprises dans le solde du SMS", async () => { // Cohérence des soldes
     await importerSms(base, sms()); // Import
-    expect((await soldeOMDisponible(base)).disponible).toBe(931116); // Égal au solde du dernier SMS (rien retiré en plus)
+    expect((await soldeMMDisponible(base)).disponible).toBe(931116); // Égal au solde du dernier SMS (rien retiré en plus)
   }); // Fin du cas
 
   it("ignore les SMS antérieurs au solde initial", async () => { // Ancien historique
@@ -129,11 +129,11 @@ describe("classement d'une dépense SMS dans un budget", () => { // Groupe
 describe("SMS à ignorer (épargne, prêt crédité, dépôt)", () => { // Opérations que l'utilisateur ne veut pas voir comme dépenses
   const ignores = () => SMS_IGNORES(APRES); // Les cinq SMS à ignorer
 
-  it("ne crée aucune transaction ni SMS non compris, mais garde les soldes OM qu'ils contiennent", async () => { // Cas principal
+  it("ne crée aucune transaction ni SMS non compris, mais garde les soldes Mobile Money qu'ils contiennent", async () => { // Cas principal
     expect(await importerSms(base, ignores())).toEqual({ importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 5 }); // Tous ignorés
     const [{ t, i, s }] = await base.requeter("SELECT (SELECT COUNT(*) FROM transactions) AS t, (SELECT COUNT(*) FROM sms_illisible) AS i, (SELECT COUNT(*) FROM solde_om) AS s"); // Compteurs
     expect([Number(t), Number(i)]).toEqual([0, 0]); // Ni transaction, ni SMS non compris
-    expect(Number(s)).toBe(1 + 4); // Solde initial + 4 SMS avec solde OM (le virement programmé n'en a pas)
+    expect(Number(s)).toBe(1 + 4); // Solde initial + 4 SMS avec solde Mobile Money (le virement programmé n'en a pas)
     expect((await lireDernierSolde(base)).balance).toBe(60416); // Le dernier SMS est le dépôt
   }); // Fin du cas
 

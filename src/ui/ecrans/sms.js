@@ -1,4 +1,4 @@
-// Écrans des SMS Orange Money : synchronisation, dépenses à classer dans un budget, SMS non compris.
+// Écrans des SMS Mobile Money : synchronisation, dépenses à classer dans un budget, SMS non compris.
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
 import { enteteEcran, carte, alerte, boutonPrincipal, boutonLien, champ, choix } from "../composants.js"; // Composants
 import { afficherToast } from "../messages.js"; // Notifications
@@ -22,7 +22,7 @@ export function decrireBilan(b) { // Reçoit { importes, doublons, anciens, illi
 export async function synchroniserAuDemarrage(base, sms = smsPlateforme) { // Reçoit la base et l'accès aux SMS
   try { // Une erreur ne doit jamais empêcher l'ouverture de l'application
     if (!(await sms.autoriseSansDemander())) return null; // Permission pas encore accordée : on attend le bouton « Synchroniser »
-    const bilan = await synchroniserSms(base, sms.lireSmsOM); // Lit et importe
+    const bilan = await synchroniserSms(base, sms.lireSmsMM); // Lit et importe
     if (bilan.importes > 0 || bilan.illisibles > 0) afficherToast(decrireBilan(bilan), "info"); // Prévient seulement s'il y a du nouveau
     return bilan; // Résultat
   } catch { return null; } // Silence : l'utilisateur peut relancer à la main
@@ -38,7 +38,7 @@ async function dessinerAClasser(conteneur, base) { // Reçoit la zone et la base
     conteneur.append(h("div", { class: "carte apparition visible" }, // Une carte par dépense
       h("div", { class: "ligne ligne-sans-carte" }, // Ligne texte + montant
         h("div", { class: "ligne-texte" }, // Bloc de texte
-          h("div", { class: "ligne-titre" }, t.note ?? "Opération Orange Money"), // Libellé
+          h("div", { class: "ligne-titre" }, t.note ?? "Opération Mobile Money"), // Libellé
           h("div", { class: "ligne-detail" }, afficherDateHeure(t.dateOperation)), // Date
         ), // Fin du bloc de texte
         h("div", { class: "ligne-montant montant-moins" }, `−${formaterMontant(t.montant)}`), // Montant
@@ -66,7 +66,7 @@ async function dessinerIllisibles(conteneur, base, recharger) { // Reçoit la zo
   } // Fin de la boucle
 } // Fin de dessinerIllisibles
 
-// Écran « SMS Orange Money ».
+// Écran « SMS Mobile Money ».
 export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reçoit la zone, la base et l'accès aux SMS
   const zoneAClasser = h("div", {}); // Zone de la liste à classer
   const zoneIllisibles = h("div", {}); // Zone des SMS non compris
@@ -74,7 +74,7 @@ export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reç
   const champExpediteur = champ({ id: "sms-expediteur", libelle: "Nom de l'expéditeur des SMS", valeur: await lireExpediteur(base), aide: "Tel qu'il s'affiche dans vos messages (ex. OrangeMoney). À corriger si aucun SMS n'est trouvé." }); // Réglage de l'expéditeur
   const synchroniser = async () => { // Bouton « Synchroniser »
     try { // Tente la synchronisation
-      const bilan = await synchroniserSms(base, sms.lireSmsOM); // Lit et importe
+      const bilan = await synchroniserSms(base, sms.lireSmsMM); // Lit et importe
       afficherToast(decrireBilan(bilan), "succes"); // Résultat
     } catch (erreur) { // Si quelque chose échoue
       afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur?.message ?? erreur}`, "erreur"); // Explique
@@ -83,7 +83,7 @@ export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reç
   }; // Fin de synchroniser
   const enregistrerExpediteur = () => soumettre({ champs: { expediteur: champExpediteur }, action: () => modifierExpediteur(base, champExpediteur.lire()), messageSucces: "Expéditeur enregistré." }); // Enregistre le nom
   zone.append( // Assemble l'écran
-    enteteEcran("SMS Orange Money", "Importer vos opérations"), // En-tête
+    enteteEcran("SMS Mobile Money", "Importer vos opérations"), // En-tête
     carte(h("p", { class: "ligne-detail" }, "Les SMS ne disent pas à quel budget appartient une dépense : chaque opération importée est à classer vous-même."), boutonPrincipal("Synchroniser maintenant", synchroniser)), // Carte de synchronisation
     zoneAClasser, // Liste à classer
     zoneIllisibles, // SMS non compris
@@ -108,7 +108,7 @@ export async function afficherFormulaireClasser(zone, { base, params = {} }) { /
   }; // Fin de enregistrer
   const retirer = () => soumettre({ champs, action: () => classerTransaction(base, id, null), messageSucces: "Dépense remise « à classer ».", routeSucces: "/sms" }); // Remet la dépense « non classée »
   zone.append(carte( // Carte du formulaire
-    h("div", { class: "ligne-detail info-formulaire" }, `${t.note ?? "Opération Orange Money"} · ${formaterMontant(Number(t.montant))} · ${afficherDateHeure(t.date_operation)}`), // Rappel de la dépense
+    h("div", { class: "ligne-detail info-formulaire" }, `${t.note ?? "Opération Mobile Money"} · ${formaterMontant(Number(t.montant))} · ${afficherDateHeure(t.date_operation)}`), // Rappel de la dépense
     champs.budgetId.element, // Choix du budget
     boutonPrincipal("Classer dans ce budget", enregistrer), // Bouton principal
     t.budget_id === null ? null : h("div", { class: "espace-haut" }, boutonPrincipal("Remettre « à classer »", retirer, { danger: true })), // Possibilité de défaire un classement

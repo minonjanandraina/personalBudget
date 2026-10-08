@@ -11,7 +11,7 @@ import * as fichiersReels from "../../platform/fichiers.js"; // Accès aux fichi
 // Phrase qui décrit le contenu d'une sauvegarde : « 2 budgets, 3 types, 1 solde, 12 opérations ».
 export function decrireContenu(nombres) { // Reçoit le nombre de lignes par table
   const pluriel = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`; // Accorde le mot selon le nombre
-  return [pluriel(nombres.budget, "budget", "budgets"), pluriel(nombres.type_budget, "type de budget", "types de budget"), pluriel(nombres.solde_om, "solde OM", "soldes OM"), pluriel(nombres.transactions, "opération", "opérations")].join(", "); // Assemble les quatre éléments
+  return [pluriel(nombres.budget, "budget", "budgets"), pluriel(nombres.type_budget, "type de budget", "types de budget"), pluriel(nombres.solde_om, "solde Mobile Money", "soldes Mobile Money"), pluriel(nombres.transactions, "opération", "opérations")].join(", "); // Assemble les quatre éléments
 } // Fin de decrireContenu
 
 // Dessine l'écran. « fichiers » (facultatif) remplace l'accès aux fichiers : utile aux tests.

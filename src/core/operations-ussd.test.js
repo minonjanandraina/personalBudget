@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
-import { creerBaseDeTest, creerBudgetDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // Base neuve, budget et solde OM
+import { creerBaseDeTest, creerBudgetDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // Base neuve, budget et solde Mobile Money
 import { allouerBudget } from "./allocations.js"; // Allocation
 import { supprimerBudget } from "./budgets.js"; // Suppression d'un budget
 import { activerVerrou } from "./verrou.js"; // Verrouillage par PIN
@@ -16,18 +16,18 @@ let budgetId; // Budget débité
 
 // Faux accès USSD : enregistre le dernier code envoyé.
 const faux = (extra = {}) => ({ // Fabrique un faux
-  envoyerCode: vi.fn(async () => "Operation en cours de traitement."), // Réponse d'Orange Money
+  envoyerCode: vi.fn(async () => "Operation en cours de traitement."), // Réponse de Mobile Money
   ...extra, // Surcharges
 }); // Fin du faux
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Base neuve
-  await ajouterSoldeOMDeTest(base); // Solde OM énorme (daté de 2020)
+  await ajouterSoldeMMDeTest(base); // Solde Mobile Money énorme (daté de 2020)
   ({ budgetId } = await creerBudgetDeTest(base, { montant_budget: 100000, montant_max: 150000 })); // Budget
   await allouerBudget(base, { budgetId, montant: 20000 }, APRES); // 20 000 alloués sur la période du 5 octobre
 }); // Fin de la préparation
 
-const modele = (surcharges = {}) => ({ nom: "Retrait Orange Money", type: "sortie", code: RETRAIT, budgetId, ...surcharges }); // Modèle valide
+const modele = (surcharges = {}) => ({ nom: "Retrait Mobile Money", type: "sortie", code: RETRAIT, budgetId, ...surcharges }); // Modèle valide
 
 describe("validation d'un modèle", () => { // Contrôles de saisie
   it("reconnaît les variables du code", () => { // Variables
@@ -57,15 +57,15 @@ describe("validation d'un modèle", () => { // Contrôles de saisie
 describe("modèles : création, modification, suppression", () => { // CRUD
   it("crée, liste, modifie et supprime", async () => { // Cycle
     const id = await creerOperation(base, modele()); // Création
-    expect((await listerOperations(base))[0]).toMatchObject({ id, nom: "Retrait Orange Money", type: "sortie", budgetId, budgetNom: "Sorties" }); // Liste
-    await modifierOperation(base, id, modele({ nom: "Retrait OM" })); // Modification
-    expect((await listerOperations(base))[0].nom).toBe("Retrait OM"); // Modifié
+    expect((await listerOperations(base))[0]).toMatchObject({ id, nom: "Retrait Mobile Money", type: "sortie", budgetId, budgetNom: "Sorties" }); // Liste
+    await modifierOperation(base, id, modele({ nom: "Retrait Mobile Money" })); // Modification
+    expect((await listerOperations(base))[0].nom).toBe("Retrait Mobile Money"); // Modifié
     await supprimerOperation(base, id); // Suppression
     expect(await listerOperations(base)).toEqual([]); // Supprimé
   }); // Fin du cas
   it("refuse deux modèles de même nom (sans tenir compte des majuscules)", async () => { // Unicité
     await creerOperation(base, modele()); // Premier
-    await expect(creerOperation(base, modele({ nom: "retrait orange money" }))).rejects.toThrow(ErreurValidation); // Doublon
+    await expect(creerOperation(base, modele({ nom: "retrait mobile money" }))).rejects.toThrow(ErreurValidation); // Doublon
   }); // Fin du cas
   it("un budget utilisé par un modèle ne peut pas être supprimé", async () => { // Intégrité
     const libre = (await base.executer("INSERT INTO budget (name, type_id, montant_budget, montant_max) VALUES ('Libre', 1, 1000, 2000)")).dernierId; // Budget sans allocation
@@ -78,7 +78,7 @@ describe("préparation d'un envoi", () => { // Contrôles avant l'envoi
   it("remplace {numero} et {montant}, garde {pin} et masque le PIN à l'affichage", async () => { // Code final
     const id = await creerOperation(base, modele()); // Modèle
     const prep = await preparerEnvoi(base, id, { numero: "032 75 738 15", montant: 5000 }, APRES); // Prépare
-    expect(prep.code).toBe("#144*8*8*0327573815*5000*{pin}#"); // Le PIN OM reste à insérer côté Android
+    expect(prep.code).toBe("#144*8*8*0327573815*5000*{pin}#"); // Le PIN Mobile Money reste à insérer côté Android
     expect(prep.codeAffiche).toBe("#144*8*8*0327573815*5000*••••#"); // Masqué
   }); // Fin du cas
   it("un numéro retapé : {numero} répété dans le code est remplacé partout, saisi une seule fois", async () => { // Retrait avec confirmation du numéro
@@ -112,7 +112,7 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
   beforeEach(async () => { id = await creerOperation(base, modele()); }); // Modèle
 
   it("exige que le verrouillage par PIN soit activé", async () => { // Autorisation
-    await expect(lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES)).rejects.toThrow("verrouillage"); // Refusé
+    await expect(lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES)).rejects.toThrow("verrouillage"); // Refusé
   }); // Fin du cas
   it("refuse un mauvais PIN de l'application sans rien envoyer", async () => { // PIN
     await activerVerrou(base, "1234"); // Verrou actif
@@ -120,32 +120,32 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
     await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "0000" }, APRES)).rejects.toThrow(ErreurValidation); // Mauvais PIN
     expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
   }); // Fin du cas
-  it("refuse si le PIN Orange Money saisi est absent ou mal formé", async () => { // PIN OM
+  it("refuse si le PIN Mobile Money saisi est absent ou mal formé", async () => { // PIN Mobile Money
     await activerVerrou(base, "1234"); // Verrou actif
     const ussd = faux(); // Faux téléphone
-    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "12" }, APRES)).rejects.toThrow(ErreurValidation); // PIN OM mal formé : refusé sous le champ
+    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "12" }, APRES)).rejects.toThrow(ErreurValidation); // PIN Mobile Money mal formé : refusé sous le champ
     expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
   }); // Fin du cas
   it("envoie le code et met la sortie en attente de son SMS, sans toucher au budget", async () => { // Cas nominal
     await activerVerrou(base, "1234"); // Verrou actif
     const ussd = faux(); // Faux
-    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES); // Lance
-    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#"); // Code envoyé avec le PIN OM saisi (jamais enregistré)
+    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES); // Lance
+    expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#"); // Code envoyé avec le PIN Mobile Money saisi (jamais enregistré)
     expect(r).toMatchObject({ texte: "Operation en cours de traitement.", enAttente: true }); // Résultat
-    expect(await listerEnAttente(base)).toMatchObject([{ operationNom: "Retrait Orange Money", montant: 5000, budgetId, statut: "en_attente" }]); // En attente
+    expect(await listerEnAttente(base)).toMatchObject([{ operationNom: "Retrait Mobile Money", montant: 5000, budgetId, statut: "en_attente" }]); // En attente
     const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE debit_credit = -1"); // Dépenses enregistrées
     expect(Number(n)).toBe(0); // Aucune dépense tant que le SMS n'est pas là
   }); // Fin du cas
   it("une opération d'entrée n'attend rien", async () => { // Entrée
     await activerVerrou(base, "1234"); // Verrou actif
     const entree = await creerOperation(base, { nom: "Dépôt", type: "entree", code: "#144*2*{pin}#", budgetId: null }); // Entrée
-    const r = await lancerOperation(base, faux(), entree, { pinApp: "1234", pinOm: "5678" }, APRES); // Lance
+    const r = await lancerOperation(base, faux(), entree, { pinApp: "1234", pinMm: "5678" }, APRES); // Lance
     expect(r.enAttente).toBe(false); // Rien en attente
     expect(await listerEnAttente(base)).toEqual([]); // Aucune ligne
   }); // Fin du cas
   it("supprimer un modèle est refusé tant qu'un envoi attend son SMS", async () => { // Intégrité
     await activerVerrou(base, "1234"); // Verrou actif
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinOm: "5678" }, APRES); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES); // Envoi
     await expect(supprimerOperation(base, id)).rejects.toThrow("attend encore"); // Refusé
   }); // Fin du cas
 }); // Fin du groupe
@@ -154,7 +154,7 @@ describe("rapprochement avec les SMS", () => { // Classement automatique
   const envoyer = async (montant, quand = new Date(APRES.getTime() - 30000)) => { // Envoie une opération 30 s avant les SMS
     await activerVerrou(base, "1234"); // Verrou actif
     const id = await creerOperation(base, modele()); // Modèle
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinApp: "1234", pinOm: "5678" }, quand); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinApp: "1234", pinMm: "5678" }, quand); // Envoi
   }; // Fin de envoyer
 
   beforeEach(async () => { await base.executer("INSERT INTO solde_om (datetime, balance) VALUES ('2026-10-05T06:00:00.000Z', 1000000)"); }); // Solde initial avant les SMS

@@ -10,10 +10,10 @@ import { afficherDiagnostic } from "./ui/ecrans/diagnostic.js"; // Écran de dia
 import { afficherSauvegarde } from "./ui/ecrans/sauvegarde.js"; // Écran de sauvegarde et restauration
 import { afficherTypes, afficherFormulaireType } from "./ui/ecrans/types-budget.js"; // Écrans des types de budget
 import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.js"; // Écrans des budgets
-import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde OM
+import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde Mobile Money
 import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
-import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Orange Money
+import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Mobile Money
 import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du solde par USSD
 import { afficherToast } from "./ui/messages.js"; // Notifications
 import { afficherReglageVerrou, demanderDeverrouillage, DELAI_VERROU_MS } from "./ui/ecrans/verrou.js"; // Verrouillage par PIN
@@ -66,7 +66,7 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/operations-ussd/lancer/:id": (zone, ctx) => afficherLancerOperationUssd(zone, { base, params: ctx.params }), // Lancement d'une opération USSD
         "/operations-ussd/:id": (zone, ctx) => afficherFormulaireOperationUssd(zone, { base, params: ctx.params }), // Modification d'une opération USSD
         "/ussd": (zone) => afficherUssd(zone, { base }), // Consultation du solde par USSD
-        "/sms": (zone) => afficherSms(zone, { base }), // SMS Orange Money
+        "/sms": (zone) => afficherSms(zone, { base }), // SMS Mobile Money
         "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS
       }, // Fin des écrans
     }); // Fin du routeur

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
-import { creerBaseDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas et solde OM de test
+import { creerBaseDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas et solde Mobile Money de test
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget, supprimerBudget } from "./budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, modifierOperation, supprimerOperation, soldeAllocation, resumeBudgets, lireOperationDetaillee } from "./allocations.js"; // Fonctions à tester
@@ -14,7 +14,7 @@ const MAINTENANT = local(2026, 10, 25); // Le 25 octobre 2026 : période du 20/1
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
-  await ajouterSoldeOMDeTest(base); // Solde OM très grand : ces tests ne vérifient pas la limite du solde OM
+  await ajouterSoldeMMDeTest(base); // Solde Mobile Money très grand : ces tests ne vérifient pas la limite du solde Mobile Money
   const typeId = await creerTypeBudget(base, { name: "Loisir" }); // Type
   budgetId = await creerBudget(base, { name: "Sorties", typeId, montantBudget: 100000, montantMax: 150000, montantMin: 0, soldeAlert: 10000, autogenFinMois: false }); // Budget
   allocationId = (await allouerBudget(base, { budgetId, montant: 100000 }, MAINTENANT)).allocationId; // Allocation de 100 000

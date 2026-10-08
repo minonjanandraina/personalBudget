@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Tests d'intégration de l'écran « Sauvegarde et restauration » (faux accès aux fichiers, vraie logique et vraie base).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
-import { creerBaseDeTest, ajouterSoldeOMDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas
+import { creerBaseDeTest, ajouterSoldeMMDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas
 import { creerTypeBudget, listerTypesBudget } from "../../core/types-budget.js"; // Types
 import { creerBudget, listerBudgets } from "../../core/budgets.js"; // Budgets
 import { allouerBudget } from "../../core/allocations.js"; // Allocation
@@ -23,7 +23,7 @@ beforeEach(async () => { // Avant chaque cas
 // Crée une base « d'un autre téléphone » avec ses propres données et renvoie le texte de sa sauvegarde.
 async function sauvegardeAutreTelephone() { // Aucun paramètre
   const autre = await creerBaseDeTest(); // Autre base
-  await ajouterSoldeOMDeTest(autre); // Solde OM
+  await ajouterSoldeMMDeTest(autre); // Solde Mobile Money
   const t = await creerTypeBudget(autre, { name: "Scolarité" }); // Type
   const b = await creerBudget(autre, { name: "Écolage", typeId: t, montantBudget: 50000, montantMax: 100000, montantMin: 0, soldeAlert: 0, autogenFinMois: false }); // Budget
   await allouerBudget(autre, { budgetId: b, montant: 50000 }); // Allocation
@@ -44,7 +44,7 @@ const annulerDialogue = () => document.querySelectorAll(".dialogue-actions butto
 
 describe("décrire le contenu", () => { // Phrases
   it("accorde les mots au pluriel", () => { // Pluriel
-    expect(decrireContenu({ budget: 2, type_budget: 1, solde_om: 0, transactions: 12 })).toBe("2 budgets, 1 type de budget, 0 solde OM, 12 opérations"); // Singulier et pluriel
+    expect(decrireContenu({ budget: 2, type_budget: 1, solde_om: 0, transactions: 12 })).toBe("2 budgets, 1 type de budget, 0 solde Mobile Money, 12 opérations"); // Singulier et pluriel
   }); // Fin du cas
 }); // Fin du groupe
 
@@ -87,7 +87,7 @@ describe("restaurer", () => { // Restauration depuis un fichier
     await monter(f); // Écran
     toucher("Choisir un fichier de sauvegarde"); // Touche le bouton
     await vi.waitFor(() => expect(dialogue()).not.toBeNull()); // Confirmation demandée
-    expect(dialogue().textContent).toContain("1 budget, 1 type de budget, 1 solde OM, 1 opération"); // Contenu de la sauvegarde
+    expect(dialogue().textContent).toContain("1 budget, 1 type de budget, 1 solde Mobile Money, 1 opération"); // Contenu de la sauvegarde
     expect(dialogue().textContent).toContain("0 budget, 1 type de budget"); // Contenu actuel annoncé comme remplacé
     expect(dialogue().textContent).toContain("REMPLACÉES"); // Avertissement
     expect(await listerTypesBudget(base)).toHaveLength(1); // Rien n'est encore remplacé

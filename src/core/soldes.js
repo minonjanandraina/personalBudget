@@ -1,4 +1,4 @@
-// Soldes du compte Orange Money : lecture, saisie manuelle, historique.
+// Soldes du compte Mobile Money : lecture, saisie manuelle, historique.
 import { ErreurValidation } from "./erreurs.js"; // Erreur de saisie
 
 const TOLERANCE_FUTUR_MS = 5 * 60 * 1000; // On accepte jusqu'à 5 minutes d'avance (décalage d'horloge)
@@ -47,12 +47,12 @@ export async function supprimerSolde(base, id) { // Reçoit la base et l'identif
   await base.executer("DELETE FROM solde_om WHERE id = ?", [id]); // Supprime la ligne
 } // Fin de supprimerSolde
 
-// ===== Situation financière : solde OM disponible, argent réservé dans les budgets, libre à allouer =====
+// ===== Situation financière : solde Mobile Money disponible, argent réservé dans les budgets, libre à allouer =====
 
-// Solde du compte Orange Money disponible = dernier solde saisi (ou reçu) moins les dépenses enregistrées après lui.
+// Solde du compte Mobile Money disponible = dernier solde saisi (ou reçu) moins les dépenses enregistrées après lui.
 // Les dépenses issues d'un SMS à la même seconde que le solde sont déjà comprises dans ce solde ; les saisies manuelles de la même seconde sont retirées.
 // Une dépense marquée « déjà comprise dans le solde » (oubli rattrapé après un solde réel) n'est jamais retirée une seconde fois.
-export async function soldeOMDisponible(base) { // Reçoit la base
+export async function soldeMMDisponible(base) { // Reçoit la base
   const dernier = await lireDernierSolde(base); // Dernier solde connu
   if (dernier === null) return null; // Aucun solde saisi : situation inconnue
   const [ligne] = await base.requeter( // Somme des dépenses postérieures au solde
@@ -61,7 +61,7 @@ export async function soldeOMDisponible(base) { // Reçoit la base
   ); // Fin de la lecture
   const depensesDepuis = Number(ligne.total); // Dépenses retirées du dernier solde
   return { dernierSolde: dernier.balance, datetime: dernier.datetime, depensesDepuis, disponible: dernier.balance - depensesDepuis }; // Résultat
-} // Fin de soldeOMDisponible
+} // Fin de soldeMMDisponible
 
 // Total réservé dans les budgets = somme des soldes de toutes les allocations = total des allocations moins total des dépenses.
 export async function totalReserve(base) { // Reçoit la base
@@ -69,11 +69,11 @@ export async function totalReserve(base) { // Reçoit la base
   return Number(ligne.total); // Renvoie un entier
 } // Fin de totalReserve
 
-// Situation d'ensemble : solde OM disponible, total réservé et libre à allouer (null si aucun solde OM n'est saisi).
+// Situation d'ensemble : solde Mobile Money disponible, total réservé et libre à allouer (null si aucun solde Mobile Money n'est saisi).
 export async function situationFinanciere(base) { // Reçoit la base
-  const om = await soldeOMDisponible(base); // Solde OM disponible
+  const mm = await soldeMMDisponible(base); // Solde Mobile Money disponible
   const reserve = await totalReserve(base); // Total réservé dans les budgets
-  return { om, reserve, libre: om === null ? null : om.disponible - reserve }; // Libre = disponible moins réservé
+  return { mm, reserve, libre: mm === null ? null : mm.disponible - reserve }; // Libre = disponible moins réservé
 } // Fin de situationFinanciere
 
 // Détail du solde réservé par budget : alloué (net des reports et transferts) moins dépensé, sur toutes les périodes.

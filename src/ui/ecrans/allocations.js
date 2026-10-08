@@ -8,7 +8,7 @@ import { periodePour } from "../../core/periodes.js"; // Calcul de la période e
 import { lireJourJob } from "../../core/parametres.js"; // Jour de lancement
 import { allouerBudget, resumeBudgets, libellePeriode, supprimerAllocation, raisonRefusSuppressionAllocation } from "../../core/allocations.js"; // Logique métier
 import { lancerAllocationPeriode, transfererEntreBudgets } from "../../core/reallocation.js"; // Report et transferts
-import { situationFinanciere } from "../../core/soldes.js"; // Solde OM disponible et libre à allouer
+import { situationFinanciere } from "../../core/soldes.js"; // Solde Mobile Money disponible et libre à allouer
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
 
 // Une petite case « libellé + valeur » de la carte d'un budget.
@@ -29,7 +29,7 @@ export function decrireResultat(r) { // Reçoit le résultat d'un budget
 export async function afficherAllocations(zone, { base, resultat = null }) { // Reçoit la zone, la base et le dernier résultat
   const periode = periodePour(await lireJourJob(base)); // Période en cours
   const resumes = await resumeBudgets(base); // Situation de chaque budget
-  const situation = await situationFinanciere(base); // Solde OM disponible et libre à allouer
+  const situation = await situationFinanciere(base); // Solde Mobile Money disponible et libre à allouer
   for (const r of resumes) r.supprimable = r.allocation !== null && (await raisonRefusSuppressionAllocation(base, r.allocation.id)) === null; // Le bouton « Supprimer » n'est proposé que si c'est permis
   const supprimer = async (r) => { // Supprime l'allocation d'un budget
     const ok = await confirmer({ titre: "Supprimer l'allocation ?", message: `L'allocation de « ${r.budget.name} » (${formaterMontant(r.allocation.alimente)}) pour la période ${libellePeriode(periode)} sera supprimée. Le budget et son type restent.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
@@ -57,7 +57,7 @@ export async function afficherAllocations(zone, { base, resultat = null }) { // 
       afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur.message}`, "erreur"); // Affiche la cause (message complet pour une règle de gestion)
     } // Fin du try/catch
   }; // Fin de lancer
-  zone.append(enteteEcran("Allocations", `Période en cours : ${libellePeriode(periode)}`, { retour: "/budgets" }), boutonPrincipal("Lancer l'allocation de la période", lancer), h("div", { class: "espace-haut" }, boutonLien("Allouer un budget", "/allocations/nouveau", "ajouter")), h("div", { class: "espace-haut" }, boutonLien("Transférer entre budgets", "/allocations/transfert", "transactions")), situation.om === null ? h("div", { class: "espace-haut" }, alerte({ niveau: "attention", message: "Aucun solde Orange Money saisi : impossible d'allouer." }), h("div", { class: "espace-haut" }, boutonLien("Saisir le solde OM", "/solde/nouveau", "telephone"))) : h("div", { class: "ligne-detail espace-haut" }, `Libre à allouer : ${formaterMontant(Math.max(situation.libre, 0))} (solde OM disponible ${formaterMontant(situation.om.disponible)} − réservé ${formaterMontant(situation.reserve)})`)); // En-tête, boutons et solde libre
+  zone.append(enteteEcran("Allocations", `Période en cours : ${libellePeriode(periode)}`, { retour: "/budgets" }), boutonPrincipal("Lancer l'allocation de la période", lancer), h("div", { class: "espace-haut" }, boutonLien("Allouer un budget", "/allocations/nouveau", "ajouter")), h("div", { class: "espace-haut" }, boutonLien("Transférer entre budgets", "/allocations/transfert", "transactions")), situation.mm === null ? h("div", { class: "espace-haut" }, alerte({ niveau: "attention", message: "Aucun solde Mobile Money saisi : impossible d'allouer." }), h("div", { class: "espace-haut" }, boutonLien("Saisir le solde Mobile Money", "/solde/nouveau", "telephone"))) : h("div", { class: "ligne-detail espace-haut" }, `Libre à allouer : ${formaterMontant(Math.max(situation.libre, 0))} (solde Mobile Money disponible ${formaterMontant(situation.mm.disponible)} − réservé ${formaterMontant(situation.reserve)})`)); // En-tête, boutons et solde libre
   if (resultat) zone.append(h("div", { class: "espace-haut" }, carte(h("h2", { class: "carte-titre" }, "Détail du lancement"), h("ul", { class: "liste-diagnostic" }, ...resultat.resultats.map((r) => h("li", {}, `${r.nom} : ${decrireResultat(r)}`)))))); // Détail du dernier lancement
   if (resumes.length === 0) zone.append(h("div", { class: "espace-haut" }, alerte({ niveau: "info", message: "Aucun budget. Créez d'abord un budget." }), h("div", { class: "espace-haut" }, boutonLien("Créer un budget", "/budgets/nouveau", "budgets")))); // Aucun budget : explication et raccourci
   for (const r of resumes) { // Pour chaque budget
@@ -84,9 +84,9 @@ export async function afficherFormulaireAllocation(zone, { base, params = {} }) 
     zone.append(alerte({ niveau: "attention", message: "Créez d'abord un budget." }), h("div", { class: "espace-haut" }, boutonLien("Créer un budget", "/budgets/nouveau", "budgets"))); // Explication et raccourci
     return; // Rien d'autre à afficher
   } // Fin du cas sans budget
-  const situation = await situationFinanciere(base); // Solde OM disponible et libre à allouer
-  if (situation.om === null) { // Sans solde OM, aucune allocation n'est possible
-    zone.append(alerte({ niveau: "attention", message: "Saisissez d'abord le solde de votre compte Orange Money avant d'allouer un budget." }), h("div", { class: "espace-haut" }, boutonLien("Saisir le solde OM", "/solde/nouveau", "telephone"))); // Explication et raccourci
+  const situation = await situationFinanciere(base); // Solde Mobile Money disponible et libre à allouer
+  if (situation.mm === null) { // Sans solde Mobile Money, aucune allocation n'est possible
+    zone.append(alerte({ niveau: "attention", message: "Saisissez d'abord le solde de votre compte Mobile Money avant d'allouer un budget." }), h("div", { class: "espace-haut" }, boutonLien("Saisir le solde Mobile Money", "/solde/nouveau", "telephone"))); // Explication et raccourci
     return; // Rien d'autre à afficher
   } // Fin du cas sans solde
   const periode = periodePour(await lireJourJob(base)); // Période en cours

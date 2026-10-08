@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Tests d'intégration des écrans d'opérations USSD (faux téléphone, vraie base).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
-import { creerBaseDeTest, creerBudgetDeTest, ajouterSoldeOMDeTest } from "../../core/db/aide-tests.js"; // Base neuve, budget et solde OM
+import { creerBaseDeTest, creerBudgetDeTest, ajouterSoldeMMDeTest } from "../../core/db/aide-tests.js"; // Base neuve, budget et solde Mobile Money
 import { allouerBudget } from "../../core/allocations.js"; // Allocation
 import { activerVerrou } from "../../core/verrou.js"; // Verrouillage par PIN
 import { creerOperation, listerOperations } from "../../core/operations-ussd.js"; // Modèles
@@ -14,12 +14,12 @@ let budgetId; // Budget débité
 
 const faux = () => ({ // Faux téléphone
   demanderPermission: vi.fn(async () => true), // Permission accordée
-  envoyerCode: vi.fn(async () => "Retrait en cours."), // Réponse d'Orange Money
+  envoyerCode: vi.fn(async () => "Retrait en cours."), // Réponse de Mobile Money
 }); // Fin du faux
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Base neuve
-  await ajouterSoldeOMDeTest(base); // Solde OM énorme
+  await ajouterSoldeMMDeTest(base); // Solde Mobile Money énorme
   ({ budgetId } = await creerBudgetDeTest(base, { montant_budget: 100000, montant_max: 150000 })); // Budget
   await allouerBudget(base, { budgetId, montant: 20000 }); // Allocation de la période en cours
   document.body.replaceChildren(); // Page vide
@@ -70,13 +70,13 @@ describe("liste et lancement", () => { // Utilisation
     await afficherLancerOperationUssd(zone, { base, params: { id }, ussd }); // Écran
     saisir("lancer-numero", "0327573815"); // Numéro
     saisir("lancer-montant", "5000"); // Montant
-    saisir("lancer-pin-om", "5678"); // PIN Orange Money (demandé à chaque envoi)
+    saisir("lancer-pin-mm", "5678"); // PIN Mobile Money (demandé à chaque envoi)
     saisir("lancer-pin", "1234"); // PIN de l'application
     boutons("Envoyer")[0].click(); // Demande l'envoi
     await vi.waitFor(() => expect(document.body.textContent).toContain("Envoyer cette opération ?")); // Fenêtre de confirmation
-    expect(document.body.textContent).toContain("••••"); // Le PIN OM n'est pas affiché
+    expect(document.body.textContent).toContain("••••"); // Le PIN Mobile Money n'est pas affiché
     boutons("Envoyer").at(-1).click(); // Confirme dans la fenêtre
-    await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#")); // Code envoyé avec le PIN OM saisi
+    await vi.waitFor(() => expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#")); // Code envoyé avec le PIN Mobile Money saisi
     await vi.waitFor(() => expect(zone.textContent).toContain("Retrait en cours.")); // Réponse montrée
     expect(await listerEnAttente(base)).toMatchObject([{ montant: 5000, statut: "en_attente" }]); // En attente du SMS
   }); // Fin du cas
@@ -88,7 +88,7 @@ describe("liste et lancement", () => { // Utilisation
     await afficherLancerOperationUssd(zone, { base, params: { id }, ussd }); // Écran
     saisir("lancer-numero", "0327573815"); // Numéro
     saisir("lancer-montant", "5000"); // Montant
-    saisir("lancer-pin-om", "5678"); // PIN Orange Money
+    saisir("lancer-pin-mm", "5678"); // PIN Mobile Money
     saisir("lancer-pin", "0000"); // Mauvais PIN
     boutons("Envoyer")[0].click(); // Demande l'envoi
     await vi.waitFor(() => expect(document.body.textContent).toContain("Envoyer cette opération ?")); // Confirmation

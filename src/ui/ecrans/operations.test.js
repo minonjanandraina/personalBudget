@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Tests d'intégration des écrans d'allocation et de dépense (vraie logique métier, vraie base, DOM simulé).
 import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
-import { creerBaseDeTest, ajouterSoldeOMDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas et solde OM de test
+import { creerBaseDeTest, ajouterSoldeMMDeTest } from "../../core/db/aide-tests.js"; // Base neuve pour chaque cas et solde Mobile Money de test
 import { creerTypeBudget } from "../../core/types-budget.js"; // Types
 import { creerBudget } from "../../core/budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, resumeBudgets, soldeAllocation } from "../../core/allocations.js"; // Allocation et dépense
@@ -16,7 +16,7 @@ let typeId; // Type de budget disponible
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
-  await ajouterSoldeOMDeTest(base); // Solde OM très grand : ces tests ne vérifient pas la limite du solde OM
+  await ajouterSoldeMMDeTest(base); // Solde Mobile Money très grand : ces tests ne vérifient pas la limite du solde Mobile Money
   document.body.replaceChildren(); // Page vide
   zone = document.createElement("main"); // Zone d'écran neuve
   document.body.append(zone); // La place dans la page

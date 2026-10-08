@@ -15,7 +15,7 @@ object Notifier { // Objet unique
         val gestionnaire = contexte.getSystemService(NotificationManager::class.java) // Gestionnaire des notifications
         if (!gestionnaire.areNotificationsEnabled()) return // Notifications refusées par l'utilisateur : on se tait
         gestionnaire.createNotificationChannel( // Crée le canal (sans effet s'il existe déjà)
-            NotificationChannel(CANAL, "Opérations Orange Money", NotificationManager.IMPORTANCE_DEFAULT) // Nom visible dans les réglages Android
+            NotificationChannel(CANAL, "Opérations Mobile Money", NotificationManager.IMPORTANCE_DEFAULT) // Nom visible dans les réglages Android
         ) // Fin de la création du canal
         val ouvrir = PendingIntent.getActivity( // Action : ouvrir Volako
             contexte, 0, // Contexte et code de la demande

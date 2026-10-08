@@ -1,15 +1,15 @@
-// Import des SMS Orange Money : crée une transaction (non classée) et un solde OM par SMS compris. Rejouable sans doublon.
+// Import des SMS Mobile Money : crée une transaction (non classée) et un solde Mobile Money par SMS compris. Rejouable sans doublon.
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs de règle de gestion et de saisie
 import { formaterMontant } from "./format.js"; // Affichage des montants dans les messages
 import { jourLocal, afficherJour } from "./periodes.js"; // Jour d'une date
-import { analyserSmsOM } from "./sms-om.js"; // Analyse d'un SMS
+import { analyserSmsMM } from "./sms-mm.js"; // Analyse d'un SMS
 import { creerTransaction } from "./transactions.js"; // Création des transactions
 import { lireBudget } from "./budgets.js"; // Lecture d'un budget
 import { allocationCouvrant, soldeAllocation } from "./allocations.js"; // Allocation d'une période et son solde
 import { lireMeta, ecrireMeta } from "./meta.js"; // Réglages de fonctionnement
 import { rapprocherEnAttente } from "./ussd-en-attente.js"; // Opérations USSD en attente de leur SMS (classement automatique)
 
-export const EXPEDITEUR_PAR_DEFAUT = "OrangeMoney"; // Nom de l'expéditeur des SMS Orange Money (réglable dans l'écran SMS)
+export const EXPEDITEUR_PAR_DEFAUT = "OrangeMoney"; // Nom de l'expéditeur des SMS Mobile Money (réglable dans l'écran SMS)
 const CLE_EXPEDITEUR = "sms_expediteur"; // Clé du réglage
 
 // Lit le nom d'expéditeur réglé (valeur par défaut sinon).
@@ -24,7 +24,7 @@ export async function modifierExpediteur(base, nom) { // Reçoit la base et le n
   await ecrireMeta(base, CLE_EXPEDITEUR, propre); // Enregistre
 } // Fin de modifierExpediteur
 
-// Date à partir de laquelle on importe les SMS = date du plus ancien solde OM saisi (solde initial). Null s'il n'y en a pas.
+// Date à partir de laquelle on importe les SMS = date du plus ancien solde Mobile Money saisi (solde initial). Null s'il n'y en a pas.
 // Les SMS plus anciens sont déjà compris dans ce solde initial : les importer fausserait les budgets.
 export async function dateDepartImport(base) { // Reçoit la base
   const [ligne] = await base.requeter("SELECT MIN(datetime) AS depart FROM solde_om"); // Plus ancien solde
@@ -35,7 +35,7 @@ export async function dateDepartImport(base) { // Reçoit la base
 // Renvoie { importes, doublons, anciens, illisibles, ignores } (nombres de SMS dans chaque cas).
 export async function importerSms(base, messages, maintenant = new Date()) { // Reçoit la base, les messages et l'heure (modifiable pour les tests)
   const depart = await dateDepartImport(base); // Date de départ de l'import
-  if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Orange Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
+  if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Mobile Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
   const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 0 }; // Compteurs (« ignores » : SMS d'épargne, de prêt crédité ou de dépôt, volontairement sans transaction)
   const tries = messages // Les SMS du plus ancien au plus récent (le solde le plus récent est ainsi enregistré en dernier)
     .map((m) => ({ corps: String(m.corps ?? ""), date: new Date(m.date) })) // Convertit la date
@@ -45,16 +45,16 @@ export async function importerSms(base, messages, maintenant = new Date()) { // 
     for (const m of tries) { // Pour chaque SMS
       const dateIso = m.date.toISOString(); // Date ISO UTC
       if (dateIso < depart) { bilan.anciens += 1; continue; } // Antérieur au solde initial : ignoré
-      const analyse = analyserSmsOM(m.corps); // Analyse le texte
+      const analyse = analyserSmsMM(m.corps); // Analyse le texte
       if (analyse === null) { // SMS non compris
         const { changements } = await base.executer("INSERT OR IGNORE INTO sms_illisible (date_sms, texte) VALUES (?, ?)", [dateIso, m.corps]); // Le garde pour revue (une seule fois)
         if (changements > 0) bilan.illisibles += 1; // Compte seulement les nouveaux
         continue; // Passe au suivant
       } // Fin du cas non compris
-      if (analyse.ignore) { // SMS à ignorer : aucune transaction, mais le solde OM qu'il contient est gardé
-        if (analyse.soldeApres !== null) { // Le SMS donne le solde OM
+      if (analyse.ignore) { // SMS à ignorer : aucune transaction, mais le solde Mobile Money qu'il contient est gardé
+        if (analyse.soldeApres !== null) { // Le SMS donne le solde Mobile Money
           const [soldeConnu] = await base.requeter("SELECT 1 AS un FROM solde_om WHERE datetime = ? AND balance = ?", [dateIso, analyse.soldeApres]); // Déjà enregistré ? (rend l'import rejouable)
-          if (!soldeConnu) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde OM après l'opération
+          if (!soldeConnu) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde Mobile Money après l'opération
         } // Fin du solde
         await base.executer("UPDATE sms_illisible SET ignore = 1 WHERE texte = ?", [m.corps]); // S'il avait été listé « non compris » avant, il n'apparaît plus
         await base.executer("DELETE FROM transactions WHERE sms = ? AND insert_type = 'auto' AND allocation_id IS NULL", [m.corps]); // Retire la dépense « à classer » créée avant que ce SMS soit ignoré (jamais une dépense déjà classée dans un budget)
@@ -64,7 +64,7 @@ export async function importerSms(base, messages, maintenant = new Date()) { // 
       const [existe] = await base.requeter("SELECT 1 AS un FROM transactions WHERE trx_id = ?", [analyse.trxId]); // Déjà importé ?
       if (existe) { bilan.doublons += 1; continue; } // Oui : rien à faire
       await creerTransaction(base, { trxId: analyse.trxId, insertType: "auto", debitCredit: -1, montant: analyse.total, sms: m.corps, dateOperation: dateIso, note: analyse.note }); // Dépense non classée (sans allocation)
-      if (analyse.soldeApres !== null) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde OM après l'opération
+      if (analyse.soldeApres !== null) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde Mobile Money après l'opération
       bilan.importes += 1; // Une opération de plus
     } // Fin de la boucle
   }); // Fin de la transaction
@@ -75,7 +75,7 @@ export async function importerSms(base, messages, maintenant = new Date()) { // 
 // Lit les SMS avec « lireSms » (fourni par la plateforme : téléphone ou simulation) puis les importe.
 export async function synchroniserSms(base, lireSms) { // Reçoit la base et la fonction de lecture
   const depart = await dateDepartImport(base); // Date de départ
-  if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Orange Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
+  if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Mobile Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
   const messages = await lireSms({ expediteur: await lireExpediteur(base), depuis: depart }); // Lit les SMS de l'expéditeur depuis la date de départ
   return importerSms(base, messages); // Importe
 } // Fin de synchroniserSms

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
-import { creerBaseDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas et solde OM de test
+import { creerBaseDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas et solde Mobile Money de test
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget, supprimerBudget } from "./budgets.js"; // Budgets
 import { modifierJourJob } from "./parametres.js"; // Jour de lancement
@@ -15,7 +15,7 @@ const MAINTENANT = local(2026, 10, 25); // Le 25 octobre 2026 (jour de lancement
 
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
-  await ajouterSoldeOMDeTest(base); // Solde OM très grand : ces tests ne vérifient pas la limite du solde OM
+  await ajouterSoldeMMDeTest(base); // Solde Mobile Money très grand : ces tests ne vérifient pas la limite du solde Mobile Money
   typeId = await creerTypeBudget(base, { name: "Loisir" }); // Crée un type
 }); // Fin de la préparation
 

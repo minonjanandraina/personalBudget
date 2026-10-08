@@ -8,7 +8,7 @@ import android.os.Looper // Fil principal de l'application
 import android.telephony.TelephonyManager // API téléphonie d'Android (envoi d'USSD, Android 8 et plus)
 
 // Envoi d'un code USSD complet (consultation du solde, opérations dynamiques) par l'API téléphonie d'Android.
-object UssdOm { // Objet unique
+object UssdMm { // Objet unique
 
 
     // Envoie un code USSD quelconque. « fin(reussi, texte) » est appelée UNE fois : texte de la réponse, ou message d'erreur.

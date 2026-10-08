@@ -12,14 +12,14 @@ import com.getcapacitor.PluginMethod // Marque une fonction appelable depuis la 
 import com.getcapacitor.annotation.CapacitorPlugin // Déclare le plugin
 import com.getcapacitor.annotation.Permission // Déclare une permission demandée par le plugin
 
-// Plugin « SmsOm » : lit les SMS de la boîte de réception qui viennent d'un expéditeur donné (Orange Money).
-// La partie web l'appelle par SmsOm.checkPermissions(), SmsOm.requestPermissions() (fournies par Capacitor) et SmsOm.lireSms(...).
-@CapacitorPlugin(name = "SmsOm", permissions = [ // Nom du plugin et permissions demandées ensemble
+// Plugin « SmsMm » : lit les SMS de la boîte de réception qui viennent d'un expéditeur donné (Mobile Money).
+// La partie web l'appelle par SmsMm.checkPermissions(), SmsMm.requestPermissions() (fournies par Capacitor) et SmsMm.lireSms(...).
+@CapacitorPlugin(name = "SmsMm", permissions = [ // Nom du plugin et permissions demandées ensemble
     Permission(strings = [Manifest.permission.READ_SMS], alias = "sms"), // Lire les SMS
     Permission(strings = [Manifest.permission.RECEIVE_SMS], alias = "reception"), // Être prévenu à l'arrivée d'un SMS (notification)
     Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications") // Afficher des notifications (Android 13 et plus)
 ]) // Fin des permissions
-class SmsOmPlugin : Plugin() { // Début de la classe
+class SmsMmPlugin : Plugin() { // Début de la classe
 
     @PluginMethod // Appelable depuis la partie web
     fun lireSms(appel: PluginCall) { // Reçoit l'appel (avec « expediteur » et « depuis »)
@@ -27,9 +27,9 @@ class SmsOmPlugin : Plugin() { // Début de la classe
             appel.reject("Permission de lire les SMS refusée") // Refuse avec un message
             return // Arrête ici
         } // Fin du contrôle de permission
-        val expediteur = appel.getString("expediteur") ?: "OrangeMoney" // Nom de l'expéditeur (Orange Money par défaut)
-        context.getSharedPreferences(SmsOmReceiver.PREFERENCES, Context.MODE_PRIVATE) // Réglages natifs
-            .edit().putString(SmsOmReceiver.CLE_EXPEDITEUR, expediteur).apply() // Mémorise l'expéditeur pour que le récepteur de notification le connaisse
+        val expediteur = appel.getString("expediteur") ?: "OrangeMoney" // Nom de l'expéditeur (Mobile Money par défaut)
+        context.getSharedPreferences(SmsMmReceiver.PREFERENCES, Context.MODE_PRIVATE) // Réglages natifs
+            .edit().putString(SmsMmReceiver.CLE_EXPEDITEUR, expediteur).apply() // Mémorise l'expéditeur pour que le récepteur de notification le connaisse
         val depuis = appel.getLong("depuis") ?: 0L // Date de départ en millisecondes (0 = depuis toujours)
         val messages = JSArray() // Liste des SMS trouvés
         try { // Tente la lecture

@@ -4,7 +4,7 @@ import { lireDernierSolde, listerSoldes } from "./soldes.js"; // Soldes
 import { validerPin, validerCodeSolde, lireCodeSolde, ecrireCodeSolde, reinitialiserCodeSolde, CODE_SOLDE_DEFAUT, enregistrerReponse, consulterEtEnregistrer } from "./ussd-solde.js"; // Fonctions à tester
 
 let base; // Base de chaque cas
-const REPONSE = (n) => `Le solde de votre compte est de ${n} AR. Achetez du crédit via OM.`; // Réponse type
+const REPONSE = (n) => `Le solde de votre compte est de ${n} AR. Achetez du crédit via Mobile Money.`; // Réponse type
 const MAINTENANT = new Date("2026-10-06T10:00:00.000Z"); // Heure fixe
 
 // Faux accès USSD : réponse programmable, appels comptés.

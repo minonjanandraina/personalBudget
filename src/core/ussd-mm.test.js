@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"; // Outils de test
-import { analyserReponseUssd } from "./ussd-om.js"; // Fonction à tester
+import { analyserReponseUssd } from "./ussd-mm.js"; // Fonction à tester
 
 describe("analyserReponseUssd", () => { // Réponses USSD du solde
   it("lit la réponse réelle vue sur le téléphone", () => { // Cas nominal

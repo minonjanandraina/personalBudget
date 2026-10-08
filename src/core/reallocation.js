@@ -8,7 +8,7 @@ import { listerBudgets, lireBudget } from "./budgets.js"; // Lecture des budgets
 import { lireJourJob } from "./parametres.js"; // Jour de lancement de l'allocation
 import { creerTransaction, genererTrxId } from "./transactions.js"; // Création des transactions
 import { soldeAllocation, MESSAGE_SANS_SOLDE } from "./allocations.js"; // Solde d'une allocation et message commun
-import { situationFinanciere } from "./soldes.js"; // Solde OM disponible et argent réservé
+import { situationFinanciere } from "./soldes.js"; // Solde Mobile Money disponible et argent réservé
 
 const LONGUEUR_MAX_NOTE_TRANSFERT = 80; // Longueur maximale de la note saisie pour un transfert (le reste de la note est généré)
 
@@ -83,9 +83,9 @@ export async function lancerAllocationPeriode(base, maintenant = new Date(), { s
   for (const budget of budgets) plans.push(await planifierPeriodeBudget(base, budget, periode)); // Étape 1 : calcule tout sans rien écrire
   const argentFrais = plans.filter((p) => p.statut === "alloue").reduce((somme, p) => somme + p.budget.montantBudget, 0); // Total des nouvelles allocations mensuelles (les reports ne sont pas de l'argent frais)
   if (argentFrais > 0) { // Contrôle du solde libre
-    const { om, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
-    if (om === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde OM saisi
-    if (argentFrais > libre) throw new ErreurMetier(`Solde libre insuffisant : l'allocation de tous les budgets demande ${formaterMontant(argentFrais)}, il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde OM disponible ${formaterMontant(om.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}). Il manque ${formaterMontant(argentFrais - Math.max(libre, 0))}. Rien n'a été alloué.`); // Tout ou rien
+    const { mm, reserve, libre } = await situationFinanciere(base); // Situation d'ensemble
+    if (mm === null) throw new ErreurMetier(MESSAGE_SANS_SOLDE); // Aucun solde Mobile Money saisi
+    if (argentFrais > libre) throw new ErreurMetier(`Solde libre insuffisant : l'allocation de tous les budgets demande ${formaterMontant(argentFrais)}, il reste ${formaterMontant(Math.max(libre, 0))} à allouer (solde Mobile Money disponible ${formaterMontant(mm.disponible)} − déjà réservé dans les budgets ${formaterMontant(reserve)}). Il manque ${formaterMontant(argentFrais - Math.max(libre, 0))}. Rien n'a été alloué.`); // Tout ou rien
   } // Fin du contrôle
   const resultats = []; // Résultat de chaque budget
   for (const plan of plans) { // Étape 2 : écrit chaque plan

@@ -1,10 +1,10 @@
-// Dépense oubliée rattrapée après un solde OM réel : la case « déjà comprise dans le solde » évite de la retirer deux fois.
+// Dépense oubliée rattrapée après un solde Mobile Money réel : la case « déjà comprise dans le solde » évite de la retirer deux fois.
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
 import { creerBaseDeTest } from "./db/aide-tests.js"; // Base neuve pour chaque cas
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget } from "./budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, modifierOperation } from "./allocations.js"; // Allocation et dépense
-import { situationFinanciere, soldeOMDisponible } from "./soldes.js"; // Situation financière
+import { situationFinanciere, soldeMMDisponible } from "./soldes.js"; // Situation financière
 import { listerTransactions } from "./transactions.js"; // Transactions
 import { ErreurValidation } from "./erreurs.js"; // Erreurs
 
@@ -14,9 +14,9 @@ const local = (a, m, j, h = 12) => new Date(a, m - 1, j, h); // Date locale (ind
 const OCTOBRE = local(2026, 10, 25); // Allocation le 25 octobre (période du 20/10 au 19/11)
 const APRES = local(2026, 10, 26, 10); // Le lendemain matin : on rattrape la dépense oubliée
 
-const poserSolde = (balance, quand) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde OM
+const poserSolde = (balance, quand) => base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [quand.toISOString(), balance]); // Enregistre un solde Mobile Money
 
-// Scénario de départ : solde OM 150 000, 100 000 alloués, puis le vrai solde saisi est 90 000 (60 000 ont été dépensés sans être enregistrés).
+// Scénario de départ : solde Mobile Money 150 000, 100 000 alloués, puis le vrai solde saisi est 90 000 (60 000 ont été dépensés sans être enregistrés).
 beforeEach(async () => { // Avant chaque cas
   base = await creerBaseDeTest(); // Repart d'une base neuve
   const typeId = await creerTypeBudget(base, { name: "Loisir" }); // Type
@@ -39,7 +39,7 @@ describe("dépense oubliée rattrapée", () => { // Scénario demandé
   it("avec la case « déjà comprise », l'écart disparaît", async () => { // Solution
     await enregistrerDepense(base, { budgetId, montant: 60000, dateOperation: APRES.toISOString(), compriseDansSolde: true }, APRES); // Dépense rattrapée
     const s = await situationFinanciere(base); // Situation
-    expect(s.om.disponible).toBe(90000); // Le solde réel n'est pas retiré une seconde fois
+    expect(s.mm.disponible).toBe(90000); // Le solde réel n'est pas retiré une seconde fois
     expect(s.reserve).toBe(40000); // La dépense a bien diminué le budget
     expect(s.libre).toBe(50000); // 90 000 - 40 000 : plus d'écart
   }); // Fin du cas
@@ -47,7 +47,7 @@ describe("dépense oubliée rattrapée", () => { // Scénario demandé
   it("une dépense normale saisie ensuite continue de diminuer le solde disponible", async () => { // Dépenses suivantes
     await enregistrerDepense(base, { budgetId, montant: 60000, dateOperation: APRES.toISOString(), compriseDansSolde: true }, APRES); // Rattrapage
     await enregistrerDepense(base, { budgetId, montant: 10000, dateOperation: local(2026, 10, 26, 11).toISOString() }, local(2026, 10, 26, 11)); // Vraie nouvelle dépense
-    expect((await soldeOMDisponible(base)).disponible).toBe(80000); // 90 000 - 10 000 seulement
+    expect((await soldeMMDisponible(base)).disponible).toBe(80000); // 90 000 - 10 000 seulement
   }); // Fin du cas
 
   it("la dépense garde sa vraie date et est marquée dans la liste", async () => { // Date et marque
@@ -58,7 +58,7 @@ describe("dépense oubliée rattrapée", () => { // Scénario demandé
     expect(t.compriseDansSolde).toBe(true); // Marquée
   }); // Fin du cas
 
-  it("refuse la case quand aucun solde OM n'est saisi", async () => { // Sans solde
+  it("refuse la case quand aucun solde Mobile Money n'est saisi", async () => { // Sans solde
     await base.executer("DELETE FROM solde_om"); // Supprime les soldes
     const erreur = await enregistrerDepense(base, { budgetId, montant: 1000, dateOperation: APRES.toISOString(), compriseDansSolde: true }, APRES).catch((e) => e); // Tente
     expect(erreur).toBeInstanceOf(ErreurValidation); // Erreur de saisie
@@ -80,6 +80,6 @@ describe("dépense oubliée rattrapée", () => { // Scénario demandé
   it("n'a plus d'effet sur un solde saisi encore plus tard", async () => { // Nouveau solde
     await enregistrerDepense(base, { budgetId, montant: 60000, dateOperation: APRES.toISOString(), compriseDansSolde: true }, APRES); // Rattrapage
     await poserSolde(85000, local(2026, 10, 27, 9)); // Nouveau solde réel plus tard
-    expect((await soldeOMDisponible(base)).disponible).toBe(85000); // Le nouveau solde remplace le calcul
+    expect((await soldeMMDisponible(base)).disponible).toBe(85000); // Le nouveau solde remplace le calcul
   }); // Fin du cas
 }); // Fin du groupe

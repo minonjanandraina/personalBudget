@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"; // Outils de test
-import { creerBaseDeTest, ajouterSoldeOMDeTest } from "./db/aide-tests.js"; // Base neuve et solde OM de test
+import { creerBaseDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // Base neuve et solde Mobile Money de test
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget } from "./budgets.js"; // Budgets
 import { resumeBudgets, enregistrerDepense, allouerBudget } from "./allocations.js"; // Allocation
@@ -21,7 +21,7 @@ const soldeEnCours = async (budgetId, quand) => (await resumeBudgets(base, quand
 
 describe("allocationAutomatique", () => { // Rattrapage à l'ouverture
   it("alloue les budgets automatiques seulement, pas les autres", async () => { // Cas nominal
-    await ajouterSoldeOMDeTest(base, 1000000); // Solde OM
+    await ajouterSoldeMMDeTest(base, 1000000); // Solde Mobile Money
     const auto = await nouveauBudget({ name: "Auto" }); // Automatique
     const manuel = await nouveauBudget({ name: "Manuel", autogenFinMois: false }); // Manuel
     const bilan = await allocationAutomatique(base, OCTOBRE); // Lance
@@ -31,7 +31,7 @@ describe("allocationAutomatique", () => { // Rattrapage à l'ouverture
   }); // Fin du cas
 
   it("est idempotent : relancer à chaque ouverture ne change plus rien", async () => { // Rejouable
-    await ajouterSoldeOMDeTest(base, 1000000); // Solde OM
+    await ajouterSoldeMMDeTest(base, 1000000); // Solde Mobile Money
     const id = await nouveauBudget(); // Budget automatique
     await allocationAutomatique(base, OCTOBRE); // Première ouverture
     const bilan = await allocationAutomatique(base, OCTOBRE); // Seconde ouverture
@@ -40,7 +40,7 @@ describe("allocationAutomatique", () => { // Rattrapage à l'ouverture
   }); // Fin du cas
 
   it("rattrape un mois manqué et reporte le reliquat de l'ancienne période", async () => { // Application fermée le jour J
-    await ajouterSoldeOMDeTest(base, 1000000); // Solde OM
+    await ajouterSoldeMMDeTest(base, 1000000); // Solde Mobile Money
     const id = await nouveauBudget(); // Budget automatique
     await allouerBudget(base, { budgetId: id, montant: 100000 }, SEPTEMBRE); // Allocation de septembre
     await enregistrerDepense(base, { budgetId: id, montant: 60000, dateOperation: SEPTEMBRE.toISOString() }, SEPTEMBRE); // 60 000 dépensés
@@ -49,7 +49,7 @@ describe("allocationAutomatique", () => { // Rattrapage à l'ouverture
     expect(await soldeEnCours(id, OCTOBRE)).toBe(140000); // 40 000 reportés + 100 000
   }); // Fin du cas
 
-  it("ne lance jamais d'erreur : sans solde OM, renvoie le message et n'écrit rien", async () => { // Aucun solde
+  it("ne lance jamais d'erreur : sans solde Mobile Money, renvoie le message et n'écrit rien", async () => { // Aucun solde
     const id = await nouveauBudget(); // Budget automatique
     const bilan = await allocationAutomatique(base, OCTOBRE); // Lance
     expect(bilan.faits).toBe(0); // Rien fait
@@ -58,7 +58,7 @@ describe("allocationAutomatique", () => { // Rattrapage à l'ouverture
   }); // Fin du cas
 
   it("tout ou rien : si le libre à allouer est insuffisant, aucune allocation n'est écrite", async () => { // Solde trop juste
-    await ajouterSoldeOMDeTest(base, 150000); // Solde OM : de quoi payer un seul budget
+    await ajouterSoldeMMDeTest(base, 150000); // Solde Mobile Money : de quoi payer un seul budget
     const a = await nouveauBudget({ name: "A" }); // Premier budget
     const b = await nouveauBudget({ name: "B" }); // Second budget
     const bilan = await allocationAutomatique(base, OCTOBRE); // Lance

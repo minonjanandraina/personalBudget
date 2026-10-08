@@ -1,7 +1,7 @@
 // Opérations USSD envoyées en attente de leur SMS de confirmation : rapprochement avec les SMS importés et classement automatique dans le budget.
 // Règle : un SMS de débit non classé, reçu moins de 24 h après l'envoi, dont le montant (frais exclus ou compris) vaut celui demandé, est classé dans le budget de l'opération.
 import { ErreurMetier } from "./erreurs.js"; // Erreur de règle de gestion
-import { analyserSmsOM } from "./sms-om.js"; // Analyse d'un SMS (pour connaître le montant sans les frais)
+import { analyserSmsMM } from "./sms-mm.js"; // Analyse d'un SMS (pour connaître le montant sans les frais)
 import { classerTransaction } from "./import-sms.js"; // Classement d'une dépense SMS dans un budget (mêmes contrôles qu'une dépense manuelle)
 
 export const DELAI_ATTENTE_MS = 24 * 60 * 60 * 1000; // Au-delà de 24 h, une opération sans SMS est abandonnée
@@ -13,7 +13,7 @@ export async function listerEnAttente(base) { // Reçoit la base
   return lignes.map((l) => ({ id: Number(l.id), operationNom: l.operation_nom, numero: l.numero, montant: Number(l.montant), budgetId: Number(l.budget_id), dateEnvoi: l.date_envoi, reponse: l.reponse, statut: l.statut, raison: l.raison })); // Convertit
 } // Fin de listerEnAttente
 
-// Abandonne une opération en attente (l'utilisateur sait qu'elle a échoué chez Orange Money).
+// Abandonne une opération en attente (l'utilisateur sait qu'elle a échoué chez Mobile Money).
 export async function annulerEnAttente(base, id) { // Reçoit la base et l'identifiant
   const { changements } = await base.executer("UPDATE ussd_en_attente SET statut = 'annulee' WHERE id = ? AND statut = 'en_attente'", [id]); // Annule
   if (changements === 0) throw new ErreurMetier("Cette opération n'est plus en attente."); // Déjà traitée
@@ -36,7 +36,7 @@ export async function rapprocherEnAttente(base, maintenant = new Date()) { // Re
       if (utilisees.has(Number(t.id))) return false; // Déjà pris
       const quand = new Date(t.date_operation).getTime(); // Date du SMS
       if (quand < debut || quand > fin) return false; // Hors fenêtre
-      const analyse = analyserSmsOM(t.sms ?? ""); // Relit le SMS
+      const analyse = analyserSmsMM(t.sms ?? ""); // Relit le SMS
       return analyse !== null && !analyse.ignore && (analyse.montant === Number(a.montant) || analyse.total === Number(a.montant)); // Même montant (frais exclus ou compris)
     }); // Fin de la recherche
     if (!trouvee) continue; // Pas encore de SMS : on attend

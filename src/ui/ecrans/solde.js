@@ -1,4 +1,4 @@
-// Écrans du solde Orange Money : historique et saisie manuelle.
+// Écrans du solde Mobile Money : historique et saisie manuelle.
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
 import { enteteEcran, carte, alerte, boutonLien, boutonIcone, boutonPrincipal, champ } from "../composants.js"; // Composants
 import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
@@ -10,8 +10,8 @@ import { creerSolde, listerSoldes, supprimerSolde } from "../../core/soldes.js";
 // Historique des soldes, du plus récent au plus ancien.
 export async function afficherSoldes(zone, { base }) { // Reçoit la zone et la base
   const soldes = await listerSoldes(base); // Lit l'historique
-  zone.append(enteteEcran("Solde Orange Money", "Historique des soldes", { retour: "/reglages" }), boutonLien("Saisir un solde", "/solde/nouveau", "ajouter")); // En-tête et bouton d'ajout
-  if (soldes.length === 0) zone.append(h("div", { class: "espace-haut" }, alerte({ niveau: "info", message: "Aucun solde enregistré. Saisissez le solde actuel de votre compte Orange Money." }))); // Message si la liste est vide
+  zone.append(enteteEcran("Solde Mobile Money", "Historique des soldes", { retour: "/reglages" }), boutonLien("Saisir un solde", "/solde/nouveau", "ajouter")); // En-tête et bouton d'ajout
+  if (soldes.length === 0) zone.append(h("div", { class: "espace-haut" }, alerte({ niveau: "info", message: "Aucun solde enregistré. Saisissez le solde actuel de votre compte Mobile Money." }))); // Message si la liste est vide
   for (const s of soldes) { // Pour chaque solde
     const supprimer = async () => { // Action de suppression
       const ok = await confirmer({ titre: "Supprimer ce solde ?", message: `${formaterMontant(s.balance)} du ${afficherDateHeure(s.datetime)} sera retiré de l'historique.`, libelleOk: "Supprimer", danger: true }); // Demande confirmation
@@ -33,7 +33,7 @@ export async function afficherFormulaireSolde(zone, { base }) { // Reçoit la zo
   zone.append(enteteEcran("Saisir un solde", null, { retour: "/solde" })); // En-tête
   const champs = { // Champs du formulaire
     datetime: champ({ id: "solde-date", libelle: "Date et heure du solde", type: "datetime-local", valeur: isoVersDatetimeLocal(new Date().toISOString()) }), // Date et heure, préremplies à maintenant
-    balance: champ({ id: "solde-montant", libelle: "Solde disponible (Ar)", inputmode: "numeric", aide: "Montant affiché sur votre compte Orange Money" }), // Montant
+    balance: champ({ id: "solde-montant", libelle: "Solde disponible (Ar)", inputmode: "numeric", aide: "Montant affiché sur votre compte Mobile Money" }), // Montant
   }; // Fin des champs
   const enregistrer = () => { // Enregistre le formulaire
     effacerErreurs(champs); // Repart sans erreur affichée
