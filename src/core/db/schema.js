@@ -3,6 +3,11 @@
 
 // Les montants sont des entiers : typeof(...) = 'integer' refuse toute valeur à virgule (règle « jamais de float »).
 // Les dates sont stockées en texte ISO 8601 (UTC pour les instants, AAAA-MM-JJ pour les jours).
+import { MODELES_PAR_DEFAUT } from "../modeles-sms-defaut.js"; // Modèles de SMS livrés (insérés par la migration 7)
+
+// Texte SQL entre apostrophes (apostrophes doublées ; les retours à la ligne passent par char(10) car les espaces sont réduits avant l'exécution).
+const sqlTexte = (texte) => `'${String(texte).replace(/'/g, "''").replace(/\n/g, "' || char(10) || '")}'`; // Convertit un texte en littéral SQL
+
 export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
   { // Début de la migration 1 : création de toutes les tables
     version: 1, // Numéro de version de la base après cette migration
@@ -145,4 +150,20 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       )`, // Fin de la table ussd_en_attente
     ], // Fin des instructions de la migration 6
   }, // Fin de la migration 6
+  { // Début de la migration 7 : modèles de SMS réglables (reconnaissance dynamique des champs des SMS de l'opérateur)
+    version: 7, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `CREATE TABLE modele_sms ( -- Modèle de SMS : un gabarit (une ligne par information) qui décrit un type de SMS de l'opérateur
+        id INTEGER PRIMARY KEY AUTOINCREMENT, -- Identifiant automatique
+        nom TEXT NOT NULL UNIQUE CHECK (length(trim(nom)) BETWEEN 1 AND 60), -- Nom affiché, unique
+        sens TEXT NOT NULL CHECK (sens IN ('debit', 'credit', 'ignorer')), -- Dépense, argent reçu, ou SMS à ignorer
+        gabarit TEXT NOT NULL CHECK (length(gabarit) BETWEEN 3 AND 1500), -- Une ligne par information, avec des variables entre accolades
+        note TEXT CHECK (note IS NULL OR length(note) <= 200), -- Libellé de la transaction créée (variables permises)
+        position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position >= 1), -- Ordre d'essai : le premier modèle qui correspond gagne
+        actif INTEGER NOT NULL DEFAULT 1 CHECK (actif IN (0, 1)), -- 0 = modèle désactivé
+        insert_date TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) -- Date d'insertion automatique
+      )`, // Fin de la table modele_sms
+      ...MODELES_PAR_DEFAUT.map((m, i) => `INSERT INTO modele_sms (nom, sens, gabarit, note, position) VALUES (${sqlTexte(m.nom)}, ${sqlTexte(m.sens)}, ${sqlTexte(m.gabarit)}, ${m.note === null ? "NULL" : sqlTexte(m.note)}, ${i + 1})`), // Modèles livrés (formats Orange Money actuels)
+    ], // Fin des instructions de la migration 7
+  }, // Fin de la migration 7
 ]; // Fin de la liste des migrations

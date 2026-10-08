@@ -6,6 +6,7 @@ import { soumettre } from "../formulaire.js"; // Enregistrement de formulaire
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
 import { afficherDateHeure } from "../../core/dates.js"; // Affichage des dates
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
+import { creerModeleDepuisSms } from "./modeles-sms.js"; // Création d'un modèle à partir d'un SMS non compris
 import { synchroniserSms, listerNonClassees, listerSmsIllisibles, ignorerSmsIllisible, lireExpediteur, modifierExpediteur, classerTransaction } from "../../core/import-sms.js"; // Logique des SMS
 import { resumeBudgets } from "../../core/allocations.js"; // Situation des budgets
 import * as smsPlateforme from "../../platform/sms.js"; // Lecture des SMS (téléphone ou simulation)
@@ -14,6 +15,7 @@ import * as smsPlateforme from "../../platform/sms.js"; // Lecture des SMS (tél
 export function decrireBilan(b) { // Reçoit { importes, doublons, anciens, illisibles }
   const morceaux = []; // Parties de la phrase
   morceaux.push(b.importes === 0 ? "Aucune nouvelle opération" : `${b.importes} nouvelle${b.importes > 1 ? "s" : ""} opération${b.importes > 1 ? "s" : ""}`); // Opérations importées
+  if (b.credits > 0) morceaux.push(`${b.credits} argent reçu (solde mis à jour)`); // Argent reçu : seul le solde est gardé
   if (b.illisibles > 0) morceaux.push(`${b.illisibles} SMS non compris`); // SMS à revoir
   return `${morceaux.join(", ")}.`; // Assemble
 } // Fin de decrireBilan
@@ -58,6 +60,7 @@ async function dessinerIllisibles(conteneur, base, recharger) { // Reçoit la zo
     conteneur.append(h("div", { class: "carte apparition visible" }, // Une carte par SMS
       h("div", { class: "ligne-detail" }, afficherDateHeure(s.dateSms)), // Date
       h("div", { class: "ligne-detail texte-sms" }, s.texte), // Texte du SMS
+      h("div", { class: "espace-haut" }, boutonPrincipal("Créer un modèle avec ce SMS", () => creerModeleDepuisSms(s.texte))), // Ouvre le formulaire de modèle avec ce SMS en essai
       h("div", { class: "espace-haut" }, boutonPrincipal("Ignorer ce SMS", async () => { // Bouton pour ne plus le lister
         await ignorerSmsIllisible(base, s.id); // Marque comme ignoré
         await recharger(); // Redessine
@@ -85,6 +88,7 @@ export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reç
   zone.append( // Assemble l'écran
     enteteEcran("SMS Mobile Money", "Importer vos opérations"), // En-tête
     carte(h("p", { class: "ligne-detail" }, "Les SMS ne disent pas à quel budget appartient une dépense : chaque opération importée est à classer vous-même."), boutonPrincipal("Synchroniser maintenant", synchroniser)), // Carte de synchronisation
+    h("div", { class: "espace-haut" }, boutonLien("Modèles de SMS (reconnaissance)", "/sms/modeles", "reglages")), // Réglage des modèles de SMS
     zoneAClasser, // Liste à classer
     zoneIllisibles, // SMS non compris
     carte(champExpediteur.element, boutonPrincipal("Enregistrer l'expéditeur", enregistrerExpediteur)), // Réglage de l'expéditeur

@@ -13,9 +13,9 @@ const CLE_COPIE_AVANT = "copie_avant_restauration"; // Clé : copie de sécurit�
 const CLE_DATE_COPIE_AVANT = "date_copie_avant_restauration"; // Clé : date de cette copie
 
 // Tables de données, dans l'ordre où on les remplit (une table ne dépend que de celles qui la précèdent).
-const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job", "sms_illisible", "operation_ussd", "ussd_en_attente"]; // Ordre d'insertion
-const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "sms_illisible", "operation_ussd", "ussd_en_attente"]; // Tables dont la numérotation ne revient jamais en arrière
-const TABLE_DEPUIS_VERSION = { sms_illisible: 5, operation_ussd: 6, ussd_en_attente: 6 }; // Version du schéma qui a créé la table (les autres existent depuis la version 1)
+const TABLES = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "parametre_job", "sms_illisible", "operation_ussd", "ussd_en_attente", "modele_sms"]; // Ordre d'insertion
+const TABLES_AUTOINCREMENT = ["type_budget", "budget", "solde_om", "allocation_budget", "transactions", "sms_illisible", "operation_ussd", "ussd_en_attente", "modele_sms"]; // Tables dont la numérotation ne revient jamais en arrière
+const TABLE_DEPUIS_VERSION = { sms_illisible: 5, operation_ussd: 6, ussd_en_attente: 6, modele_sms: 7 }; // Version du schéma qui a créé la table (les autres existent depuis la version 1)
 
 // Tables qu'une sauvegarde faite à cette version du schéma doit contenir (une ancienne sauvegarde n'a pas les tables récentes).
 function tablesDeLaVersion(versionSchema) { // Reçoit la version du schéma
@@ -114,7 +114,10 @@ async function ecrireDonnees(base, s, avant, derniere, maintenant, reglagesLocau
   await base.transaction(async () => { // Tout ou rien
     await toutEffacer(base); // Efface les données actuelles
     await appliquerMigrations(base, MIGRATIONS.filter((m) => m.version <= s.versionSchema)); // Recrée les tables telles qu'elles étaient au moment de la sauvegarde
-    for (const table of tablesDeLaVersion(s.versionSchema)) await insererLignes(base, table, s.tables[table]); // Remplit chaque table de la sauvegarde
+    for (const table of tablesDeLaVersion(s.versionSchema)) { // Remplit chaque table de la sauvegarde
+      if (table === "modele_sms") await base.executer("DELETE FROM modele_sms"); // Les modèles livrés ont été créés par la migration : on les remplace par ceux de la sauvegarde
+      await insererLignes(base, table, s.tables[table]); // Insère les lignes
+    } // Fin des tables
     for (const q of s.sequences) { // Rétablit la numérotation (jamais de réutilisation d'identifiant ni de code)
       if (!TABLES_AUTOINCREMENT.includes(q.name)) continue; // Seules les tables de l'application sont concernées
       const { changements } = await base.executer("UPDATE sqlite_sequence SET seq = ? WHERE name = ?", [q.seq, q.name]); // Met à jour le compteur

@@ -2,6 +2,7 @@
 // Règle : un SMS de débit non classé, reçu moins de 24 h après l'envoi, dont le montant (frais exclus ou compris) vaut celui demandé, est classé dans le budget de l'opération.
 import { ErreurMetier } from "./erreurs.js"; // Erreur de règle de gestion
 import { analyserSmsMM } from "./sms-mm.js"; // Analyse d'un SMS (pour connaître le montant sans les frais)
+import { listerModelesActifs } from "./modeles-sms.js"; // Modèles de SMS réglés par l'utilisateur
 import { classerTransaction } from "./import-sms.js"; // Classement d'une dépense SMS dans un budget (mêmes contrôles qu'une dépense manuelle)
 
 export const DELAI_ATTENTE_MS = 24 * 60 * 60 * 1000; // Au-delà de 24 h, une opération sans SMS est abandonnée
@@ -28,6 +29,7 @@ export async function rapprocherEnAttente(base, maintenant = new Date()) { // Re
   const attentes = await base.requeter("SELECT id, montant, budget_id, date_envoi FROM ussd_en_attente WHERE statut = 'en_attente' ORDER BY date_envoi, id"); // Opérations encore en attente
   if (attentes.length === 0) return bilan; // Rien à rapprocher
   const candidates = await base.requeter("SELECT id, sms, date_operation FROM transactions WHERE insert_type = 'auto' AND nature = 'normale' AND debit_credit = -1 AND allocation_id IS NULL AND id NOT IN (SELECT transaction_id FROM ussd_en_attente WHERE transaction_id IS NOT NULL) ORDER BY date_operation, id"); // Dépenses SMS non classées, pas déjà rapprochées
+  const modeles = await listerModelesActifs(base); // Modèles de SMS à utiliser pour relire les SMS
   const utilisees = new Set(); // Dépenses déjà prises par une attente pendant ce passage
   for (const a of attentes) { // Pour chaque attente (la plus ancienne d'abord)
     const debut = new Date(a.date_envoi).getTime() - TOLERANCE_MS; // Début de la fenêtre
@@ -36,8 +38,8 @@ export async function rapprocherEnAttente(base, maintenant = new Date()) { // Re
       if (utilisees.has(Number(t.id))) return false; // Déjà pris
       const quand = new Date(t.date_operation).getTime(); // Date du SMS
       if (quand < debut || quand > fin) return false; // Hors fenêtre
-      const analyse = analyserSmsMM(t.sms ?? ""); // Relit le SMS
-      return analyse !== null && !analyse.ignore && (analyse.montant === Number(a.montant) || analyse.total === Number(a.montant)); // Même montant (frais exclus ou compris)
+      const analyse = analyserSmsMM(t.sms ?? "", modeles); // Relit le SMS
+      return analyse !== null && !analyse.ignore && !analyse.credit && (analyse.montant === Number(a.montant) || analyse.total === Number(a.montant)); // Même montant (frais exclus ou compris)
     }); // Fin de la recherche
     if (!trouvee) continue; // Pas encore de SMS : on attend
     utilisees.add(Number(trouvee.id)); // Réserve cette dépense

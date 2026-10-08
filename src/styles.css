@@ -884,3 +884,12 @@ a.solde {
   width: 100%; /* Toute la largeur */
   cursor: pointer; /* Main au survol */
 } /* Fin des règles */
+
+/* Zone de texte sur plusieurs lignes (gabarits de SMS, SMS d'essai) */
+.champ-zone { /* Zone de saisie multi-lignes */
+  min-height: 7em; /* Hauteur minimale confortable */
+  padding: 12px 14px; /* Espace intérieur haut et bas (la règle de base n’en met pas) */
+  resize: vertical; /* L'utilisateur peut l'agrandir */
+  font-family: inherit; /* Même police que le reste */
+  line-height: 1.4; /* Lignes aérées */
+} /* Fin de .champ-zone */

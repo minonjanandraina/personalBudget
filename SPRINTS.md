@@ -178,13 +178,14 @@ Objectif général (demande du propriétaire) : adapter l'application à **tout 
 
 **Livrable** : solde consultable avec le code et la réponse de n'importe quel opérateur, sur la SIM de son choix.
 
-## Sprint 17 — Modèles de SMS dynamiques (reconnaissance des champs)
+## Sprint 17 — Modèles de SMS dynamiques (reconnaissance des champs) ✅ TERMINÉ (code livré ; SMS réels d'un autre opérateur à essayer sur le téléphone)
 - **Modèles de SMS** (table dédiée, migration 7, incluse dans la sauvegarde JSON ; anciennes sauvegardes restaurables) : un gabarit par type de SMS, avec les variables `{montant_debit}`, `{montant_credit}`, `{ref_trx}`, `{date_trx}`, `{numero_source}`, `{numero_destination}` et, en plus (décidé) `{frais}` et `{solde}`. Le gabarit est converti en expression régulière **par le code** : l'utilisateur n'écrit jamais de regex.
 - Chaque modèle précise son **sens** : débit (crée une dépense à classer), crédit (argent reçu, désormais gérable), ou à ignorer (solde conservé, aucune transaction) ; et un **libellé de note** (ex. « Transfert vers {numero_destination} »). Règles conservées : frais compris dans le montant, centimes arrondis (solde vers le bas, sortie vers le haut), `ref_trx` unique contre les doublons, import idempotent.
 - **Modèles par défaut** = les formats Orange Money actuels (transfert, retrait, remboursement de prêt, ignorés : épargne, prêt crédité, dépôt), installés une seule fois comme les budgets par défaut ; le parser en dur disparaît.
 - **Expéditeur réglable** par opérateur (déjà réglable dans l'écran SMS) et nom du service affiché.
 - Écran « Modèles de SMS » : liste, création/modification, **essai** d'un SMS d'exemple collé avec les champs reconnus affichés, avertissement si un modèle est trop vague. Un SMS non compris peut servir de point de départ à un nouveau modèle.
-- `{date_trx}` : format de date réglable dans le modèle, sinon date de réception du SMS.
+- `{date_trx}` : **format détecté automatiquement** (jj/mm/aaaa, aaaa-mm-jj, heure facultative, heure de Madagascar), plutôt que réglable ; si la date est absente, invalide ou invraisemblable, la date de réception du SMS est gardée.
+- **Réalisé** : gabarit à **une ligne par information** (lignes avec montant/référence obligatoires, autres facultatives) plutôt qu'une seule phrase, car les SMS réels varient (frais et solde absents selon le cas) ; `src/core/gabarit.js` (types nombre, référence, texte, date), `sms-mm.js` (analyse par modèles), `modeles-sms.js` (base), écran « Modèles de SMS » (SMS → Modèles de SMS) avec essai et activation/ordre, bouton « Créer un modèle avec ce SMS » sur les SMS non compris. **Argent reçu** : aucune transaction (ce n'est pas un mouvement de budget), le solde est gardé et le SMS est compté à part (« argent reçu ») ; à valider avec un vrai SMS de crédit.
 - Tests Vitest : chaque variable, gabarits invalides, modèles qui se chevauchent (ordre/priorité), idempotence de l'import, anciens SMS Orange Money toujours reconnus (non-régression).
 
 **Livrable** : l'utilisateur adapte l'application aux SMS de son opérateur sans toucher au code.

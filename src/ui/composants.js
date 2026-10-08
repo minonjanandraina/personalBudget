@@ -103,6 +103,15 @@ function controleChamp({ element, saisie, lire, ecrire, message }) { // Élémen
   }; // Fin de l'objet
 } // Fin de controleChamp
 
+// Zone de texte sur plusieurs lignes (gabarits, SMS d'essai). Lire renvoie le texte saisi.
+export function zoneTexte({ id, libelle, valeur = "", aide = null, lignes = 6 }) { // Description du champ
+  const saisie = h("textarea", { id, class: "champ-saisie champ-zone", rows: lignes, autocomplete: "off", spellcheck: "false", "aria-describedby": `${id}-message` }); // Zone de saisie
+  saisie.value = valeur; // Texte de départ
+  const message = h("div", { id: `${id}-message`, class: "champ-message", role: "alert" }); // Zone du message d'erreur
+  const element = h("div", { class: "champ" }, h("label", { class: "champ-libelle", for: id }, libelle), saisie, aide ? h("div", { class: "champ-aide" }, aide) : null, message); // Bloc complet
+  return controleChamp({ element, saisie, message, lire: () => saisie.value, ecrire: (v) => { saisie.value = String(v); } }); // Objet de contrôle
+} // Fin de zoneTexte
+
 // Liste déroulante. « options » : [{ valeur, libelle }]. Lire renvoie la valeur choisie (texte).
 export function choix({ id, libelle, options, valeur = "", aide = null }) { // Description du champ
   const saisie = h("select", { id, class: "champ-saisie", "aria-describedby": `${id}-message` }, // Zone de choix

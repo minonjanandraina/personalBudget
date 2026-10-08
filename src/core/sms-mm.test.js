@@ -8,7 +8,7 @@ const [transfert, epargne, pretSolde, retrait, pretPartiel, promo] = SMS_EXEMPLE
 
 describe("analyse des SMS Mobile Money", () => { // Groupe de tests
   it("lit un transfert avec frais : total débité = montant + frais", () => { // Cas 1
-    expect(analyserSmsMM(transfert)).toMatchObject({ trxId: "MP261005.1023.C25734", type: "transfert", montant: 12000, frais: 400, total: 12400, soldeApres: 931616 }); // Valeurs lues
+    expect(analyserSmsMM(transfert)).toMatchObject({ trxId: "MP261005.1023.C25734", modele: "Transfert", montant: 12000, frais: 400, total: 12400, soldeApres: 931616 }); // Valeurs lues
     expect(analyserSmsMM(transfert).note).toBe(`Transfert vers PAMF 5969657 (dont ${formaterMontant(400)} de frais)`); // Libellé avec destinataire et frais
   }); // Fin du cas
 
@@ -26,17 +26,17 @@ describe("analyse des SMS Mobile Money", () => { // Groupe de tests
   }); // Fin du cas
 
   it("lit un remboursement de prêt et arrondit le solde à l'entier inférieur", () => { // Cas 3
-    expect(analyserSmsMM(pretSolde)).toMatchObject({ trxId: "CO261005.0817.B53793", type: "remboursement", total: 54500, soldeApres: 5916 }); // 5916.47 -> 5916
+    expect(analyserSmsMM(pretSolde)).toMatchObject({ trxId: "CO261005.0817.B53793", modele: "Remboursement de prêt", total: 54500, soldeApres: 5916 }); // 5916.47 -> 5916
   }); // Fin du cas
 
   it("lit un retrait avec frais et l'agent", () => { // Cas 4
     const r = analyserSmsMM(retrait); // Analyse
-    expect(r).toMatchObject({ trxId: "CO261005.1019.A72879", type: "retrait", montant: 60000, frais: 1900, total: 61900, soldeApres: 944016 }); // Valeurs lues
+    expect(r).toMatchObject({ trxId: "CO261005.1019.A72879", modele: "Retrait", montant: 60000, frais: 1900, total: 61900, soldeApres: 944016 }); // Valeurs lues
     expect(r.note).toContain("0327573815"); // L'agent est dans la note
   }); // Fin du cas
 
   it("lit un remboursement partiel (le « reste à payer » n'est pas pris pour le solde)", () => { // Cas 5
-    expect(analyserSmsMM(pretPartiel)).toMatchObject({ trxId: "CO261005.1641.B33339", type: "remboursement", total: 500, soldeApres: 931116 }); // 931116.47 -> 931116
+    expect(analyserSmsMM(pretPartiel)).toMatchObject({ trxId: "CO261005.1641.B33339", modele: "Remboursement de prêt", total: 500, soldeApres: 931116 }); // 931116.47 -> 931116
   }); // Fin du cas
 
   it("ne comprend pas un SMS qui n'est pas une opération", () => { // Cas 6

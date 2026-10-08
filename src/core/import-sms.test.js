@@ -25,7 +25,7 @@ describe("import des SMS", () => { // Groupe
   }); // Fin du cas
 
   it("crée une dépense non classée par SMS compris, avec le total débité et le texte du SMS", async () => { // Cas principal
-    expect(await importerSms(base, sms())).toEqual({ importes: 4, doublons: 0, anciens: 0, illisibles: 1, ignores: 1 }); // 4 opérations + 1 SMS non compris + 1 virement d'épargne ignoré
+    expect(await importerSms(base, sms())).toEqual({ importes: 4, doublons: 0, anciens: 0, illisibles: 1, ignores: 1, credits: 0 }); // 4 opérations + 1 SMS non compris + 1 virement d'épargne ignoré
     const liste = await listerNonClassees(base); // Dépenses à classer
     expect(liste).toHaveLength(4); // Quatre dépenses
     expect(liste.map((t) => t.montant).sort((a, b) => a - b)).toEqual([500, 12400, 54500, 61900]); // Totaux (frais compris)
@@ -38,7 +38,7 @@ describe("import des SMS", () => { // Groupe
     await importerSms(base, sms()); // Premier import
     const requete = "SELECT (SELECT COUNT(*) FROM transactions) AS t, (SELECT COUNT(*) FROM solde_om) AS s, (SELECT COUNT(*) FROM sms_illisible) AS i"; // Compteurs
     const avant = await base.requeter(requete); // Avant
-    expect(await importerSms(base, sms())).toEqual({ importes: 0, doublons: 4, anciens: 0, illisibles: 0, ignores: 1 }); // Rien de nouveau
+    expect(await importerSms(base, sms())).toEqual({ importes: 0, doublons: 4, anciens: 0, illisibles: 0, ignores: 1, credits: 0 }); // Rien de nouveau
     expect(await base.requeter(requete)).toEqual(avant); // Identiques
   }); // Fin du cas
 
@@ -56,7 +56,7 @@ describe("import des SMS", () => { // Groupe
 
   it("ignore les SMS antérieurs au solde initial", async () => { // Ancien historique
     const anciens = SMS_EXEMPLES(new Date("2026-10-01T10:00:00.000Z")); // SMS datés d'avant le solde initial
-    expect(await importerSms(base, anciens)).toEqual({ importes: 0, doublons: 0, anciens: 6, illisibles: 0, ignores: 0 }); // Tous ignorés
+    expect(await importerSms(base, anciens)).toEqual({ importes: 0, doublons: 0, anciens: 6, illisibles: 0, ignores: 0, credits: 0 }); // Tous ignorés
     expect(await dateDepartImport(base)).toBe(DEPART); // Départ = solde initial
   }); // Fin du cas
 
@@ -130,7 +130,7 @@ describe("SMS à ignorer (épargne, prêt crédité, dépôt)", () => { // Opér
   const ignores = () => SMS_IGNORES(APRES); // Les cinq SMS à ignorer
 
   it("ne crée aucune transaction ni SMS non compris, mais garde les soldes Mobile Money qu'ils contiennent", async () => { // Cas principal
-    expect(await importerSms(base, ignores())).toEqual({ importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 5 }); // Tous ignorés
+    expect(await importerSms(base, ignores())).toEqual({ importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 5, credits: 0 }); // Tous ignorés
     const [{ t, i, s }] = await base.requeter("SELECT (SELECT COUNT(*) FROM transactions) AS t, (SELECT COUNT(*) FROM sms_illisible) AS i, (SELECT COUNT(*) FROM solde_om) AS s"); // Compteurs
     expect([Number(t), Number(i)]).toEqual([0, 0]); // Ni transaction, ni SMS non compris
     expect(Number(s)).toBe(1 + 4); // Solde initial + 4 SMS avec solde Mobile Money (le virement programmé n'en a pas)

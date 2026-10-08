@@ -3,6 +3,7 @@ import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs de rè
 import { formaterMontant } from "./format.js"; // Affichage des montants dans les messages
 import { jourLocal, afficherJour } from "./periodes.js"; // Jour d'une date
 import { analyserSmsMM } from "./sms-mm.js"; // Analyse d'un SMS
+import { listerModelesActifs } from "./modeles-sms.js"; // Modèles de SMS réglés par l'utilisateur
 import { creerTransaction } from "./transactions.js"; // Création des transactions
 import { lireBudget } from "./budgets.js"; // Lecture d'un budget
 import { allocationCouvrant, soldeAllocation } from "./allocations.js"; // Allocation d'une période et son solde
@@ -24,6 +25,14 @@ export async function modifierExpediteur(base, nom) { // Reçoit la base et le n
   await ecrireMeta(base, CLE_EXPEDITEUR, propre); // Enregistre
 } // Fin de modifierExpediteur
 
+// Date d'opération d'un SMS : celle écrite dans le SMS si elle est plausible (au plus 5 minutes dans le futur et 7 jours dans le passé de la réception), sinon la date de réception.
+export function dateEffective(dateTrx, dateReception) { // Reçoit la date du SMS (ISO ou null) et la date de réception (Date)
+  const recu = dateReception.getTime(); // Instant de réception
+  const ecrit = dateTrx ? new Date(dateTrx).getTime() : NaN; // Instant écrit dans le SMS
+  if (Number.isNaN(ecrit) || ecrit > recu + 5 * 60 * 1000 || ecrit < recu - 7 * 24 * 3600 * 1000) return dateReception.toISOString(); // Absent ou invraisemblable : réception
+  return new Date(ecrit).toISOString(); // Date du SMS
+} // Fin de dateEffective
+
 // Date à partir de laquelle on importe les SMS = date du plus ancien solde Mobile Money saisi (solde initial). Null s'il n'y en a pas.
 // Les SMS plus anciens sont déjà compris dans ce solde initial : les importer fausserait les budgets.
 export async function dateDepartImport(base) { // Reçoit la base
@@ -32,11 +41,13 @@ export async function dateDepartImport(base) { // Reçoit la base
 } // Fin de dateDepartImport
 
 // Importe des SMS lus sur le téléphone : messages = [{ corps, date }] (date ISO). Idempotent : relancer ne crée aucun doublon.
-// Renvoie { importes, doublons, anciens, illisibles, ignores } (nombres de SMS dans chaque cas).
+// Renvoie { importes, doublons, anciens, illisibles, ignores, credits } (nombres de SMS dans chaque cas ; « credits » = argent reçu, dont seul le solde est gardé).
+// Les SMS sont lus avec les modèles actifs (écran « Modèles de SMS »). Si le SMS contient sa propre date ({date_trx}), elle sert de date d'opération (à 5 minutes près dans le futur et 7 jours dans le passé de la réception, sinon la date de réception est gardée).
 export async function importerSms(base, messages, maintenant = new Date()) { // Reçoit la base, les messages et l'heure (modifiable pour les tests)
   const depart = await dateDepartImport(base); // Date de départ de l'import
   if (depart === null) throw new ErreurMetier("Saisissez d'abord le solde initial de votre compte Mobile Money : seuls les SMS reçus après lui sont importés."); // Pas de solde initial
-  const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 0 }; // Compteurs (« ignores » : SMS d'épargne, de prêt crédité ou de dépôt, volontairement sans transaction)
+  const bilan = { importes: 0, doublons: 0, anciens: 0, illisibles: 0, ignores: 0, credits: 0 }; // Compteurs (« ignores » : SMS d'épargne, de prêt crédité ou de dépôt, volontairement sans transaction)
+  const modeles = await listerModelesActifs(base); // Modèles de SMS à utiliser
   const tries = messages // Les SMS du plus ancien au plus récent (le solde le plus récent est ainsi enregistré en dernier)
     .map((m) => ({ corps: String(m.corps ?? ""), date: new Date(m.date) })) // Convertit la date
     .filter((m) => !Number.isNaN(m.date.getTime())) // Ignore un SMS sans date valide
@@ -45,7 +56,7 @@ export async function importerSms(base, messages, maintenant = new Date()) { // 
     for (const m of tries) { // Pour chaque SMS
       const dateIso = m.date.toISOString(); // Date ISO UTC
       if (dateIso < depart) { bilan.anciens += 1; continue; } // Antérieur au solde initial : ignoré
-      const analyse = analyserSmsMM(m.corps); // Analyse le texte
+      const analyse = analyserSmsMM(m.corps, modeles); // Analyse le texte avec les modèles
       if (analyse === null) { // SMS non compris
         const { changements } = await base.executer("INSERT OR IGNORE INTO sms_illisible (date_sms, texte) VALUES (?, ?)", [dateIso, m.corps]); // Le garde pour revue (une seule fois)
         if (changements > 0) bilan.illisibles += 1; // Compte seulement les nouveaux
@@ -61,10 +72,20 @@ export async function importerSms(base, messages, maintenant = new Date()) { // 
         bilan.ignores += 1; // Compte
         continue; // Passe au suivant
       } // Fin du cas ignoré
+      const dateOp = dateEffective(analyse.dateTrx, m.date); // Date de l'opération (celle du SMS s'il la donne, sinon la réception)
+      if (analyse.credit) { // Argent reçu : aucune transaction (ce n'est pas un mouvement de budget), mais le solde est gardé
+        if (analyse.soldeApres !== null) { // Le SMS donne le solde
+          const [soldeConnu] = await base.requeter("SELECT 1 AS un FROM solde_om WHERE datetime = ? AND balance = ?", [dateOp, analyse.soldeApres]); // Déjà enregistré ? (rend l'import rejouable)
+          if (!soldeConnu) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateOp, analyse.soldeApres]); // Solde après la réception
+        } // Fin du solde
+        await base.executer("UPDATE sms_illisible SET ignore = 1 WHERE texte = ?", [m.corps]); // Il n'est plus « non compris »
+        bilan.credits += 1; // Compte
+        continue; // Passe au suivant
+      } // Fin du cas crédit
       const [existe] = await base.requeter("SELECT 1 AS un FROM transactions WHERE trx_id = ?", [analyse.trxId]); // Déjà importé ?
       if (existe) { bilan.doublons += 1; continue; } // Oui : rien à faire
-      await creerTransaction(base, { trxId: analyse.trxId, insertType: "auto", debitCredit: -1, montant: analyse.total, sms: m.corps, dateOperation: dateIso, note: analyse.note }); // Dépense non classée (sans allocation)
-      if (analyse.soldeApres !== null) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateIso, analyse.soldeApres]); // Solde Mobile Money après l'opération
+      await creerTransaction(base, { trxId: analyse.trxId, insertType: "auto", debitCredit: -1, montant: analyse.total, sms: m.corps, dateOperation: dateOp, note: analyse.note }); // Dépense non classée (sans allocation)
+      if (analyse.soldeApres !== null) await base.executer("INSERT INTO solde_om (datetime, balance) VALUES (?, ?)", [dateOp, analyse.soldeApres]); // Solde Mobile Money après l'opération
       bilan.importes += 1; // Une opération de plus
     } // Fin de la boucle
   }); // Fin de la transaction

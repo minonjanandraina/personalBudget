@@ -14,6 +14,7 @@ import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; 
 import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
 import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Mobile Money
+import { afficherModelesSms, afficherFormulaireModeleSms } from "./ui/ecrans/modeles-sms.js"; // Écrans des modèles de SMS
 import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du solde par USSD
 import { afficherToast } from "./ui/messages.js"; // Notifications
 import { afficherReglageVerrou, demanderDeverrouillage, DELAI_VERROU_MS } from "./ui/ecrans/verrou.js"; // Verrouillage par PIN
@@ -67,6 +68,9 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
         "/operations-ussd/:id": (zone, ctx) => afficherFormulaireOperationUssd(zone, { base, params: ctx.params }), // Modification d'une opération USSD
         "/ussd": (zone) => afficherUssd(zone, { base }), // Consultation du solde par USSD
         "/sms": (zone) => afficherSms(zone, { base }), // SMS Mobile Money
+        "/sms/modeles": (zone) => afficherModelesSms(zone, { base }), // Liste des modèles de SMS
+        "/sms/modeles/nouveau": (zone) => afficherFormulaireModeleSms(zone, { base }), // Création d'un modèle de SMS
+        "/sms/modeles/:id": (zone, ctx) => afficherFormulaireModeleSms(zone, { base, params: ctx.params }), // Modification d'un modèle de SMS
         "/sms/classer/:id": (zone, ctx) => afficherFormulaireClasser(zone, { base, params: ctx.params }), // Classement d'une dépense SMS
       }, // Fin des écrans
     }); // Fin du routeur
