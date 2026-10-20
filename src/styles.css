@@ -814,31 +814,113 @@ a.solde {
   font-size: 1.05rem; /* Taille moyenne */
 } /* Fin des règles */
 
-.onglet {
-  /* Les onglets servent de repère de position pour le badge */
-  position: relative; /* Le badge se place par rapport à l'onglet */
+/* ===== Cloche d'alertes (en haut à droite) ===== */
+
+.cloche {
+  /* Bouton rond fixé en haut à droite, visible sur tous les écrans */
+  position: fixed; /* Reste en place quand on fait défiler */
+  top: calc(var(--zone-haut) + 8px); /* Sous l'encoche éventuelle */
+  right: 12px; /* Coin supérieur droit */
+  z-index: 150; /* Au-dessus du contenu et de la barre */
+  display: grid; /* Icône centrée */
+  place-items: center; /* Centrage */
+  width: 48px; /* Zone tactile de 48 dp */
+  height: 48px; /* Zone tactile de 48 dp */
+  border: 1px solid var(--trait); /* Fine bordure */
+  border-radius: 50%; /* Rond */
+  background: var(--carte); /* Fond de carte */
+  color: var(--texte); /* Icône de la couleur du texte */
+  cursor: pointer; /* Main au survol */
 } /* Fin des règles */
 
-.badge {
-  /* Petite pastille rouge de comptage sur un onglet */
+.cloche-badge {
+  /* Pastille de comptage sur la cloche (orange : à regarder ; rouge : grave) */
   position: absolute; /* Placée sur l'icône */
-  top: 4px; /* Distance du haut */
-  left: calc(50% + 6px); /* Au-dessus à droite de l'icône */
-  min-width: 18px; /* Largeur minimale (rond pour un chiffre) */
-  height: 18px; /* Hauteur */
+  top: -4px; /* Dépasse un peu en haut */
+  right: -4px; /* Dépasse un peu à droite */
+  min-width: 20px; /* Largeur minimale (ronde pour un chiffre) */
+  height: 20px; /* Hauteur */
   padding: 0 5px; /* Espace pour deux chiffres */
-  border-radius: 9px; /* Forme de pilule */
-  background: var(--danger); /* Rouge */
+  border-radius: 10px; /* Forme de pilule */
+  background: var(--attention); /* Orange par défaut */
   color: #ffffff; /* Chiffre blanc */
-  font-size: 0.7rem; /* Petit texte */
+  font-size: 0.72rem; /* Petit texte */
   font-weight: 700; /* Gras */
-  line-height: 18px; /* Chiffre centré */
+  line-height: 20px; /* Chiffre centré */
   text-align: center; /* Chiffre centré */
 } /* Fin des règles */
 
-.badge[hidden] {
-  /* Badge sans alerte */
+.cloche-badge-danger {
+  /* Au moins une alerte grave */
+  background: var(--danger); /* Rouge */
+} /* Fin des règles */
+
+.cloche-badge[hidden] {
+  /* Aucune alerte */
+  display: none; /* Cachée */
+} /* Fin des règles */
+
+.voile-alertes {
+  /* Fond qui se ferme au toucher, derrière le panneau */
+  position: fixed; /* Couvre l'écran */
+  inset: 0; /* Tout l'écran */
+  z-index: 160; /* Au-dessus de la cloche */
+  background: rgba(0, 0, 0, 0.35); /* Assombrit le contenu */
+} /* Fin des règles */
+
+.voile-alertes[hidden],
+.panneau-alertes[hidden] {
+  /* Panneau fermé */
   display: none; /* Caché */
+} /* Fin des règles */
+
+.panneau-alertes {
+  /* Panneau des alertes, ouvert sous la cloche */
+  position: fixed; /* Au-dessus du contenu */
+  top: calc(var(--zone-haut) + 64px); /* Sous la cloche */
+  right: 12px; /* Aligné à droite */
+  left: 12px; /* Marge à gauche sur petit écran */
+  z-index: 170; /* Au-dessus du fond assombri */
+  max-width: 460px; /* Largeur maximale */
+  margin-left: auto; /* Collé à droite sur grand écran */
+  max-height: calc(100vh - var(--zone-haut) - var(--zone-bas) - 88px); /* Reste dans l'écran */
+  overflow-y: auto; /* Défile s'il y a beaucoup d'alertes */
+  padding: 12px; /* Espace intérieur */
+  border: 1px solid var(--trait); /* Fine bordure */
+  border-radius: 16px; /* Coins arrondis */
+  background: var(--fond); /* Fond opaque */
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25); /* Ombre */
+} /* Fin des règles */
+
+.panneau-alertes-tete {
+  /* Titre et bouton Fermer */
+  display: flex; /* Côte à côte */
+  align-items: center; /* Centrés verticalement */
+  justify-content: space-between; /* Titre à gauche, bouton à droite */
+  margin-bottom: 8px; /* Espace sous l'en-tête */
+} /* Fin des règles */
+
+.panneau-alertes-titre {
+  /* Titre du panneau */
+  margin: 0; /* Pas de marge */
+  font-size: 1.1rem; /* Taille moyenne */
+} /* Fin des règles */
+
+.panneau-alertes-fermer {
+  /* Bouton Fermer */
+  min-height: 44px; /* Zone tactile confortable */
+  padding: 0 12px; /* Espace autour du texte */
+  border: 0; /* Sans bordure */
+  background: transparent; /* Sans fond */
+  color: var(--accent); /* Bleu */
+  font: inherit; /* Même police */
+  font-weight: 600; /* Semi-gras */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */
+
+.entete {
+  /* Laisse la place à la cloche à droite des titres */
+  padding-right: 56px; /* Le titre ne passe pas sous la cloche */
 } /* Fin des règles */
 
 /* Verrouillage par PIN */
@@ -893,3 +975,375 @@ a.solde {
   font-family: inherit; /* Même police que le reste */
   line-height: 1.4; /* Lignes aérées */
 } /* Fin de .champ-zone */
+
+.cloche-sms {
+  /* Icône des SMS à traiter : à gauche de la cloche d'alertes */
+  right: 68px; /* 12 px de marge + 48 px de cloche + 8 px d'écart */
+} /* Fin des règles */
+
+.progression {
+  /* Barre d'avancement de l'écran de lancement d'une opération USSD */
+  height: 6px; /* Fine */
+  margin: 4px 0 12px; /* Espace autour */
+  border-radius: 3px; /* Bords arrondis */
+  background: var(--trait); /* Fond de la barre */
+  overflow: hidden; /* Coupe la partie remplie aux bords */
+} /* Fin des règles */
+
+.progression[hidden] {
+  /* Parcours terminé */
+  display: none; /* Cachée */
+} /* Fin des règles */
+
+.progression-barre {
+  /* Partie remplie */
+  height: 100%; /* Toute la hauteur */
+  background: var(--accent); /* Bleu */
+  transition: width 0.25s ease; /* Avance en douceur */
+} /* Fin des règles */
+
+/* ===== Mosaïque des sous-menus : icônes sans contour ni fond ===== */
+.mosaique {
+  /* Grille de tuiles plates */
+  display: grid; /* Disposition en grille */
+  grid-template-columns: repeat(3, 1fr); /* 3 colonnes sur téléphone */
+  gap: 8px 4px; /* Espaces entre les tuiles */
+  margin-bottom: 16px; /* Espace sous la mosaïque */
+} /* Fin des règles */
+
+@media (min-width: 480px) {
+  /* Écrans un peu plus larges */
+  .mosaique {
+    /* Plus de colonnes */
+    grid-template-columns: repeat(4, 1fr); /* 4 colonnes */
+  } /* Fin des règles */
+} /* Fin de la règle d'écran large */
+
+.tuile-plate-cellule {
+  /* Cellule qui peut porter un petit bouton dans son coin (modifier une opération USSD) */
+  position: relative; /* Repère pour le bouton */
+} /* Fin des règles */
+
+.tuile-plate-cellule .bouton-icone {
+  /* Bouton modifier dans le coin d'une tuile */
+  position: absolute; /* Posé dans le coin */
+  top: 0; /* Haut */
+  right: 0; /* Droite */
+  transform: scale(0.8); /* Un peu plus petit que les autres boutons */
+} /* Fin des règles */
+
+.tuile-plate {
+  /* Tuile plate : ni contour, ni fond, ni ombre */
+  display: flex; /* Contenu en colonne */
+  flex-direction: column; /* Icône au-dessus du texte */
+  align-items: center; /* Centré horizontalement */
+  justify-content: flex-start; /* Haut de la cellule */
+  gap: 8px; /* Espace entre l'icône et le texte */
+  min-height: 104px; /* Zone tactile généreuse (au moins 48 dp) */
+  padding: 12px 4px; /* Espace intérieur */
+  border: 0; /* Pas de contour */
+  background: transparent; /* Pas de fond */
+  color: var(--texte); /* Couleur du texte */
+  text-decoration: none; /* Pas de soulignement */
+  text-align: center; /* Texte centré */
+  border-radius: 12px; /* Coins arrondis du retour tactile */
+  transition: transform 0.15s ease; /* Animation d'appui */
+} /* Fin des règles */
+
+a.tuile-plate:active {
+  /* Pendant l'appui */
+  transform: scale(0.94); /* Se rétrécit un peu : retour tactile */
+} /* Fin des règles */
+
+.tuile-plate-icone {
+  /* Icône sans couleur : couleur du texte */
+  display: grid; /* Pour centrer l'icône */
+  place-items: center; /* Centrage */
+  width: 56px; /* Largeur de la zone */
+  height: 56px; /* Hauteur de la zone */
+  color: var(--texte); /* Icône de la couleur du texte */
+} /* Fin des règles */
+
+.tuile-plate-couleur {
+  /* Icône d'une opération USSD : blanche sur une pastille de la couleur choisie */
+  border-radius: 16px; /* Coins arrondis façon icône d'application */
+  color: #ffffff; /* Icône blanche */
+} /* Fin des règles */
+
+.tuile-plate-libelle {
+  /* Nom sous l'icône */
+  font-size: 0.85rem; /* Taille réduite */
+  font-weight: 600; /* Semi-gras */
+  line-height: 1.2; /* Lignes serrées */
+  overflow-wrap: anywhere; /* Coupe un mot trop long */
+} /* Fin des règles */
+
+/* Choix visuel d'une icône ou d'une couleur dans un formulaire */
+.choix-visuel {
+  /* Rangée de pastilles */
+  display: flex; /* Côte à côte */
+  flex-wrap: wrap; /* Passe à la ligne si besoin */
+  gap: 8px; /* Espace entre pastilles */
+} /* Fin des règles */
+
+.choix-visuel-option {
+  /* Une pastille à toucher */
+  display: grid; /* Pour centrer le contenu */
+  place-items: center; /* Centrage */
+  width: 48px; /* Zone tactile de 48 dp */
+  height: 48px; /* Zone tactile de 48 dp */
+  border: 2px solid transparent; /* Réserve la place du contour de sélection */
+  border-radius: 14px; /* Coins arrondis */
+  background: var(--fond); /* Fond discret */
+  color: var(--texte); /* Icône de la couleur du texte */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */
+
+.choix-visuel-option.choisi {
+  /* Pastille choisie */
+  border-color: var(--accent); /* Contour bleu */
+} /* Fin des règles */
+
+.choix-visuel-option[class*="fond-"] {
+  /* Pastille de couleur : fond de la couleur */
+  color: #ffffff; /* Coche éventuelle en blanc */
+} /* Fin des règles */
+
+.choix-visuel-pastille {
+  /* Contenu d'une pastille de couleur (vide : seule la couleur compte) */
+  display: block; /* Bloc */
+  width: 20px; /* Largeur */
+  height: 20px; /* Hauteur */
+} /* Fin des règles */
+
+/* ===== Tableau de bord (sprint 18) ===== */
+.segments {
+  /* Choix de la vue : deux grands boutons côte à côte */
+  display: flex; /* Côte à côte */
+  gap: 4px; /* Petit espace */
+  padding: 4px; /* Cadre intérieur */
+  margin: 4px 0 14px; /* Espace autour */
+  border-radius: 14px; /* Coins arrondis */
+  background: var(--carte); /* Fond de carte */
+  border: 1px solid var(--trait); /* Fine bordure */
+} /* Fin des règles */
+
+.segment {
+  /* Un bouton de choix de vue */
+  flex: 1; /* Largeur égale */
+  min-height: 44px; /* Zone tactile confortable */
+  border: 0; /* Sans bordure */
+  border-radius: 10px; /* Coins arrondis */
+  background: transparent; /* Sans fond */
+  color: var(--texte-doux); /* Gris */
+  font: inherit; /* Même police */
+  font-weight: 600; /* Semi-gras */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */
+
+.segment.actif {
+  /* Vue affichée */
+  background: var(--accent); /* Bleu */
+  color: #ffffff; /* Texte blanc */
+} /* Fin des règles */
+
+.kpis {
+  /* Grille d'indicateurs */
+  display: grid; /* Grille */
+  grid-template-columns: repeat(2, 1fr); /* 2 colonnes sur téléphone */
+  gap: 10px; /* Espace entre indicateurs */
+  margin: 10px 0; /* Espace autour */
+} /* Fin des règles */
+
+.kpi {
+  /* Un indicateur */
+  padding: 10px 12px; /* Espace intérieur */
+  border-radius: 12px; /* Coins arrondis */
+  background: var(--fond); /* Fond discret */
+  min-width: 0; /* Permet de couper un texte long */
+} /* Fin des règles */
+
+.kpi-libelle {
+  /* Nom de l'indicateur */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.78rem; /* Petit texte */
+} /* Fin des règles */
+
+.kpi-valeur {
+  /* Valeur de l'indicateur */
+  font-size: 1.1rem; /* Texte un peu plus grand */
+  font-weight: 700; /* Gras */
+  overflow-wrap: anywhere; /* Coupe un nombre trop long */
+} /* Fin des règles */
+
+.kpi-detail {
+  /* Explication sous la valeur */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.75rem; /* Petit texte */
+} /* Fin des règles */
+
+.kpi-danger .kpi-valeur {
+  /* Valeur à surveiller (négative) */
+  color: var(--danger); /* Rouge */
+} /* Fin des règles */
+
+.barres {
+  /* Liste de barres de progression */
+  list-style: none; /* Sans puces */
+  margin: 0; /* Sans marge */
+  padding: 0; /* Sans marge intérieure */
+  display: grid; /* Une barre sous l'autre */
+  gap: 12px; /* Espace entre les barres */
+} /* Fin des règles */
+
+.barres-texte {
+  /* Nom et détail d'une barre */
+  display: flex; /* Côte à côte */
+  flex-wrap: wrap; /* Passe à la ligne si besoin */
+  justify-content: space-between; /* Nom à gauche, détail à droite */
+  gap: 2px 8px; /* Espaces */
+  margin-bottom: 4px; /* Espace sous le texte */
+} /* Fin des règles */
+
+.barres-label {
+  /* Nom du budget */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+.barres-detail {
+  /* Montants */
+  color: var(--texte-doux); /* Gris */
+  font-size: 0.8rem; /* Petit texte */
+} /* Fin des règles */
+
+.barres-piste {
+  /* Fond de la barre */
+  height: 10px; /* Fine */
+  border-radius: 5px; /* Bords arrondis */
+  background: var(--trait); /* Gris clair */
+  overflow: hidden; /* Coupe le remplissage aux bords */
+} /* Fin des règles */
+
+.barres-remplissage {
+  /* Partie remplie */
+  height: 100%; /* Toute la hauteur */
+  border-radius: 5px; /* Bords arrondis */
+  background: var(--ok); /* Vert par défaut */
+} /* Fin des règles */
+
+.barres-remplissage.niveau-attention { background: var(--attention); } /* Orange : plafond dépassé ou presque */
+.barres-remplissage.niveau-danger { background: var(--danger); } /* Rouge : seuil franchi ou capacité dépassée */
+
+.graphique {
+  /* Un graphique et ses valeurs */
+  margin: 8px 0 0; /* Espace au-dessus */
+} /* Fin des règles */
+
+.graphique-svg {
+  /* Dessin SVG : occupe la largeur disponible */
+  display: block; /* Bloc */
+  width: 100%; /* Pleine largeur */
+  height: auto; /* Hauteur proportionnelle */
+  max-height: 260px; /* Pas trop haut sur grand écran */
+} /* Fin des règles */
+
+.graphique-anneau {
+  /* L'anneau est carré : on le centre et on le limite */
+  max-width: 200px; /* Taille maximale */
+  margin: 0 auto; /* Centré */
+} /* Fin des règles */
+
+.graphique-repere {
+  /* Lignes horizontales de repère */
+  stroke: var(--trait); /* Gris discret */
+  stroke-width: 1; /* Fines */
+} /* Fin des règles */
+
+.graphique-texte {
+  /* Valeurs des axes */
+  fill: var(--texte-doux); /* Gris */
+  font-size: 9px; /* Petit (en unités du dessin) */
+} /* Fin des règles */
+
+.graphique-texte-gros {
+  /* Total au centre de l'anneau */
+  fill: var(--texte); /* Couleur du texte */
+  font-size: 14px; /* Plus grand */
+  font-weight: 700; /* Gras */
+} /* Fin des règles */
+
+.graphique-legende {
+  /* Légende sous le graphique */
+  list-style: none; /* Sans puces */
+  display: flex; /* En ligne */
+  flex-wrap: wrap; /* Passe à la ligne */
+  gap: 4px 14px; /* Espaces */
+  margin: 8px 0 0; /* Espace au-dessus */
+  padding: 0; /* Sans marge intérieure */
+  font-size: 0.82rem; /* Petit texte */
+} /* Fin des règles */
+
+.graphique-pastille {
+  /* Pastille de couleur de la légende */
+  display: inline-block; /* En ligne */
+  width: 10px; /* Largeur */
+  height: 10px; /* Hauteur */
+  margin-right: 6px; /* Espace avant le texte */
+  border-radius: 3px; /* Coins arrondis */
+} /* Fin des règles */
+
+.graphique-valeurs {
+  /* Tableau des valeurs, replié */
+  margin-top: 8px; /* Espace au-dessus */
+  font-size: 0.82rem; /* Petit texte */
+} /* Fin des règles */
+
+.graphique-valeurs summary {
+  /* Titre cliquable */
+  min-height: 44px; /* Zone tactile confortable */
+  display: flex; /* Pour centrer verticalement */
+  align-items: center; /* Centré */
+  color: var(--accent); /* Bleu */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */
+
+.graphique-valeurs-defilement {
+  /* Défilement horizontal d'un tableau large */
+  overflow-x: auto; /* Barre de défilement si besoin */
+} /* Fin des règles */
+
+.graphique-valeurs table {
+  /* Tableau */
+  width: 100%; /* Pleine largeur */
+  border-collapse: collapse; /* Bordures fusionnées */
+} /* Fin des règles */
+
+.graphique-valeurs th,
+.graphique-valeurs td {
+  /* Cellules */
+  padding: 4px 8px; /* Espace intérieur */
+  border-bottom: 1px solid var(--trait); /* Trait de séparation */
+  text-align: left; /* Texte à gauche */
+  white-space: nowrap; /* Pas de retour à la ligne */
+} /* Fin des règles */
+
+.classement {
+  /* Liste classée des plus grosses dépenses */
+  margin: 0; /* Sans marge */
+  padding-left: 22px; /* Place pour les numéros */
+  display: grid; /* Une ligne sous l'autre */
+  gap: 10px; /* Espace entre les lignes */
+} /* Fin des règles */
+
+.classement li::marker {
+  /* Numéro du classement */
+  color: var(--texte-doux); /* Gris */
+  font-weight: 600; /* Semi-gras */
+} /* Fin des règles */
+
+.classement li {
+  /* Une dépense du classement : texte à gauche, montant à droite */
+  display: flex; /* Côte à côte */
+  justify-content: space-between; /* Écartés */
+  gap: 10px; /* Espace */
+} /* Fin des règles */

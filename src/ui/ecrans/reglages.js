@@ -1,6 +1,6 @@
 // Écran des réglages : jour de l'allocation automatique et accès aux autres écrans.
 import { h } from "../dom.js"; // Fabrication d'éléments
-import { enteteEcran, carte, boutonLien, boutonPrincipal, champ } from "../composants.js"; // Composants
+import { enteteEcran, carte, boutonLien, boutonPrincipal, champ, tuilePlate } from "../composants.js"; // Composants
 import { soumettre } from "../formulaire.js"; // Enregistrement de formulaire
 import { lireJourJob, modifierJourJob } from "../../core/parametres.js"; // Paramètre du jour de lancement
 import { analyserMontant } from "../../core/format.js"; // Lecture d'un entier saisi
@@ -19,13 +19,13 @@ export async function afficherReglages(conteneur, { base }) { // Reçoit la zone
   conteneur.append( // Assemble l'écran
     enteteEcran("Réglages", "Votre application"), // En-tête
     carte(h("h2", { class: "carte-titre" }, "Allocation automatique"), champJour.element, boutonPrincipal("Enregistrer", enregistrer)), // Carte du jour de lancement
-    h("div", { class: "espace-haut groupe" }, // Liens vers les autres écrans
-      boutonLien("Sauvegarde et restauration", "/sauvegarde", "sauvegarde"), // Sauvegarde des données
-      boutonLien("Verrouillage par PIN", "/verrou", "info"), // Code PIN de l'application
-      boutonLien("Consultation du solde (USSD)", "/ussd", "telephone"), // Code USSD et consultation du solde (PIN demandé à chaque fois)
-      boutonLien("Solde Mobile Money", "/solde", "telephone"), // Historique des soldes
-      boutonLien("Types de budget", "/types-budget", "types"), // Types de budget
-      boutonLien("Diagnostic et essais", "/diagnostic", "info"), // Diagnostic
-    ), // Fin des liens
+    h("div", { class: "mosaique espace-haut" }, // Sous-menu en mosaïque : icônes sans contour ni couleur
+      tuilePlate({ libelle: "Sauvegarde et restauration", nomIcone: "sauvegarde", route: "/sauvegarde" }), // Sauvegarde des données
+      tuilePlate({ libelle: "Verrouillage par PIN", nomIcone: "info", route: "/verrou" }), // Code PIN de l'application
+      tuilePlate({ libelle: "Consultation du solde (USSD)", nomIcone: "telephone", route: "/ussd" }), // Code USSD et consultation du solde (PIN demandé à chaque fois)
+      tuilePlate({ libelle: "Solde Mobile Money", nomIcone: "argent", route: "/solde" }), // Historique des soldes
+      tuilePlate({ libelle: "Types de budget", nomIcone: "types", route: "/types-budget" }), // Types de budget
+      tuilePlate({ libelle: "Diagnostic et essais", nomIcone: "reglages", route: "/diagnostic" }), // Diagnostic
+    ), // Fin de la mosaïque
   ); // Fin de l'assemblage
 } // Fin de afficherReglages

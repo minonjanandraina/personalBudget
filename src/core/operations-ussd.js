@@ -1,7 +1,7 @@
 // Opérations USSD dynamiques : modèles créés par l'utilisateur (nom, type, code USSD à variables, budget à débiter) et leur lancement.
 // Variables du code : {numero} (numéro de téléphone), {montant} (montant entier) et {pin} (PIN Mobile Money, demandé à chaque envoi et jamais enregistré).
 // Exemple : #144*8*8*{numero}*{montant}*{pin}#
-// Autorisation de l'envoi : PIN de verrouillage de l'application (obligatoire : le verrouillage doit être activé).
+// Aucun PIN de l'application n'est demandé pour envoyer (décidé) : seul le PIN Mobile Money, saisi à chaque envoi, est nécessaire.
 // Une opération de SORTIE n'enregistre rien tout de suite : elle est « en attente » et le SMS de confirmation est classé seul dans le budget (voir ussd-en-attente.js).
 import { envoyerSurSimChoisie } from "./sim.js"; // Envoi sur la SIM choisie
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs expliquées à l'utilisateur
@@ -9,9 +9,19 @@ import { formaterMontant } from "./format.js"; // Affichage des montants
 import { jourLocal, afficherJour } from "./periodes.js"; // Jour d'une date
 import { allocationCouvrant, soldeAllocation } from "./allocations.js"; // Allocation d'une période et son solde
 import { lireBudget } from "./budgets.js"; // Lecture d'un budget
-import { verrouActif, verifierPin } from "./verrou.js"; // PIN de verrouillage de l'application
 
 export const VARIABLES = ["numero", "montant", "pin"]; // Variables autorisées dans un code
+export const ICONES_OPERATION = [ // Icônes proposées pour une opération (noms définis dans src/ui/icones.js)
+  { valeur: "telephone", libelle: "Téléphone" }, { valeur: "argent", libelle: "Argent" }, { valeur: "envoyer", libelle: "Envoyer" }, { valeur: "recevoir", libelle: "Recevoir" },
+  { valeur: "panier", libelle: "Panier" }, { valeur: "budgets", libelle: "Carte bancaire" }, { valeur: "accueil", libelle: "Maison" }, { valeur: "ampoule", libelle: "Électricité" },
+  { valeur: "wifi", libelle: "Internet" }, { valeur: "cadeau", libelle: "Cadeau" }, { valeur: "utilisateur", libelle: "Personne" }, { valeur: "message", libelle: "Message" },
+]; // Fin des icônes
+export const COULEURS_OPERATION = [ // Couleurs proposées pour la pastille d'une opération
+  { valeur: "bleu", libelle: "Bleu" }, { valeur: "vert", libelle: "Vert" }, { valeur: "orange", libelle: "Orange" },
+  { valeur: "violet", libelle: "Violet" }, { valeur: "rouge", libelle: "Rouge" }, { valeur: "gris", libelle: "Gris" },
+]; // Fin des couleurs
+export const ICONE_PAR_DEFAUT = "telephone"; // Icône quand rien n'est choisi
+export const COULEUR_PAR_DEFAUT = "vert"; // Couleur quand rien n'est choisi
 export const TYPES = [{ valeur: "sortie", libelle: "Sortie (dépense d'un budget)" }, { valeur: "entree", libelle: "Entrée (argent reçu sur le compte)" }]; // Types d'opération
 const RE_VARIABLE = /\{([a-z]+)\}/g; // Une variable entre accolades
 
@@ -32,7 +42,7 @@ export function resumeSaisies(code) { // Reçoit le code
 } // Fin de resumeSaisies
 
 // Vérifie un modèle. Renvoie un dictionnaire d'erreurs par champ (vide si tout est correct).
-export function validerOperation({ nom, type, code, budgetId }) { // Reçoit le modèle
+export function validerOperation({ nom, type, code, budgetId, icone, couleur }) { // Reçoit le modèle
   const erreurs = {}; // Erreurs par champ
   const nomPropre = String(nom ?? "").trim(); // Nom sans espaces autour
   if (nomPropre === "" || nomPropre.length > 60) erreurs.nom = "Le nom doit faire de 1 à 60 caractères."; // Nom invalide
@@ -45,21 +55,23 @@ export function validerOperation({ nom, type, code, budgetId }) { // Reçoit le 
   else if (type === "sortie" && !variablesDuCode(codePropre).includes("montant")) erreurs.code = "Une opération de sortie doit contenir {montant} (il sert à débiter le budget)."; // Montant indispensable pour une sortie
   if (type === "sortie" && !budgetId) erreurs.budgetId = "Choisissez le budget à débiter."; // Budget obligatoire
   if (type === "entree" && budgetId) erreurs.budgetId = "Une opération d'entrée ne débite aucun budget."; // Pas de budget pour une entrée
+  if (icone !== undefined && !ICONES_OPERATION.some((i) => i.valeur === icone)) erreurs.icone = "Choisissez une icône de la liste."; // Icône inconnue
+  if (couleur !== undefined && !COULEURS_OPERATION.some((c) => c.valeur === couleur)) erreurs.couleur = "Choisissez une couleur de la liste."; // Couleur inconnue
   return erreurs; // Erreurs trouvées
 } // Fin de validerOperation
 
 // Transforme une ligne de la base en objet.
-const versOperation = (l) => ({ id: Number(l.id), nom: l.nom, type: l.type, code: l.code, budgetId: l.budget_id === null ? null : Number(l.budget_id), budgetNom: l.budget_nom ?? null }); // Convertit
+const versOperation = (l) => ({ id: Number(l.id), nom: l.nom, type: l.type, code: l.code, budgetId: l.budget_id === null ? null : Number(l.budget_id), budgetNom: l.budget_nom ?? null, icone: l.icone ?? ICONE_PAR_DEFAUT, couleur: l.couleur ?? COULEUR_PAR_DEFAUT }); // Convertit
 
 // Lit un modèle (null s'il n'existe pas).
 export async function lireOperation(base, id) { // Reçoit la base et l'identifiant
-  const [l] = await base.requeter("SELECT o.id, o.nom, o.type, o.code, o.budget_id, b.name AS budget_nom FROM operation_ussd o LEFT JOIN budget b ON b.id = o.budget_id WHERE o.id = ?", [id]); // Lit le modèle
+  const [l] = await base.requeter("SELECT o.id, o.nom, o.type, o.code, o.budget_id, o.icone, o.couleur, b.name AS budget_nom FROM operation_ussd o LEFT JOIN budget b ON b.id = o.budget_id WHERE o.id = ?", [id]); // Lit le modèle
   return l ? versOperation(l) : null; // Objet ou null
 } // Fin de lireOperation
 
 // Liste des modèles, par nom.
 export async function listerOperations(base) { // Reçoit la base
-  const lignes = await base.requeter("SELECT o.id, o.nom, o.type, o.code, o.budget_id, b.name AS budget_nom FROM operation_ussd o LEFT JOIN budget b ON b.id = o.budget_id ORDER BY o.nom"); // Lit les modèles
+  const lignes = await base.requeter("SELECT o.id, o.nom, o.type, o.code, o.budget_id, o.icone, o.couleur, b.name AS budget_nom FROM operation_ussd o LEFT JOIN budget b ON b.id = o.budget_id ORDER BY o.nom"); // Lit les modèles
   return lignes.map(versOperation); // Convertit
 } // Fin de listerOperations
 
@@ -73,13 +85,13 @@ async function controler(base, donnees, idExistant = null) { // Reçoit la base,
   } // Fin du contrôle du nom
   if (!erreurs.budgetId && donnees.budgetId && !(await lireBudget(base, donnees.budgetId))) erreurs.budgetId = "Ce budget n'existe plus."; // Budget inexistant
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse si une erreur existe
-  return { nom, type: donnees.type, code: String(donnees.code).trim(), budgetId: donnees.type === "sortie" ? Number(donnees.budgetId) : null }; // Valeurs propres
+  return { nom, type: donnees.type, code: String(donnees.code).trim(), budgetId: donnees.type === "sortie" ? Number(donnees.budgetId) : null, icone: donnees.icone ?? ICONE_PAR_DEFAUT, couleur: donnees.couleur ?? COULEUR_PAR_DEFAUT }; // Valeurs propres (icône et couleur par défaut si non précisées)
 } // Fin de controler
 
 // Crée un modèle. Renvoie son identifiant.
 export async function creerOperation(base, donnees) { // Reçoit la base et le modèle
   const v = await controler(base, donnees); // Contrôles
-  const { dernierId } = await base.executer("INSERT INTO operation_ussd (nom, type, code, budget_id) VALUES (?, ?, ?, ?)", [v.nom, v.type, v.code, v.budgetId]); // Insère
+  const { dernierId } = await base.executer("INSERT INTO operation_ussd (nom, type, code, budget_id, icone, couleur) VALUES (?, ?, ?, ?, ?, ?)", [v.nom, v.type, v.code, v.budgetId, v.icone, v.couleur]); // Insère
   return dernierId; // Identifiant créé
 } // Fin de creerOperation
 
@@ -87,7 +99,7 @@ export async function creerOperation(base, donnees) { // Reçoit la base et le m
 export async function modifierOperation(base, id, donnees) { // Reçoit la base, l'identifiant et le modèle
   if (!(await lireOperation(base, id))) throw new ErreurMetier("Cette opération n'existe plus."); // Introuvable
   const v = await controler(base, donnees, id); // Contrôles
-  await base.executer("UPDATE operation_ussd SET nom = ?, type = ?, code = ?, budget_id = ? WHERE id = ?", [v.nom, v.type, v.code, v.budgetId, id]); // Met à jour
+  await base.executer("UPDATE operation_ussd SET nom = ?, type = ?, code = ?, budget_id = ?, icone = ?, couleur = ? WHERE id = ?", [v.nom, v.type, v.code, v.budgetId, v.icone, v.couleur, id]); // Met à jour
 } // Fin de modifierOperation
 
 // Supprime un modèle (refusé tant qu'une opération envoyée attend sa confirmation par SMS).
@@ -97,6 +109,25 @@ export async function supprimerOperation(base, id) { // Reçoit la base et l'ide
   await base.executer("DELETE FROM operation_ussd WHERE id = ?", [id]); // Supprime
 } // Fin de supprimerOperation
 
+// Messages d'erreur de format (null si la valeur est correcte), utilisés étape par étape par l'écran de lancement.
+export function erreurNumero(numero) { // Reçoit le numéro saisi
+  return /^\d{8,15}$/.test(String(numero ?? "").replace(/[\s.-]/g, "")) ? null : "Saisissez le numéro de téléphone (8 à 15 chiffres, sans +)."; // Numéro valide ou message
+} // Fin de erreurNumero
+export function erreurPinMm(pin) { // Reçoit le PIN saisi
+  return /^\d{4,8}$/.test(String(pin ?? "")) ? null : "Saisissez votre PIN Mobile Money (4 à 8 chiffres) : il est demandé à chaque envoi."; // PIN valide ou message
+} // Fin de erreurPinMm
+
+// Pour une sortie : vérifie que le budget a une allocation couvrant aujourd'hui et assez de solde, comme pour une dépense saisie. Lance ErreurMetier / ErreurValidation (champ « montant »). Sans effet pour une entrée.
+export async function controlerSortie(base, operationId, montant, maintenant = new Date()) { // Reçoit la base, le modèle, le montant et l'heure
+  const operation = await lireOperation(base, operationId); // Modèle
+  if (!operation) throw new ErreurMetier("Cette opération n'existe plus."); // Introuvable
+  if (operation.type !== "sortie") return; // Une entrée ne débite aucun budget
+  const allocation = await allocationCouvrant(base, operation.budgetId, jourLocal(maintenant.toISOString())); // Allocation de la période en cours
+  if (!allocation) throw new ErreurMetier(`Aucune allocation pour « ${operation.budgetNom} » au ${afficherJour(jourLocal(maintenant.toISOString()))}. Allouez d'abord ce budget.`); // Pas d'allocation
+  const solde = await soldeAllocation(base, allocation.id); // Solde de la période
+  if (solde < montant) throw new ErreurValidation({ montant: `Solde insuffisant : il reste ${formaterMontant(solde)} sur « ${operation.budgetNom} » pour cette période. Une réallocation est nécessaire.` }); // Bloqué comme une dépense manuelle
+} // Fin de controlerSortie
+
 // Prépare un envoi : contrôle les valeurs saisies et le budget, et construit le code. Ne contacte pas le téléphone.
 // valeurs = { numero (texte), montant (entier ou null) }. Renvoie { operation, code (avec {pin} encore à remplacer), codeAffiche (PIN masqué), montant, numero }.
 export async function preparerEnvoi(base, operationId, { numero = "", montant = null } = {}, maintenant = new Date()) { // Reçoit la base, le modèle, les valeurs et l'heure
@@ -105,26 +136,19 @@ export async function preparerEnvoi(base, operationId, { numero = "", montant = 
   const variables = variablesDuCode(operation.code); // Variables à remplir
   const erreurs = {}; // Erreurs par champ
   const numeroPropre = String(numero ?? "").replace(/[\s.-]/g, ""); // Numéro sans séparateurs
-  if (variables.includes("numero") && !/^\d{8,15}$/.test(numeroPropre)) erreurs.numero = "Saisissez le numéro de téléphone (8 à 15 chiffres, sans +)."; // Numéro invalide
+  if (variables.includes("numero") && erreurNumero(numeroPropre)) erreurs.numero = erreurNumero(numeroPropre); // Numéro invalide
   if (variables.includes("montant") && !(Number.isSafeInteger(montant) && montant > 0)) erreurs.montant = "Saisissez un montant entier supérieur à 0."; // Montant invalide
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse
-  if (operation.type === "sortie") { // Une sortie débite un budget : mêmes contrôles qu'une dépense saisie
-    const allocation = await allocationCouvrant(base, operation.budgetId, jourLocal(maintenant.toISOString())); // Allocation de la période en cours
-    if (!allocation) throw new ErreurMetier(`Aucune allocation pour « ${operation.budgetNom} » au ${afficherJour(jourLocal(maintenant.toISOString()))}. Allouez d'abord ce budget.`); // Pas d'allocation
-    const solde = await soldeAllocation(base, allocation.id); // Solde de la période
-    if (solde < montant) throw new ErreurValidation({ montant: `Solde insuffisant : il reste ${formaterMontant(solde)} sur « ${operation.budgetNom} » pour cette période. Une réallocation est nécessaire.` }); // Bloqué comme une dépense manuelle
-  } // Fin du contrôle du budget
+  await controlerSortie(base, operationId, montant, maintenant); // Une sortie débite un budget : mêmes contrôles qu'une dépense saisie
   const code = operation.code.replaceAll("{numero}", numeroPropre).replaceAll("{montant}", String(montant ?? "")); // Remplace les variables connues ici
   return { operation, code, codeAffiche: code.replaceAll("{pin}", "••••"), montant, numero: numeroPropre }; // Résultat
 } // Fin de preparerEnvoi
 
-// Lance une opération : vérifie le PIN de l'application, prépare le code, y insère le PIN Mobile Money saisi, l'envoie, puis note l'attente du SMS (sorties).
+// Lance une opération : prépare le code, y insère le PIN Mobile Money saisi, l'envoie, puis note l'attente du SMS (sorties).
 // « ussd » = accès au téléphone (platform/ussd.js ou faux de test). Le PIN Mobile Money (« pinMm ») n'est gardé nulle part. Renvoie { texte (réponse de Mobile Money), enAttente }.
-export async function lancerOperation(base, ussd, operationId, { numero, montant, pinApp, pinMm = "" }, maintenant = new Date()) { // Reçoit la base, l'accès USSD, le modèle et les valeurs
-  if (!(await verrouActif(base))) throw new ErreurMetier("Activez d'abord le verrouillage par PIN (Réglages) : le PIN de l'application autorise l'envoi des opérations USSD."); // Verrou obligatoire
-  try { await verifierPin(base, pinApp, maintenant); } catch (e) { throw new ErreurValidation({ pin: e.message }); } // Mauvais PIN : message sous le champ
+export async function lancerOperation(base, ussd, operationId, { numero, montant, pinMm = "" }, maintenant = new Date()) { // Reçoit la base, l'accès USSD, le modèle et les valeurs
   const prep = await preparerEnvoi(base, operationId, { numero, montant }, maintenant); // Contrôles et code
-  if (prep.code.includes("{pin}") && !/^\d{4,8}$/.test(String(pinMm ?? ""))) throw new ErreurValidation({ pinMm: "Saisissez votre PIN Mobile Money (4 à 8 chiffres) : il est demandé à chaque envoi." }); // Le code a besoin du PIN Mobile Money
+  if (prep.code.includes("{pin}") && erreurPinMm(pinMm)) throw new ErreurValidation({ pinMm: erreurPinMm(pinMm) }); // Le code a besoin du PIN Mobile Money
   const texte = await envoyerSurSimChoisie(base, ussd, prep.code.replaceAll("{pin}", pinMm)); // Envoi sur la SIM choisie avec le PIN Mobile Money saisi (jamais enregistré)
   const enAttente = prep.operation.type === "sortie"; // Une sortie attend son SMS
   if (enAttente) await base.executer( // Note l'attente

@@ -27,6 +27,15 @@ export function tuile({ libelle, nomIcone, couleur, route = null }) { // Libell�
   return h("a", { class: "tuile apparition", href: `#${route}` }, ...contenu); // Tuile active : lien vers la route
 } // Fin de tuile
 
+// Tuile « mosaïque » de sous-menu : icône posée directement sur la page, sans contour ni fond. Sans « couleur », l'icône est simple (couleur du texte) ;
+// avec « couleur » (opérations USSD seulement), l'icône est blanche sur une pastille de cette couleur.
+export function tuilePlate({ libelle, nomIcone, route, couleur = null }) { // Libellé, icône, destination, couleur facultative
+  return h("a", { class: "tuile-plate apparition", href: `#${route}` }, // Tuile cliquable
+    h("span", { class: `tuile-plate-icone${couleur ? ` tuile-plate-couleur fond-${couleur}` : ""}` }, icone(nomIcone, couleur ? 30 : 36)), // Icône (avec pastille colorée si demandée)
+    h("span", { class: "tuile-plate-libelle" }, libelle), // Nom
+  ); // Fin de la tuile
+} // Fin de tuilePlate
+
 // Bandeau d'alerte. Niveaux : ok, attention, danger, info. « action » (facultatif) : { libelle, route } = lien pour traiter l'alerte.
 export function alerte({ niveau = "info", message, action = null }) { // Niveau, message et action
   const nomIcone = { ok: "succes", attention: "attention", danger: "erreur", info: "info" }[niveau] ?? "info"; // Choisit l'icône selon le niveau
@@ -111,6 +120,20 @@ export function zoneTexte({ id, libelle, valeur = "", aide = null, lignes = 6 })
   const element = h("div", { class: "champ" }, h("label", { class: "champ-libelle", for: id }, libelle), saisie, aide ? h("div", { class: "champ-aide" }, aide) : null, message); // Bloc complet
   return controleChamp({ element, saisie, message, lire: () => saisie.value, ecrire: (v) => { saisie.value = String(v); } }); // Objet de contrôle
 } // Fin de zoneTexte
+
+// Choix visuel parmi des pastilles (icônes, couleurs). « options » : [{ valeur, libelle, contenu (élément affiché), classe (facultatif) }]. Lire renvoie la valeur choisie.
+export function selecteurVisuel({ id, libelle, options, valeur = "", aide = null }) { // Description du champ
+  let choisie = String(valeur); // Valeur choisie
+  const groupe = h("div", { id, class: "choix-visuel", role: "radiogroup", "aria-label": libelle, "aria-describedby": `${id}-message` }); // Rangée de pastilles
+  const boutons = options.map((o) => h("button", { type: "button", class: `choix-visuel-option ${o.classe ?? ""}`, role: "radio", "aria-label": o.libelle, title: o.libelle, "data-valeur": String(o.valeur) }, o.contenu)); // Une pastille par option
+  const afficher = () => boutons.forEach((b) => { const actif = b.getAttribute("data-valeur") === choisie; b.setAttribute("aria-checked", String(actif)); b.classList.toggle("choisi", actif); }); // Met en évidence la pastille choisie
+  boutons.forEach((b) => b.addEventListener("click", () => { choisie = b.getAttribute("data-valeur"); afficher(); })); // Un toucher choisit l'option
+  groupe.append(...boutons); // Place les pastilles
+  afficher(); // État de départ
+  const message = h("div", { id: `${id}-message`, class: "champ-message", role: "alert" }); // Zone du message d'erreur
+  const element = h("div", { class: "champ" }, h("div", { class: "champ-libelle" }, libelle), groupe, aide ? h("div", { class: "champ-aide" }, aide) : null, message); // Bloc complet
+  return controleChamp({ element, saisie: groupe, message, lire: () => choisie, ecrire: (v) => { choisie = String(v); afficher(); } }); // Objet de contrôle
+} // Fin de selecteurVisuel
 
 // Liste déroulante. « options » : [{ valeur, libelle }]. Lire renvoie la valeur choisie (texte).
 export function choix({ id, libelle, options, valeur = "", aide = null }) { // Description du champ

@@ -1,12 +1,11 @@
-// Écran d'accueil : solde Mobile Money disponible, argent réservé dans les budgets (détaillé par budget au toucher), alertes et tuiles.
+// Écran d'accueil : solde Mobile Money disponible, argent réservé dans les budgets (détaillé par budget au toucher) et tuiles. Les alertes sont dans la cloche en haut à droite (coque).
 import { h } from "../dom.js"; // Fabrication d'éléments
-import { enteteEcran, carte, alerte, tuile } from "../composants.js"; // Composants
+import { enteteEcran, carte, tuile } from "../composants.js"; // Composants
 import { icone } from "../icones.js"; // Icônes
 import { animerCompteur } from "../animations.js"; // Animation du solde
 import { formaterMontant } from "../../core/format.js"; // Formatage des montants
 import { afficherDateHeure } from "../../core/dates.js"; // Date lisible
 import { situationFinanciere, soldesParBudget } from "../../core/soldes.js"; // Situation financière et détail par budget
-import { calculerAlertes } from "../../core/alertes.js"; // Alertes actuelles
 
 // Tuiles de l'accueil. Une tuile sans route est grisée « bientôt » (écran prévu dans un sprint suivant).
 const TUILES = [ // Liste des tuiles
@@ -69,15 +68,10 @@ function carteReserve(situation, detail) { // Reçoit la situation d'ensemble et
 export async function afficherAccueil(conteneur, { base }) { // Reçoit la zone et la base
   const situation = await situationFinanciere(base); // Solde Mobile Money disponible, réservé et libre
   const detail = await soldesParBudget(base); // Solde de chaque budget
-  const alertes = await calculerAlertes(base); // Alertes actuelles
   conteneur.append( // Ajoute les éléments de l'écran
     enteteEcran("Volako", "Votre budget, hors ligne"), // En-tête
     carteSoldeMM(situation.mm), // Solde Mobile Money disponible
     carteReserve(situation, detail), // Argent réservé dans les budgets
-    h("div", { class: "zone-alertes" }, // Zone des alertes
-      alertes.length > 0 ? h("h2", { class: "section-titre" }, `Alertes (${alertes.length})`) : null, // Titre avec le nombre d'alertes
-      alertes.length === 0 ? alerte({ niveau: "ok", message: "Aucune alerte pour le moment" }) : alertes.map((a) => alerte({ niveau: a.niveau, message: a.message, action: a.action })), // Une alerte par problème, ou « aucune alerte »
-    ), // Fin de la zone des alertes
     h("div", { class: "tuiles" }, ...TUILES.map(tuile)), // Grille de tuiles
   ); // Fin de l'ajout
 } // Fin de afficherAccueil

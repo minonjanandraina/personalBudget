@@ -7,6 +7,7 @@ import { creerBudget } from "../../core/budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense } from "../../core/allocations.js"; // Allocation et dépense
 import { listerTransactions } from "../../core/transactions.js"; // Transactions
 import { afficherAccueil } from "./accueil.js"; // Accueil
+import { texteAlertes } from "../aide-alertes-tests.js"; // Contenu de la cloche d'alertes
 import { afficherAllocations, afficherFormulaireAllocation } from "./allocations.js"; // Allocations
 
 let base; // Base utilisée par les cas de test
@@ -88,7 +89,7 @@ describe("accueil : solde Mobile Money disponible et réservé", () => { // Accu
     await allouerBudget(base, { budgetId: id, montant: 400000 }); // Réserve 400 000
     await poserSolde(300000, new Date(Date.now() + 1000).toISOString().replace(/\.\d+Z$/, ".000Z")); // Solde réel plus bas, daté d'après
     await monter(afficherAccueil); // Accueil
-    expect(zone.textContent).toContain("n'a peut-être pas été enregistrée"); // Avertissement
+    expect(await texteAlertes(base)).toContain("n'a peut-être pas été enregistrée"); // Avertissement
   }); // Fin du cas
 }); // Fin du groupe
 

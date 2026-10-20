@@ -3,7 +3,7 @@ import { creerBaseDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // B
 import { creerTypeBudget } from "./types-budget.js"; // Types
 import { creerBudget } from "./budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, modifierOperation, supprimerOperation, soldeAllocation, resumeBudgets } from "./allocations.js"; // Allocation
-import { lancerAllocationPeriode, transfererEntreBudgets } from "./reallocation.js"; // Fonctions à tester
+import { lancerAllocationPeriode, transfererEntreBudgets, annulerTransfert } from "./reallocation.js"; // Fonctions à tester
 import { listerTransactions } from "./transactions.js"; // Transactions
 import { ErreurValidation, ErreurMetier } from "./erreurs.js"; // Erreurs
 
@@ -290,6 +290,61 @@ describe("transfererEntreBudgets (réallocation manuelle)", () => { // Transfert
     expect(await soldeEnCours(a)).toBe(100000); // A retrouve son solde
     expect(await soldeEnCours(b)).toBe(20000); // B aussi
   }); // Fin du cas
+
+  describe("annulerTransfert", () => { // Annulation d'un transfert
+    const ligneDe = async (sens) => (await listerTransactions(base, { nature: "mouvements" })).find((t) => t.debitCredit === sens); // Une des deux lignes du transfert
+
+    it("supprime les deux lignes et rend l'argent, depuis l'une ou l'autre ligne", async () => { // Cas nominal
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 30000 }, OCTOBRE); // Transfert de 30 000
+      expect(await annulerTransfert(base, (await ligneDe(1)).id)).toMatchObject({ montant: 30000, soldeSource: 100000, soldeDestination: 20000 }); // Annulé depuis la ligne d'entrée
+      expect(await soldeEnCours(a)).toBe(100000); // A retrouve son solde
+      expect(await soldeEnCours(b)).toBe(20000); // B aussi
+      expect(await listerTransactions(base, { nature: "mouvements" })).toEqual([]); // Plus aucune ligne de transfert
+      expect((await resumeBudgets(base, OCTOBRE)).find((r) => r.budget.id === b).allocation).toMatchObject({ alimente: 20000, solde: 20000 }); // Total alloué de B remis à jour
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 10000 }, OCTOBRE); // Nouveau transfert
+      await annulerTransfert(base, (await ligneDe(-1)).id); // Annulé depuis la ligne de sortie
+      expect(await soldeEnCours(b)).toBe(20000); // Même résultat
+    }); // Fin du cas
+
+    it("est refusé quand le budget qui a reçu l'argent ne l'a plus, avec le chiffre manquant, sans rien changer", async () => { // Solde insuffisant
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 30000 }, OCTOBRE); // B : 50 000
+      await depenser(b, 45000, OCTOBRE); // B n'a plus que 5 000
+      await expect(annulerTransfert(base, (await ligneDe(1)).id)).rejects.toThrow(/Annulation impossible.*5\s000 Ar.*30\s000 Ar/); // Refusé
+      expect(await soldeEnCours(b)).toBe(5000); // Rien n'a changé
+      expect(await listerTransactions(base, { nature: "mouvements" })).toHaveLength(2); // Les deux lignes sont toujours là
+      await depenser(b, 5000, OCTOBRE); // B tombe à 0
+      await expect(annulerTransfert(base, (await ligneDe(1)).id)).rejects.toThrow(ErreurMetier); // Toujours refusé
+    }); // Fin du cas
+
+    it("permet l'annulation d'une partie seulement dépensée si le solde reste suffisant", async () => { // Solde suffisant
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 10000 }, OCTOBRE); // B : 30 000
+      await depenser(b, 15000, OCTOBRE); // B : 15 000 (les 20 000 d'origine suffisent à couvrir la dépense)
+      await annulerTransfert(base, (await ligneDe(1)).id); // Annulé : B garde 5 000
+      expect(await soldeEnCours(b)).toBe(5000); // B : 15 000 - 10 000
+      expect(await soldeEnCours(a)).toBe(100000); // A retrouve son solde
+    }); // Fin du cas
+
+    it("refuse un report ou une opération ordinaire, et un transfert déjà annulé", async () => { // Mauvaises cibles
+      const { idTransaction: depense } = await depenser(a, 1000, OCTOBRE); // Dépense ordinaire
+      await expect(annulerTransfert(base, depense)).rejects.toThrow(/Seul un transfert/); // Pas un transfert
+      await expect(annulerTransfert(base, 999999)).rejects.toThrow(/n'existe plus/); // Inconnu
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 1000 }, OCTOBRE); // Transfert
+      const id = (await ligneDe(1)).id; // Sa ligne
+      await annulerTransfert(base, id); // Annulé
+      await expect(annulerTransfert(base, id)).rejects.toThrow(/n'existe plus/); // Une seconde annulation est refusée
+    }); // Fin du cas
+
+    it("supprime l'allocation vide de la destination créée par le transfert, et signale un plafond dépassé", async () => { // Cas limites
+      const c = await nouveauBudget({ name: "C", montantBudget: 0, montantMax: 50000 }); // Budget non alloué
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: c, montant: 5000 }, OCTOBRE); // Crée l'allocation de C
+      expect(await soldeEnCours(c)).toBe(5000); // C est alloué
+      await annulerTransfert(base, (await ligneDe(1)).id); // Annule
+      expect(await soldeEnCours(c)).toBeNull(); // C redevient non alloué
+      await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 60000 }, OCTOBRE); // A : 40 000, B : 80 000 (au-dessus de son plafond)
+      const rendu = await annulerTransfert(base, (await ligneDe(1)).id); // A récupère 60 000 (150 000 de plafond : pas de dépassement)
+      expect(rendu.depassePlafondSource).toBe(false); // Pas de dépassement
+    }); // Fin du cas
+  }); // Fin du groupe
 
   it("permet de débloquer une dépense refusée faute de solde", async () => { // Cas d'usage
     await expect(depenser(b, 25000, OCTOBRE)).rejects.toThrow(/Solde insuffisant/); // B n'a que 20 000

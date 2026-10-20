@@ -57,6 +57,48 @@ describe("écran SMS Mobile Money", () => { // Groupe
   }); // Fin du cas
 }); // Fin du groupe
 
+describe("icône des SMS à traiter", () => { // Regroupement des SMS à classer et non compris
+  it("cache la pastille quand tout est classé, puis affiche le total après synchronisation", async () => { // Pastille
+    await afficherSms(zone, { base, sms: faux() }); // Écran
+    expect(zone.querySelector(".cloche-sms .cloche-badge").hidden).toBe(true); // Rien à traiter
+    expect(zone.textContent).toContain("Rien à traiter"); // Phrase de résumé
+    toucher("Synchroniser maintenant"); // Importe
+    await vi.waitFor(() => expect(zone.querySelector(".cloche-sms .cloche-badge").textContent).toBe("5")); // 4 à classer + 1 non compris
+    expect(zone.querySelector(".cloche-sms .cloche-badge").classList.contains("cloche-badge-danger")).toBe(true); // Rouge : un SMS non compris
+    expect(zone.textContent).toContain("4 dépenses à classer, 1 SMS non compris"); // Résumé
+  }); // Fin du cas
+
+  it("ouvre un panneau avec les deux listes, qui se ferme par le bouton, le fond ou Échap", async () => { // Panneau
+    await afficherSms(zone, { base, sms: faux() }); // Écran
+    toucher("Synchroniser maintenant"); // Importe
+    await vi.waitFor(() => expect(zone.querySelector(".cloche-sms .cloche-badge").textContent).toBe("5")); // Importé
+    const panneau = zone.querySelector(".panneau-alertes"); // Panneau
+    expect(panneau.hidden).toBe(true); // Fermé au départ
+    zone.querySelector(".cloche-sms").click(); // Ouvre
+    await vi.waitFor(() => expect(panneau.hidden).toBe(false)); // Ouvert
+    expect(panneau.textContent).toContain("À classer (4)"); // Liste à classer dans le panneau
+    expect(panneau.textContent).toContain("SMS non compris (1)"); // SMS non compris dans le panneau
+    panneau.querySelector(".panneau-alertes-fermer").click(); // Bouton Fermer
+    expect(panneau.hidden).toBe(true); // Fermé
+    zone.querySelector(".cloche-sms").click(); // Rouvre
+    await vi.waitFor(() => expect(panneau.hidden).toBe(false)); // Ouvert
+    zone.querySelector(".voile-alertes").click(); // Fond
+    expect(panneau.hidden).toBe(true); // Fermé
+    zone.querySelector(".cloche-sms").click(); // Rouvre
+    await vi.waitFor(() => expect(panneau.hidden).toBe(false)); // Ouvert
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); // Échap
+    expect(panneau.hidden).toBe(true); // Fermé
+  }); // Fin du cas
+
+  it("la pastille baisse quand on ignore le SMS non compris", async () => { // Mise à jour
+    await afficherSms(zone, { base, sms: faux() }); // Écran
+    toucher("Synchroniser maintenant"); // Importe
+    await vi.waitFor(() => expect(zone.querySelector(".cloche-sms .cloche-badge").textContent).toBe("5")); // Importé
+    toucher("Ignorer ce SMS"); // Ignore
+    await vi.waitFor(() => expect(zone.querySelector(".cloche-sms .cloche-badge").textContent).toBe("4")); // Un de moins
+  }); // Fin du cas
+}); // Fin du groupe
+
 describe("synchronisation à l'ouverture", () => { // Groupe
   it("ne fait rien tant que la permission n'est pas accordée", async () => { // Pas de demande surprise
     const sms = faux(false); // Permission non accordée

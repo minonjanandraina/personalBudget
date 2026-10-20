@@ -127,7 +127,7 @@ Demande du propriétaire (conservée) :
   2. faire une opération : clic sur l'opération → saisie du numéro de téléphone → validation par PIN (PIN de l'application) → envoi.
 
 Décisions (chat) :
-- **PIN** : le PIN de **verrouillage de l'application** autorise l'envoi (le verrouillage doit être activé, sinon l'envoi est refusé avec un lien d'activation) ; le **PIN Orange Money** (enregistré chiffré, sprint 10) remplace `{pin}` dans le code **côté Android** : il ne passe jamais par JavaScript.
+- **PIN** : ~~le PIN de verrouillage de l'application autorise l'envoi~~ **supprimé ensuite (demandé dans le chat) : plus aucun PIN de l'application ; le lancement se fait en étapes, une information à la fois** ; le **PIN Orange Money** (enregistré chiffré, sprint 10) remplace `{pin}` dans le code **côté Android** : il ne passe jamais par JavaScript.
 - **Montant** : variables dans le code — `{numero}`, `{montant}`, `{pin}`, ex. `#144*8*8*{numero}*{montant}*{pin}#`. Une sortie doit contenir `{montant}` (il sert à débiter le budget).
 - **Enregistrement** : à l'envoi d'une sortie, rien n'est écrit dans le budget ; l'envoi est « en attente ». Quand le SMS de confirmation est importé (même montant, frais exclus ou compris, reçu moins de 24 h après l'envoi), la dépense est **classée automatiquement** dans le budget de l'opération (mêmes contrôles qu'une dépense manuelle ; si refusé, elle reste « à classer » et l'échec est expliqué). Sans SMS sous 24 h : abandonnée ; annulation manuelle possible.
 - **Entrée** : le code est seulement envoyé (le solde OM se met à jour par SMS ou consultation).
@@ -189,3 +189,10 @@ Objectif général (demande du propriétaire) : adapter l'application à **tout 
 - Tests Vitest : chaque variable, gabarits invalides, modèles qui se chevauchent (ordre/priorité), idempotence de l'import, anciens SMS Orange Money toujours reconnus (non-régression).
 
 **Livrable** : l'utilisateur adapte l'application aux SMS de son opérateur sans toucher au code.
+
+## Sprint 18 — Tableau de bord (graphiques des indicateurs) ✅ TERMINÉ (rendu à vérifier sur le téléphone)
+Demande du propriétaire : un tableau de bord avec graphiques des indicateurs (état actuel et historique), dans un **onglet de la barre du bas**. Liste validée dans le chat :
+- **État actuel** : (1) situation de la période (solde Mobile Money disponible, réservé, libre ; alloué, dépensé, restant ; % consommé, jours restants, dépense par jour, projection de fin de période) ; (2) santé des budgets (barre par budget, couleur selon seuil d'alerte et plafond) ; (3) répartition des dépenses (anneau par budget ou par type) ; (4) à traiter (dépenses SMS non classées, SMS non compris, alertes).
+- **Historique** (3, 6 ou 12 périodes, **au choix dans le tableau de bord**) : (5) évolution du solde Mobile Money ; (6) dépenses par période, détail par type ; (7) alloué contre dépensé par budget et taux moyen de consommation ; (8) reliquats reportés ; (9) rythme de la période (dépenses cumulées jour par jour contre la droite « budget idéal », période au choix) ; (10) les 10 plus grosses dépenses (période au choix).
+- Décidés : frais Mobile Money **non** séparés du montant (rien de plus à enregistrer) ; graphiques en **SVG dessiné par l'application** (aucune bibliothèque, hors ligne, thème clair/sombre), chacun avec un texte alternatif et un tableau de valeurs ; calculs dans `src/core/tableau-de-bord.js` (testables sous Windows), dessin dans `src/ui/graphiques.js` et `src/ui/ecrans/tableau-de-bord.js`.
+- Définitions : capacité d'une période et d'un budget = allocations normales + transferts entrants − transferts sortants + reports entrants ; reliquat = capacité − dépensé ; taux de consommation = dépensé ÷ capacité.

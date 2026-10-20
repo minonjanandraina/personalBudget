@@ -1,5 +1,6 @@
 // Écrans des SMS Mobile Money : synchronisation, dépenses à classer dans un budget, SMS non compris.
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
+import { icone } from "../icones.js"; // Icônes
 import { enteteEcran, carte, alerte, boutonPrincipal, boutonLien, champ, choix } from "../composants.js"; // Composants
 import { afficherToast } from "../messages.js"; // Notifications
 import { soumettre } from "../formulaire.js"; // Enregistrement de formulaire
@@ -7,7 +8,7 @@ import { formaterMontant } from "../../core/format.js"; // Affichage des montant
 import { afficherDateHeure } from "../../core/dates.js"; // Affichage des dates
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
 import { creerModeleDepuisSms } from "./modeles-sms.js"; // Création d'un modèle à partir d'un SMS non compris
-import { synchroniserSms, listerNonClassees, listerSmsIllisibles, ignorerSmsIllisible, lireExpediteur, modifierExpediteur, classerTransaction } from "../../core/import-sms.js"; // Logique des SMS
+import { synchroniserSms, listerNonClassees, listerSmsIllisibles, ignorerSmsIllisible, compterNonClassees, compterSmsIllisibles, lireExpediteur, modifierExpediteur, classerTransaction } from "../../core/import-sms.js"; // Logique des SMS
 import { resumeBudgets } from "../../core/allocations.js"; // Situation des budgets
 import * as smsPlateforme from "../../platform/sms.js"; // Lecture des SMS (téléphone ou simulation)
 
@@ -73,7 +74,33 @@ async function dessinerIllisibles(conteneur, base, recharger) { // Reçoit la zo
 export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reçoit la zone, la base et l'accès aux SMS
   const zoneAClasser = h("div", {}); // Zone de la liste à classer
   const zoneIllisibles = h("div", {}); // Zone des SMS non compris
-  const recharger = async () => { await dessinerAClasser(zoneAClasser, base); await dessinerIllisibles(zoneIllisibles, base, recharger); }; // Redessine les deux listes
+  // --- Icône « messages à traiter » : regroupe les dépenses à classer et les SMS non compris (même principe que la cloche d'alertes) ---
+  const badge = h("span", { class: "cloche-badge", hidden: true }); // Pastille avec le nombre de SMS à traiter
+  const icone_sms = h("button", { class: "cloche cloche-sms", type: "button", "aria-label": "SMS à traiter", "aria-expanded": "false", "aria-haspopup": "dialog" }, icone("message", 24), badge); // Bouton rond à gauche de la cloche
+  const panneau = h("section", { class: "panneau-alertes", role: "dialog", "aria-label": "SMS à traiter", hidden: true }); // Panneau des SMS à traiter
+  const voile = h("div", { class: "voile-alertes", hidden: true }); // Fond qui se ferme au toucher
+  const resume = h("p", { class: "ligne-detail" }); // Phrase de résumé sur l'écran
+  const fermerPanneau = () => { panneau.hidden = true; voile.hidden = true; icone_sms.setAttribute("aria-expanded", "false"); }; // Ferme le panneau
+  const majPastille = async () => { // Met à jour la pastille et la phrase de résumé
+    const aClasser = await compterNonClassees(base); // Dépenses à classer
+    const illisibles = await compterSmsIllisibles(base); // SMS non compris
+    badge.textContent = String(aClasser + illisibles); // Nombre total
+    badge.hidden = aClasser + illisibles === 0; // Caché quand tout est traité
+    badge.classList.toggle("cloche-badge-danger", illisibles > 0); // Rouge s'il y a un SMS non compris
+    const parties = [aClasser > 0 ? `${aClasser} dépense${aClasser > 1 ? "s" : ""} à classer` : null, illisibles > 0 ? `${illisibles} SMS non compris` : null].filter(Boolean); // Parties non nulles
+    resume.textContent = parties.length === 0 ? "Rien à traiter : toutes les opérations sont classées." : `${parties.join(", ")} — touchez l'icône enveloppe en haut à droite.`; // Résumé
+    icone_sms.setAttribute("aria-label", aClasser + illisibles > 0 ? `SMS à traiter, ${aClasser + illisibles}` : "SMS à traiter, aucun"); // Annonce le nombre
+  }; // Fin de majPastille
+  const recharger = async () => { await dessinerAClasser(zoneAClasser, base); await dessinerIllisibles(zoneIllisibles, base, recharger); await majPastille(); }; // Redessine les deux listes et la pastille
+  icone_sms.addEventListener("click", async () => { // Touche de l'icône
+    if (!panneau.hidden) { fermerPanneau(); return; } // Déjà ouvert : referme
+    await recharger(); // Listes à jour
+    panneau.hidden = false; voile.hidden = false; icone_sms.setAttribute("aria-expanded", "true"); // Affiche le panneau
+  }); // Fin du clic
+  voile.addEventListener("click", fermerPanneau); // Toucher à côté du panneau
+  panneau.addEventListener("click", (e) => { if (e.target.closest("a")) fermerPanneau(); }); // Un lien (classer) ferme le panneau puis ouvre l'écran voulu
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panneau.hidden) fermerPanneau(); }); // Touche Échap
+  window.addEventListener("hashchange", fermerPanneau); // Tout changement d'écran ferme le panneau
   const champExpediteur = champ({ id: "sms-expediteur", libelle: "Nom de l'expéditeur des SMS", valeur: await lireExpediteur(base), aide: "Tel qu'il s'affiche dans vos messages (ex. OrangeMoney). À corriger si aucun SMS n'est trouvé." }); // Réglage de l'expéditeur
   const synchroniser = async () => { // Bouton « Synchroniser »
     try { // Tente la synchronisation
@@ -89,10 +116,12 @@ export async function afficherSms(zone, { base, sms = smsPlateforme }) { // Reç
     enteteEcran("SMS Mobile Money", "Importer vos opérations"), // En-tête
     carte(h("p", { class: "ligne-detail" }, "Les SMS ne disent pas à quel budget appartient une dépense : chaque opération importée est à classer vous-même."), boutonPrincipal("Synchroniser maintenant", synchroniser)), // Carte de synchronisation
     h("div", { class: "espace-haut" }, boutonLien("Modèles de SMS (reconnaissance)", "/sms/modeles", "reglages")), // Réglage des modèles de SMS
-    zoneAClasser, // Liste à classer
-    zoneIllisibles, // SMS non compris
+    carte(resume), // Résumé de ce qui reste à traiter
+    icone_sms, voile, panneau, // Icône des SMS à traiter et son panneau (liste à classer + SMS non compris)
     carte(champExpediteur.element, boutonPrincipal("Enregistrer l'expéditeur", enregistrerExpediteur)), // Réglage de l'expéditeur
   ); // Fin de l'assemblage
+  panneau.append(h("div", { class: "panneau-alertes-tete" }, h("h2", { class: "panneau-alertes-titre" }, "SMS à traiter"), h("button", { class: "panneau-alertes-fermer", type: "button", onclick: fermerPanneau }, "Fermer")), zoneAClasser, zoneIllisibles); // Contenu du panneau
+  zone.querySelector(".entete")?.style.setProperty("padding-right", "116px"); // Le titre ne passe pas sous les deux icônes
   await recharger(); // Affiche les listes
 } // Fin de afficherSms
 

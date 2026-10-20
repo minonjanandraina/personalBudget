@@ -126,3 +126,34 @@ export async function transfererEntreBudgets(base, { sourceId, destinationId, mo
     return { soldeSource: soldeSource - montant, soldeDestination, depassePlafond: soldeDestination > destination.montantMax }; // Résultat (plafond dépassé signalé)
   }); // Fin de la transaction
 } // Fin de transfererEntreBudgets
+
+// Annule (supprime) un transfert entre budgets : les DEUX lignes liées disparaissent, comme si le transfert n'avait jamais eu lieu.
+// « transactionId » = l'une ou l'autre des deux lignes. Permis seulement si le budget qui a reçu l'argent l'a encore (son solde de la période ≥ montant) :
+// sinon l'argent a déjà été dépensé ou transféré plus loin (ou reporté), et l'annulation est refusée avec le chiffre manquant.
+// Renvoie { montant, soldeSource, soldeDestination, depassePlafondSource } (soldes après annulation).
+export async function annulerTransfert(base, transactionId) { // Reçoit la base et l'identifiant d'une des deux lignes
+  return base.transaction(async () => { // Tout ou rien
+    const [ligne] = await base.requeter("SELECT id, trx_id, nature FROM transactions WHERE id = ?", [transactionId]); // Ligne choisie
+    if (!ligne) throw new ErreurMetier("Ce transfert n'existe plus."); // Introuvable
+    if (ligne.nature !== "transfert") throw new ErreurMetier("Seul un transfert entre budgets peut être annulé ici (un report ne s'annule pas)."); // Refuse les reports et les autres opérations
+    const racine = String(ligne.trx_id).replace(/-[SE]$/, ""); // Identifiant commun aux deux lignes
+    const lignes = await base.requeter("SELECT id, trx_id, allocation_id, montant, debit_credit FROM transactions WHERE nature = 'transfert' AND trx_id IN (?, ?)", [`${racine}-S`, `${racine}-E`]); // Les deux lignes liées
+    const sortie = lignes.find((l) => Number(l.debit_credit) === -1); // Ligne côté budget source
+    const entree = lignes.find((l) => Number(l.debit_credit) === 1); // Ligne côté budget destination
+    if (!sortie || !entree) throw new ErreurMetier("Ce transfert est incomplet : annulation impossible."); // Paire cassée
+    const montant = Number(entree.montant); // Montant transféré
+    const nomBudget = async (allocationId) => (await base.requeter("SELECT b.name AS nom, b.montant_max AS maximum FROM allocation_budget a JOIN budget b ON b.id = a.budget_id WHERE a.id = ?", [allocationId]))[0]; // Nom et plafond du budget d'une allocation
+    const destination = await nomBudget(Number(entree.allocation_id)); // Budget qui a reçu l'argent
+    const source = await nomBudget(Number(sortie.allocation_id)); // Budget qui l'a donné
+    const soldeDestination = await soldeAllocation(base, Number(entree.allocation_id)); // Solde actuel de la destination (sur la période du transfert)
+    if (soldeDestination < montant) throw new ErreurMetier(`Annulation impossible : « ${destination.nom} » n'a plus que ${formaterMontant(soldeDestination)} sur cette période (il faut ${formaterMontant(montant)} pour rendre l'argent à « ${source.nom} »). Une partie a déjà été dépensée ou transférée.`); // Le solde ne permet pas
+    await base.executer("DELETE FROM transactions WHERE id IN (?, ?)", [Number(sortie.id), Number(entree.id)]); // Supprime les deux lignes
+    await base.executer("UPDATE allocation_budget SET montant_alloue = montant_alloue - ? WHERE id = ?", [montant, Number(entree.allocation_id)]); // Retire le montant du total alloué de la destination
+    for (const allocationId of new Set([Number(sortie.allocation_id), Number(entree.allocation_id)])) { // Pour chaque allocation touchée
+      const [{ n }] = await base.requeter("SELECT COUNT(*) AS n FROM transactions WHERE allocation_id = ?", [allocationId]); // Reste-t-il des opérations ?
+      if (Number(n) === 0) await base.executer("DELETE FROM allocation_budget WHERE id = ?", [allocationId]); // Une allocation vide disparaît (le budget redevient « non alloué »)
+    } // Fin de la boucle
+    const soldeSource = (await base.requeter("SELECT id FROM allocation_budget WHERE id = ?", [Number(sortie.allocation_id)])).length > 0 ? await soldeAllocation(base, Number(sortie.allocation_id)) : 0; // Solde de la source après remboursement
+    return { montant, soldeSource, soldeDestination: soldeDestination - montant, depassePlafondSource: soldeSource > source.maximum }; // Résultat (plafond de la source dépassé : signalé, jamais tronqué)
+  }); // Fin de la transaction
+} // Fin de annulerTransfert

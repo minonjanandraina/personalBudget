@@ -2,11 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest"; // Outils de test
 import { creerBaseDeTest, creerBudgetDeTest, ajouterSoldeMMDeTest } from "./db/aide-tests.js"; // Base neuve, budget et solde Mobile Money
 import { allouerBudget } from "./allocations.js"; // Allocation
 import { supprimerBudget } from "./budgets.js"; // Suppression d'un budget
-import { activerVerrou } from "./verrou.js"; // Verrouillage par PIN
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs
 import { importerSms, listerNonClassees } from "./import-sms.js"; // Import des SMS
 import { SMS_EXEMPLES } from "../platform/sms-exemples.js"; // SMS réels
-import { validerOperation, variablesDuCode, resumeSaisies, creerOperation, modifierOperation, supprimerOperation, listerOperations, preparerEnvoi, lancerOperation } from "./operations-ussd.js"; // Fonctions à tester
+import { validerOperation, variablesDuCode, resumeSaisies, creerOperation, modifierOperation, supprimerOperation, listerOperations, preparerEnvoi, lancerOperation , erreurNumero, erreurPinMm, controlerSortie } from "./operations-ussd.js"; // Fonctions à tester
 import { rapprocherEnAttente, listerEnAttente, annulerEnAttente } from "./ussd-en-attente.js"; // Envois en attente
 
 const APRES = new Date("2026-10-05T10:00:00.000Z"); // Heure des SMS d'exemple
@@ -111,25 +110,28 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
   let id; // Modèle de sortie
   beforeEach(async () => { id = await creerOperation(base, modele()); }); // Modèle
 
-  it("exige que le verrouillage par PIN soit activé", async () => { // Autorisation
-    await expect(lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES)).rejects.toThrow("verrouillage"); // Refusé
+  it("n'exige aucun PIN de l'application ni verrouillage : seul le PIN Mobile Money est demandé", async () => { // Pas de PIN de l'application
+    const ussd = faux(); // Faux téléphone
+    await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinMm: "5678" }, APRES); // Envoi sans verrou
+    expect(ussd.envoyerCode).toHaveBeenCalledTimes(1); // Envoyé
   }); // Fin du cas
-  it("refuse un mauvais PIN de l'application sans rien envoyer", async () => { // PIN
-    await activerVerrou(base, "1234"); // Verrou actif
-    const ussd = faux(); // Faux
-    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "0000" }, APRES)).rejects.toThrow(ErreurValidation); // Mauvais PIN
-    expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
+  it("contrôle étape par étape : numéro, PIN Mobile Money, puis budget (solde)", async () => { // Contrôles utilisés par l'écran en étapes
+    expect(erreurNumero("0327573815")).toBeNull(); // Valide
+    expect(erreurNumero("03 27 57 38 15")).toBeNull(); // Espaces tolérés
+    expect(erreurNumero("12")).toMatch(/numéro/); // Trop court
+    expect(erreurPinMm("5678")).toBeNull(); // Valide
+    expect(erreurPinMm("12")).toMatch(/PIN/); // Trop court
+    await expect(controlerSortie(base, id, 5000, APRES)).resolves.toBeUndefined(); // Solde suffisant
+    await expect(controlerSortie(base, id, 99999999, APRES)).rejects.toThrow(ErreurValidation); // Solde insuffisant
   }); // Fin du cas
   it("refuse si le PIN Mobile Money saisi est absent ou mal formé", async () => { // PIN Mobile Money
-    await activerVerrou(base, "1234"); // Verrou actif
     const ussd = faux(); // Faux téléphone
-    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "12" }, APRES)).rejects.toThrow(ErreurValidation); // PIN Mobile Money mal formé : refusé sous le champ
+    await expect(lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinMm: "12" }, APRES)).rejects.toThrow(ErreurValidation); // PIN Mobile Money mal formé : refusé sous le champ
     expect(ussd.envoyerCode).not.toHaveBeenCalled(); // Rien envoyé
   }); // Fin du cas
   it("envoie le code et met la sortie en attente de son SMS, sans toucher au budget", async () => { // Cas nominal
-    await activerVerrou(base, "1234"); // Verrou actif
     const ussd = faux(); // Faux
-    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES); // Lance
+    const r = await lancerOperation(base, ussd, id, { numero: "0327573815", montant: 5000, pinMm: "5678" }, APRES); // Lance
     expect(ussd.envoyerCode).toHaveBeenCalledWith("#144*8*8*0327573815*5000*5678#"); // Code envoyé avec le PIN Mobile Money saisi (jamais enregistré)
     expect(r).toMatchObject({ texte: "Operation en cours de traitement.", enAttente: true }); // Résultat
     expect(await listerEnAttente(base)).toMatchObject([{ operationNom: "Retrait Mobile Money", montant: 5000, budgetId, statut: "en_attente" }]); // En attente
@@ -137,24 +139,21 @@ describe("lancement d'une opération", () => { // Envoi réel (faux téléphone)
     expect(Number(n)).toBe(0); // Aucune dépense tant que le SMS n'est pas là
   }); // Fin du cas
   it("une opération d'entrée n'attend rien", async () => { // Entrée
-    await activerVerrou(base, "1234"); // Verrou actif
     const entree = await creerOperation(base, { nom: "Dépôt", type: "entree", code: "#144*2*{pin}#", budgetId: null }); // Entrée
-    const r = await lancerOperation(base, faux(), entree, { pinApp: "1234", pinMm: "5678" }, APRES); // Lance
+    const r = await lancerOperation(base, faux(), entree, { pinMm: "5678" }, APRES); // Lance
     expect(r.enAttente).toBe(false); // Rien en attente
     expect(await listerEnAttente(base)).toEqual([]); // Aucune ligne
   }); // Fin du cas
   it("supprimer un modèle est refusé tant qu'un envoi attend son SMS", async () => { // Intégrité
-    await activerVerrou(base, "1234"); // Verrou actif
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinApp: "1234", pinMm: "5678" }, APRES); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant: 5000, pinMm: "5678" }, APRES); // Envoi
     await expect(supprimerOperation(base, id)).rejects.toThrow("attend encore"); // Refusé
   }); // Fin du cas
 }); // Fin du groupe
 
 describe("rapprochement avec les SMS", () => { // Classement automatique
   const envoyer = async (montant, quand = new Date(APRES.getTime() - 30000)) => { // Envoie une opération 30 s avant les SMS
-    await activerVerrou(base, "1234"); // Verrou actif
     const id = await creerOperation(base, modele()); // Modèle
-    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinApp: "1234", pinMm: "5678" }, quand); // Envoi
+    await lancerOperation(base, faux(), id, { numero: "0327573815", montant, pinMm: "5678" }, quand); // Envoi
   }; // Fin de envoyer
 
   beforeEach(async () => { await base.executer("INSERT INTO solde_om (datetime, balance) VALUES ('2026-10-05T06:00:00.000Z', 1000000)"); }); // Solde initial avant les SMS
@@ -195,5 +194,19 @@ describe("rapprochement avec les SMS", () => { // Classement automatique
     expect(bilan.expirees).toBe(1); // Abandonnée
     expect((await listerEnAttente(base))[0].statut).toBe("expiree"); // État
     await expect(annulerEnAttente(base, (await listerEnAttente(base))[0].id)).rejects.toThrow(ErreurMetier); // Plus rien à annuler
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("icône et couleur d'une opération", () => { // Choix visuels
+  it("a une icône et une couleur par défaut, modifiables", async () => { // Par défaut puis choix
+    const id = await creerOperation(base, modele()); // Modèle sans choix
+    expect((await listerOperations(base))[0]).toMatchObject({ icone: "telephone", couleur: "vert" }); // Valeurs par défaut
+    await modifierOperation(base, id, { ...modele(), icone: "cadeau", couleur: "bleu" }); // Modification
+    expect((await listerOperations(base))[0]).toMatchObject({ icone: "cadeau", couleur: "bleu" }); // Valeurs choisies
+  }); // Fin du cas
+  it("refuse une icône ou une couleur inconnue", async () => { // Validation
+    await expect(creerOperation(base, modele({ icone: "inconnue" }))).rejects.toThrow(ErreurValidation); // Icône inconnue
+    await expect(creerOperation(base, modele({ couleur: "rose" }))).rejects.toThrow(ErreurValidation); // Couleur inconnue
+    expect(validerOperation({ nom: "x", type: "entree", code: "#1*{pin}#", icone: "zzz", couleur: "rose" })).toMatchObject({ icone: expect.any(String), couleur: expect.any(String) }); // Deux erreurs
   }); // Fin du cas
 }); // Fin du groupe

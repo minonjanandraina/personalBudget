@@ -1,11 +1,12 @@
 // Écrans des opérations : liste filtrable des transactions et saisie d'une dépense manuelle.
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
-import { enteteEcran, carte, alerte, boutonLien, boutonIcone, boutonPrincipal, champ, choix, interrupteur } from "../composants.js"; // Composants
+import { enteteEcran, carte, alerte, boutonLien, boutonIcone, boutonPrincipal, champ, choix, interrupteur, tuilePlate } from "../composants.js"; // Composants
 import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
 import { soumettre, lireMontant, effacerErreurs } from "../formulaire.js"; // Enregistrement de formulaire
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
 import { datetimeLocalVersIso, isoVersDatetimeLocal, afficherDateHeure } from "../../core/dates.js"; // Conversions de dates
 import { enregistrerDepense, resumeBudgets, modifierOperation, supprimerOperation, lireOperationDetaillee } from "../../core/allocations.js"; // Logique métier
+import { annulerTransfert } from "../../core/reallocation.js"; // Annulation d'un transfert entre budgets
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur de règle de gestion
 import { listerTransactions } from "../../core/transactions.js"; // Liste des transactions
 import { listerBudgets } from "../../core/budgets.js"; // Liste des budgets
@@ -47,6 +48,19 @@ async function dessinerListe(conteneur, base, { budgetId, sens, nature }, rechar
           } // Fin du try/catch
         } }), // Fin du bouton supprimer
       ) : null, // Fin des boutons
+      t.nature === "transfert" ? h("div", { class: "actions-ligne" }, // Un transfert peut être annulé (les deux lignes disparaissent) si le solde le permet
+        boutonIcone({ nomIcone: "supprimer", libelle: "Annuler ce transfert", danger: true, auClic: async () => { // Bouton annuler
+          const ok = await confirmer({ titre: "Annuler ce transfert ?", message: `Le transfert de ${formaterMontant(t.montant)} sera supprimé (les deux lignes) et l'argent retournera au budget d'origine, si le solde du budget qui l'a reçu le permet.`, libelleOk: "Annuler le transfert", danger: true }); // Demande confirmation
+          if (!ok) return; // Abandon
+          try { // Tente l'annulation
+            const r = await annulerTransfert(base, t.id); // Annule (refusé si l'argent n'est plus là)
+            afficherToast(r.depassePlafondSource ? "Transfert annulé. Attention : le budget d'origine dépasse maintenant son plafond." : "Transfert annulé.", r.depassePlafondSource ? "info" : "succes"); // Confirme
+            await recharger(); // Redessine la liste
+          } catch (erreur) { // Si c'est refusé
+            afficherToast(erreur instanceof ErreurMetier ? erreur.message : `Erreur : ${erreur.message}`, "erreur"); // Explique pourquoi
+          } // Fin du try/catch
+        } }), // Fin du bouton
+      ) : null, // Fin des actions de transfert
       t.insertType === "auto" && t.debitCredit === -1 && t.nature === "normale" ? h("div", { class: "actions-ligne" }, boutonLien(t.allocationId === null ? "Classer dans un budget" : "Changer de budget", `/sms/classer/${t.id}`, "budgets")) : null, // Une dépense issue d'un SMS se classe (ou se reclasse) dans un budget
     )); // Fin de la carte
   } // Fin de la boucle
@@ -67,9 +81,11 @@ export async function afficherOperations(zone, { base }) { // Reçoit la zone et
   filtreSens.element.querySelector("select").addEventListener("change", recharger); // Recharge quand le type change
   zone.append( // Assemble l'écran
     enteteEcran("Opérations", "Dépenses et allocations"), // En-tête
-    boutonLien("Nouvelle dépense", "/operations/depense", "ajouter"), // Bouton de saisie d'une dépense
-    h("div", { class: "espace-haut" }, boutonLien("Allouer un budget", "/allocations/nouveau", "allocations")), // Raccourci d'allocation
-    h("div", { class: "espace-haut" }, boutonLien("Transférer entre budgets", "/allocations/transfert", "transactions")), // Raccourci de transfert
+    h("div", { class: "mosaique espace-haut" }, // Raccourcis en mosaïque : icônes sans contour ni couleur
+      tuilePlate({ libelle: "Nouvelle dépense", nomIcone: "ajouter", route: "/operations/depense" }), // Bouton de saisie d'une dépense
+      tuilePlate({ libelle: "Allouer un budget", nomIcone: "allocations", route: "/allocations/nouveau" }), // Raccourci d'allocation
+      tuilePlate({ libelle: "Transférer entre budgets", nomIcone: "transactions", route: "/allocations/transfert" }), // Raccourci de transfert
+    ), // Fin de la mosaïque
     h("div", { class: "filtres espace-haut" }, filtreBudget.element, filtreSens.element), // Filtres
     liste, // Liste
   ); // Fin de l'assemblage

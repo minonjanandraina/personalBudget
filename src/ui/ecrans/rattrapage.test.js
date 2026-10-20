@@ -8,6 +8,7 @@ import { allouerBudget, enregistrerDepense } from "../../core/allocations.js"; /
 import { listerTransactions } from "../../core/transactions.js"; // Transactions
 import { situationFinanciere } from "../../core/soldes.js"; // Situation financière
 import { afficherAccueil } from "./accueil.js"; // Accueil
+import { texteAlertes } from "../aide-alertes-tests.js"; // Contenu de la cloche d'alertes
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./operations.js"; // Opérations
 
 let base; // Base utilisée par les cas de test
@@ -38,7 +39,7 @@ beforeEach(async () => { // Avant chaque cas
 describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de bout en bout
   it("l'accueil avertit de l'écart, et le formulaire de dépense explique quoi faire", async () => { // Écart visible
     await monter(afficherAccueil); // Accueil
-    expect(zone.textContent).toContain("n'a peut-être pas été enregistrée"); // Avertissement de l'accueil
+    expect(await texteAlertes(base)).toContain("n'a peut-être pas été enregistrée"); // Avertissement de l'accueil
     await monter(afficherFormulaireDepense); // Formulaire de dépense
     expect(zone.textContent).toContain("cochez « Déjà comprise dans mon dernier solde Mobile Money »"); // Aide dans le formulaire
     expect(zone.querySelector("#dep-comprise")).not.toBeNull(); // Case présente
@@ -51,7 +52,7 @@ describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de
     toucher("Enregistrer la dépense"); // Enregistre
     await vi.waitFor(async () => expect(await listerTransactions(base, { sens: -1 })).toHaveLength(1)); // Dépense créée
     await monter(afficherAccueil); // Accueil
-    expect(zone.textContent).toContain("n'a peut-être pas été enregistrée"); // Avertissement toujours là
+    expect(await texteAlertes(base)).toContain("n'a peut-être pas été enregistrée"); // Avertissement toujours là
   }); // Fin du cas
 
   it("avec la case cochée, l'avertissement disparaît et le libre redevient positif", async () => { // Solution
@@ -63,9 +64,9 @@ describe("rattrapage d'une dépense oubliée (écrans)", () => { // Scénario de
     await vi.waitFor(async () => expect(await listerTransactions(base, { sens: -1 })).toHaveLength(1)); // Dépense créée
     expect((await situationFinanciere(base)).libre).toBe(50000); // 90 000 - 40 000
     await monter(afficherAccueil); // Accueil
-    expect(zone.textContent).not.toContain("n'a peut-être pas été enregistrée"); // Plus d'avertissement
     expect(zone.querySelector(".reserve-libre").textContent).toContain("50 000 Ar"); // Libre affiché
     expect(zone.querySelector(".solde-montant").textContent).toBe("90 000 Ar"); // Solde disponible inchangé
+    expect(await texteAlertes(base)).not.toContain("n'a peut-être pas été enregistrée"); // Plus d'avertissement
   }); // Fin du cas
 
   it("n'affiche pas la case quand aucun solde Mobile Money n'existe", async () => { // Sans solde

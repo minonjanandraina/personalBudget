@@ -166,4 +166,11 @@ export const MIGRATIONS = [ // Tableau des migrations, dans l'ordre
       ...MODELES_PAR_DEFAUT.map((m, i) => `INSERT INTO modele_sms (nom, sens, gabarit, note, position) VALUES (${sqlTexte(m.nom)}, ${sqlTexte(m.sens)}, ${sqlTexte(m.gabarit)}, ${m.note === null ? "NULL" : sqlTexte(m.note)}, ${i + 1})`), // Modèles livrés (formats Orange Money actuels)
     ], // Fin des instructions de la migration 7
   }, // Fin de la migration 7
+  { // Début de la migration 8 : icône et couleur choisies pour chaque opération USSD
+    version: 8, // Numéro de version de la base après cette migration
+    instructions: [ // Liste des instructions SQL
+      `ALTER TABLE operation_ussd ADD COLUMN icone TEXT NOT NULL DEFAULT 'telephone' CHECK (length(icone) BETWEEN 1 AND 30)`, // Nom de l'icône (la liste des icônes proposées est dans le code)
+      `ALTER TABLE operation_ussd ADD COLUMN couleur TEXT NOT NULL DEFAULT 'vert' CHECK (couleur IN ('bleu', 'vert', 'orange', 'violet', 'rouge', 'gris'))`, // Couleur de la pastille
+    ], // Fin des instructions de la migration 8
+  }, // Fin de la migration 8
 ]; // Fin de la liste des migrations

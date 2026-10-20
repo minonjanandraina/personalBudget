@@ -5,7 +5,7 @@ import { creerBaseDeTest, ajouterSoldeMMDeTest } from "../../core/db/aide-tests.
 import { creerTypeBudget } from "../../core/types-budget.js"; // Types
 import { creerBudget } from "../../core/budgets.js"; // Budgets
 import { allouerBudget, enregistrerDepense, resumeBudgets } from "../../core/allocations.js"; // Allocation et dépense
-import { lancerAllocationPeriode } from "../../core/reallocation.js"; // Report
+import { lancerAllocationPeriode, transfererEntreBudgets } from "../../core/reallocation.js"; // Report et transfert
 import { listerTransactions } from "../../core/transactions.js"; // Transactions
 import { periodePour } from "../../core/periodes.js"; // Période en cours
 import { afficherAllocations, afficherFormulaireTransfert, decrireResultat } from "./allocations.js"; // Écrans à tester
@@ -110,6 +110,45 @@ describe("lancement de la période (écran)", () => { // Report du reliquat
     zone.replaceChildren(); // Vide la zone
     await monter(afficherFormulaireTransfert, { sourceId: String(id) }); // Formulaire avec source présélectionnée
     expect(zone.querySelector("#tr-montant").value).toBe("20000"); // Montant proposé = excédent
+  }); // Fin du cas
+}); // Fin du groupe
+
+describe("annulation d'un transfert (écran des opérations)", () => { // Bouton « Annuler ce transfert »
+  const preparer = async () => { // Deux budgets et un transfert de 30 000
+    const a = await budget({ name: "A" }); // Budget A
+    const b = await budget({ name: "B" }); // Budget B
+    await allouerBudget(base, { budgetId: a, montant: 100000 }); // A : 100 000
+    await allouerBudget(base, { budgetId: b, montant: 20000 }); // B : 20 000
+    await transfererEntreBudgets(base, { sourceId: a, destinationId: b, montant: 30000 }); // Transfert
+    return { a, b }; // Identifiants
+  }; // Fin de preparer
+  const boutonsAnnuler = () => [...zone.querySelectorAll("button[aria-label='Annuler ce transfert']")]; // Boutons d'annulation affichés
+  const confirmerFenetre = async () => { await vi.waitFor(() => expect(document.body.textContent).toContain("Annuler ce transfert ?")); [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Annuler le transfert").click(); }; // Confirme dans la fenêtre
+
+  it("propose le bouton sur les deux lignes d'un transfert, pas sur un report", async () => { // Présence
+    await preparer(); // Transfert
+    await monter(afficherOperations); // Liste
+    expect(boutonsAnnuler()).toHaveLength(2); // Une par ligne
+  }); // Fin du cas
+
+  it("annule le transfert après confirmation et rend l'argent", async () => { // Cas nominal
+    const { a, b } = await preparer(); // Transfert
+    await monter(afficherOperations); // Liste
+    boutonsAnnuler()[0].click(); // Demande l'annulation
+    await confirmerFenetre(); // Confirme
+    await vi.waitFor(async () => expect(await listerTransactions(base, { nature: "mouvements" })).toEqual([])); // Lignes supprimées
+    expect((await resumeBudgets(base)).find((r) => r.budget.id === a).allocation.solde).toBe(100000); // A retrouve son solde
+    expect((await resumeBudgets(base)).find((r) => r.budget.id === b).allocation.solde).toBe(20000); // B aussi
+  }); // Fin du cas
+
+  it("explique le refus quand le solde ne permet pas l'annulation", async () => { // Refus
+    const { b } = await preparer(); // Transfert
+    await enregistrerDepense(base, { budgetId: b, montant: 45000, dateOperation: new Date().toISOString() }); // B n'a plus que 5 000
+    await monter(afficherOperations); // Liste
+    boutonsAnnuler()[0].click(); // Demande l'annulation
+    await confirmerFenetre(); // Confirme
+    await vi.waitFor(() => expect(document.querySelector(".toast-erreur").textContent).toContain("Annulation impossible")); // Message clair
+    expect(await listerTransactions(base, { nature: "mouvements" })).toHaveLength(2); // Rien n'a changé
   }); // Fin du cas
 }); // Fin du groupe
 

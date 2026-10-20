@@ -55,3 +55,18 @@ describe("composants", () => { // Groupe de tests
     expect(() => icone("inexistante")).toThrow(); // Nom inconnu : erreur claire
   }); // Fin du cas
 }); // Fin du groupe
+
+describe("icônes des opérations et mosaïque", () => { // Cohérence entre le cœur et l'interface
+  it("toutes les icônes proposées pour une opération existent", async () => { // Catalogue
+    const { ICONES_OPERATION } = await import("../core/operations-ussd.js"); // Icônes proposées
+    for (const i of ICONES_OPERATION) expect(nomsIcones()).toContain(i.valeur); // Chacune est dessinée
+  }); // Fin du cas
+  it("une tuile plate sans couleur n'a ni pastille colorée ni contour, avec couleur elle a sa pastille", async () => { // Tuile plate
+    const { tuilePlate } = await import("./composants.js"); // Composant
+    const simple = tuilePlate({ libelle: "Réglage", nomIcone: "reglages", route: "/x" }); // Sans couleur
+    expect(simple.querySelector(".tuile-plate-icone").className).not.toMatch(/fond-|tuile-plate-couleur/); // Pas de couleur
+    expect(simple.getAttribute("href")).toBe("#/x"); // Lien
+    const coloree = tuilePlate({ libelle: "Retrait", nomIcone: "argent", route: "/y", couleur: "rouge" }); // Avec couleur
+    expect(coloree.querySelector(".tuile-plate-icone").classList.contains("fond-rouge")).toBe(true); // Pastille rouge
+  }); // Fin du cas
+}); // Fin du groupe
