@@ -789,6 +789,24 @@ a.solde {
   border-top: 1px solid var(--trait); /* Fin trait de séparation */
 } /* Fin des règles */
 
+.reserve-detail [hidden] {
+  /* Budgets supplémentaires repliés */
+  display: none; /* Cachés */
+} /* Fin des règles */
+
+.reserve-plus {
+  /* Bouton « Afficher plus / moins » sous la liste des budgets */
+  width: 100%; /* Toute la largeur */
+  min-height: 48px; /* Zone tactile confortable */
+  border: 0; /* Pas de contour */
+  border-top: 1px solid var(--trait); /* Trait de séparation */
+  background: none; /* Pas de fond */
+  color: inherit; /* Couleur du texte courant */
+  font: inherit; /* Police courante */
+  font-weight: 600; /* Texte en gras léger */
+  cursor: pointer; /* Main au survol */
+} /* Fin des règles */
+
 /* ===== Alertes avec action et badge (sprint 7) ===== */
 
 .alerte-corps {
@@ -920,7 +938,7 @@ a.solde {
 
 .entete {
   /* Laisse la place à la cloche à droite des titres */
-  padding-right: 56px; /* Le titre ne passe pas sous la cloche */
+  padding-right: 116px; /* Le titre ne passe pas sous la cloche ni sous l'icône des SMS */
 } /* Fin des règles */
 
 /* Verrouillage par PIN */

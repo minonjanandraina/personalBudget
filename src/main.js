@@ -13,7 +13,7 @@ import { afficherBudgets, afficherFormulaireBudget } from "./ui/ecrans/budgets.j
 import { afficherSoldes, afficherFormulaireSolde } from "./ui/ecrans/solde.js"; // Écrans du solde Mobile Money
 import { afficherAllocations, afficherFormulaireAllocation, afficherFormulaireTransfert } from "./ui/ecrans/allocations.js"; // Écrans des allocations
 import { afficherOperations, afficherFormulaireDepense, afficherFormulaireOperation } from "./ui/ecrans/operations.js"; // Écrans des opérations
-import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage } from "./ui/ecrans/sms.js"; // Écrans des SMS Mobile Money
+import { afficherSms, afficherFormulaireClasser, synchroniserAuDemarrage, construireIconeSms } from "./ui/ecrans/sms.js"; // Écrans des SMS Mobile Money
 import { afficherTableauDeBord } from "./ui/ecrans/tableau-de-bord.js"; // Tableau de bord
 import { afficherModelesSms, afficherFormulaireModeleSms } from "./ui/ecrans/modeles-sms.js"; // Écrans des modèles de SMS
 import { afficherUssd } from "./ui/ecrans/ussd.js"; // Écran de consultation du solde par USSD
@@ -33,13 +33,15 @@ async function demarrer() { // Fonction asynchrone (la base répond avec un peti
     await appliquerMigrations(base); // Applique les migrations en attente
     await installerValeursParDefaut(base); // Première ouverture : types et budgets par défaut (jamais sur une base déjà utilisée)
     if (await verrouActif(base)) await demanderDeverrouillage(base); // Verrouillage par PIN : rien ne s'affiche avant le bon PIN
-    const { contenu, marquerActif, definirAlertes } = construireCoque(racine, undefined, { rafraichirAlertes: () => calculerAlertes(base) }); // Construit la coque (contenu + barre d'onglets + cloche d'alertes)
+    const iconeSms = construireIconeSms(base); // Icône « SMS à traiter », visible sur tous les écrans
+    const { contenu, marquerActif, definirAlertes } = construireCoque(racine, undefined, { rafraichirAlertes: () => calculerAlertes(base), elementsSms: iconeSms.elements }); // Construit la coque (contenu + barre d'onglets + cloche d'alertes + icône des SMS)
     const routeur = creerRouteur({ // Crée le routeur
       conteneur: contenu, // Zone où les écrans s'affichent
       parDefaut: "/", // Écran affiché si l'adresse est inconnue
       auChangement: async (chemin) => { // À chaque changement d'écran
         marquerActif(chemin); // Met à jour l'onglet actif
         try { definirAlertes(await calculerAlertes(base)); } catch { /* la cloche est facultative : une erreur ne doit pas gêner l'affichage */ } // Met à jour la cloche d'alertes (en haut à droite)
+        try { await iconeSms.rafraichir(); } catch { /* l'icône des SMS est facultative : une erreur ne doit pas gêner l'affichage */ } // Met à jour la pastille des SMS à traiter
       }, // Fin du rappel
       routes: { // Liste des écrans
         "/": (zone) => afficherAccueil(zone, { base }), // Accueil

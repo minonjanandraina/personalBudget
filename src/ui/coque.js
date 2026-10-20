@@ -22,7 +22,8 @@ export function ongletActifPour(onglet, chemin) { // Reçoit l'onglet et le chem
 
 // Construit la coque dans la racine et renvoie la zone de contenu, la mise en évidence de l'onglet actif et la mise à jour de la cloche d'alertes.
 // « rafraichirAlertes » (facultatif) : fonction asynchrone qui recalcule les alertes ; elle est appelée à chaque ouverture de la cloche.
-export function construireCoque(racine, onglets = ONGLETS, { rafraichirAlertes = null } = {}) { // Racine, liste d'onglets et option
+// « elementsSms » (facultatif) : éléments de l'icône « SMS à traiter » (bouton, fond, panneau), affichés en permanence à gauche de la cloche.
+export function construireCoque(racine, onglets = ONGLETS, { rafraichirAlertes = null, elementsSms = [] } = {}) { // Racine, liste d'onglets et options
   const contenu = h("main", { id: "contenu", class: "contenu" }); // Zone où les écrans s'affichent
   const liens = onglets.map((onglet) => { // Fabrique un élément par onglet
     const corps = [icone(onglet.nomIcone, 26), h("span", {}, onglet.libelle)]; // Icône + texte
@@ -38,7 +39,7 @@ export function construireCoque(racine, onglets = ONGLETS, { rafraichirAlertes =
   const fermer = h("button", { class: "panneau-alertes-fermer", type: "button" }, "Fermer"); // Bouton de fermeture
   const panneau = h("section", { class: "panneau-alertes", role: "dialog", "aria-label": "Alertes", hidden: true }, h("div", { class: "panneau-alertes-tete" }, h("h2", { class: "panneau-alertes-titre" }, "Alertes"), fermer), liste); // Panneau sous la cloche
   const voile = h("div", { class: "voile-alertes", hidden: true }); // Fond qui se ferme au toucher
-  racine.replaceChildren(contenu, barre, cloche, voile, panneau); // Place la zone de contenu, la barre, la cloche et le panneau dans la page
+  racine.replaceChildren(contenu, barre, cloche, ...elementsSms, voile, panneau); // Place la zone de contenu, la barre, la cloche, l'icône des SMS (si fournie) et le panneau dans la page
 
   const ouvert = () => !panneau.hidden; // Le panneau est-il affiché ?
   const fermerPanneau = () => { panneau.hidden = true; voile.hidden = true; cloche.setAttribute("aria-expanded", "false"); }; // Ferme le panneau

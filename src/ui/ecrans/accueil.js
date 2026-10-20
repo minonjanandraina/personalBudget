@@ -41,12 +41,25 @@ function carteSoldeMM(mm) { // Reçoit le solde Mobile Money disponible (ou null
 } // Fin de carteSoldeMM
 
 // Carte « réservé dans les budgets » : touchez pour voir le solde de chaque budget (alloué moins dépensé).
+const NB_BUDGETS_VISIBLES = 5; // Nombre de budgets montrés avant le bouton « Afficher plus »
+
 function carteReserve(situation, detail) { // Reçoit la situation d'ensemble et le détail par budget
+  const tries = [...detail].sort((a, b) => b.solde - a.solde); // Copie triée du plus grand solde au plus petit
+  const ligneBudget = (d) => h("div", { class: "reserve-ligne" }, // Une ligne par budget
+    h("div", { class: "ligne-texte" }, h("div", { class: "ligne-titre" }, d.name), h("div", { class: "ligne-detail" }, `alloué ${formaterMontant(d.alloue)} − dépensé ${formaterMontant(d.depense)}`)), // Nom et calcul
+    h("strong", {}, formaterMontant(d.solde)), // Solde du budget
+  ); // Fin de la ligne
+  const reste = tries.slice(NB_BUDGETS_VISIBLES); // Budgets cachés au départ
+  const blocReste = h("div", { hidden: true }, reste.map(ligneBudget)); // Lignes supplémentaires, cachées au départ
+  const boutonPlus = reste.length === 0 ? null : h("button", { class: "reserve-plus", type: "button", onclick: () => { // Bouton « Afficher plus » (absent s'il n'y a rien de plus)
+    const ouvert = !blocReste.hidden; // Le reste est-il déjà affiché ?
+    blocReste.hidden = ouvert; // Montre ou cache le reste
+    boutonPlus.textContent = ouvert ? `Afficher plus (${reste.length})` : "Afficher moins"; // Change le texte du bouton
+  } }, `Afficher plus (${reste.length})`); // Texte initial avec le nombre de budgets cachés
   const liste = h("div", { class: "reserve-detail", id: "reserve-detail", hidden: true }, // Liste cachée au départ
-    detail.length === 0 ? h("div", { class: "ligne-detail" }, "Aucun budget.") : detail.map((d) => h("div", { class: "reserve-ligne" }, // Une ligne par budget
-      h("div", { class: "ligne-texte" }, h("div", { class: "ligne-titre" }, d.name), h("div", { class: "ligne-detail" }, `alloué ${formaterMontant(d.alloue)} − dépensé ${formaterMontant(d.depense)}`)), // Nom et calcul
-      h("strong", {}, formaterMontant(d.solde)), // Solde du budget
-    )), // Fin des lignes
+    tries.length === 0 ? h("div", { class: "ligne-detail" }, "Aucun budget.") : tries.slice(0, NB_BUDGETS_VISIBLES).map(ligneBudget), // Les 5 plus grands soldes
+    blocReste, // Budgets supplémentaires
+    boutonPlus, // Bouton pour les afficher
   ); // Fin de la liste
   const bascule = h("button", { class: "reserve-bascule", type: "button", "aria-expanded": "false", "aria-controls": "reserve-detail", onclick: () => { // Bouton qui déplie ou replie la liste
     const ouvert = bascule.getAttribute("aria-expanded") === "true"; // Est-elle ouverte ?
