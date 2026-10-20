@@ -5,6 +5,7 @@ import { enteteEcran, carte, alerte, choix, boutonLien } from "../composants.js"
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
 import { afficherJour } from "../../core/periodes.js"; // Affichage des jours
 import { etatActuel, historique, CHOIX_NB_PERIODES, NB_PERIODES_DEFAUT } from "../../core/tableau-de-bord.js"; // Calcul des indicateurs
+import { apparaitreEnCascade } from "../animations.js"; // Animation d'apparition des cartes
 import { barresProgression, anneau, courbe, histogramme, aucuneDonnee, couleurSerie, PALETTE } from "../graphiques.js"; // Graphiques
 
 // Choix de l'utilisateur, conservés d'un affichage à l'autre.
@@ -139,6 +140,7 @@ export async function afficherTableauDeBord(zone, { base, maintenant = new Date(
       if (choixEcran.onglet === "actuel") dessinerActuel(contenu, await etatActuel(base, maintenant), dessiner); // État actuel
       else dessinerHistorique(contenu, await historique(base, { nombrePeriodes: choixEcran.nombrePeriodes, periodeRythme: choixEcran.periode || null }, maintenant), dessiner); // Historique
     } catch (erreur) { contenu.append(alerte({ niveau: "danger", message: `Impossible de calculer le tableau de bord : ${erreur?.message ?? erreur}` })); } // Erreur inattendue
+    apparaitreEnCascade(contenu); // Rend visibles les cartes dessinées après l'ouverture de l'écran (le routeur ne s'en charge qu'une fois)
     window.scrollTo?.(0, defilement); // Revient à la même position
   } // Fin de dessiner
   await dessiner(); // Première vue

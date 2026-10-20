@@ -34,6 +34,7 @@ export function trouverRoute(routes, chemin) { // Reçoit la table des routes et
 // Crée un routeur. « routes » associe une adresse à une fonction (zone, { params }) qui dessine l'écran.
 export function creerRouteur({ routes, conteneur, parDefaut = "/", auChangement = null }) { // Configuration du routeur
   const cheminDemande = () => window.location.hash.slice(1) || "/"; // Lit l'adresse après le # (« / » si vide)
+  if (typeof MutationObserver === "function") new MutationObserver(() => apparaitreEnCascade(conteneur)).observe(conteneur, { childList: true, subtree: true }); // Un écran qui se redessine lui-même (liste, onglet, suppression) : ses nouvelles cartes deviennent visibles aussi
 
   const afficher = async () => { // Dessine l'écran correspondant à l'adresse actuelle
     const demande = cheminDemande(); // Adresse demandée
