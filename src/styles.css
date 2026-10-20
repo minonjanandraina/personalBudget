@@ -910,6 +910,12 @@ a.solde {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25); /* Ombre */
 } /* Fin des règles */
 
+.panneau-alertes .apparition {
+  /* Les éléments du panneau sont dessinés hors de la zone animée par le routeur : ils doivent être visibles tout de suite */
+  opacity: 1; /* Totalement visibles */
+  transform: none; /* À leur place */
+} /* Fin des règles */
+
 .panneau-alertes-tete {
   /* Titre et bouton Fermer */
   display: flex; /* Côte à côte */
