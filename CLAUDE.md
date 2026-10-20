@@ -274,3 +274,4 @@ note de travail:
 29- annulation d'un transfert entre budgets possible (suppression des deux lignes liées) si le solde du budget destinataire le permet (demandé dans le chat)
 30- opérations USSD : icône et couleur au choix pour chaque opération (migration 8) ; sous-menus en mosaïque d'icônes sans contour ni couleur, la couleur étant réservée aux opérations USSD (demandé dans le chat)
 31- tableau de bord (graphiques des indicateurs, état actuel et historique) dans un onglet de la barre du bas ; choix de 3, 6 ou 12 périodes ; frais Mobile Money non séparés du montant (demandé dans le chat)
+33- codes USSD longs : limite portée de 100 à 182 caractères (norme des réseaux), calculée avec les valeurs les plus longues possibles (numéro 15 chiffres, montant 12, PIN 8) ; contrôle aussi du code réellement envoyé ; plugin Kotlin aligné (`src/core/ussd-limites.js`) (demandé dans le chat)

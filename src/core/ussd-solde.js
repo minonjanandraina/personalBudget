@@ -3,6 +3,7 @@
 import { ErreurMetier, ErreurValidation } from "./erreurs.js"; // Erreurs expliquées à l'utilisateur
 import { analyserReponseUssd, validerGabaritSolde, GABARIT_SOLDE_DEFAUT } from "./ussd-mm.js"; // Lecture du solde dans la réponse
 import { envoyerSurSimChoisie } from "./sim.js"; // Envoi sur la SIM choisie
+import { LONGUEUR_MAX_USSD, FORME_CODE_USSD, longueurMaxDuCode } from "./ussd-limites.js"; // Limites d'un code USSD
 import { creerSolde, soldeMMDisponible } from "./soldes.js"; // Soldes Mobile Money
 import { lireMeta, ecrireMeta, supprimerMeta } from "./meta.js"; // Petites informations de fonctionnement
 
@@ -19,7 +20,7 @@ export function validerPin(pin) { // Reçoit le texte saisi
 export function validerCodeSolde(code) { // Reçoit le texte saisi
   const propre = String(code ?? "").trim(); // Sans espaces autour
   if (!propre.includes("{pin}")) throw new ErreurValidation({ code: "Le code doit contenir {pin} : le PIN Mobile Money est demandé à chaque consultation, jamais enregistré." }); // PIN obligatoire
-  if (!/^[#*][0-9*#]{2,98}#$/.test(propre.replaceAll("{pin}", "0")) || propre.length > 100) throw new ErreurValidation({ code: "Le code doit commencer par # ou *, finir par # et ne contenir que des chiffres, des * et des # (et {pin})." }); // Forme invalide (seule variable permise : {pin})
+  if (!FORME_CODE_USSD.test(propre.replaceAll("{pin}", "0")) || longueurMaxDuCode(propre) > LONGUEUR_MAX_USSD) throw new ErreurValidation({ code: "Le code doit commencer par # ou *, finir par # et ne contenir que des chiffres, des * et des # (et {pin})." }); // Forme invalide (seule variable permise : {pin})
   return propre; // Code valide
 } // Fin de validerCodeSolde
 

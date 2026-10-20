@@ -39,6 +39,12 @@ describe("validation d'un modèle", () => { // Contrôles de saisie
     expect(resumeSaisies("#144*1*{pin}#")).toContain("Aucune saisie"); // Rien à saisir
   }); // Fin du cas
   it("accepte un modèle correct", () => { expect(validerOperation(modele())).toEqual({}); }); // Cas nominal
+  it("accepte un long code (plus de 100 caractères) mais refuse celui qui dépasserait 182 caractères une fois rempli", () => { // Codes longs
+    const long = `#144*${"1*".repeat(50)}{numero}*{montant}*{pin}#`; // Environ 120 caractères
+    expect(validerOperation(modele({ code: long })).code).toBeUndefined(); // Accepté
+    const tropLong = `#144*${"1*".repeat(80)}{numero}*{montant}*{pin}#`; // Environ 180 caractères une fois rempli : trop long
+    expect(validerOperation(modele({ code: tropLong })).code).toMatch(/trop long/); // Refusé avec explication
+  }); // Fin du cas
   it("refuse les codes mal formés et les variables inconnues", () => { // Codes invalides
     expect(validerOperation(modele({ code: "144*8*8*{montant}#" })).code).toBeDefined(); // Ne commence pas par # ou *
     expect(validerOperation(modele({ code: "#144*8*8*{montant}" })).code).toBeDefined(); // Ne finit pas par #

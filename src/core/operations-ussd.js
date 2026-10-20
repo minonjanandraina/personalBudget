@@ -9,6 +9,7 @@ import { formaterMontant } from "./format.js"; // Affichage des montants
 import { jourLocal, afficherJour } from "./periodes.js"; // Jour d'une date
 import { allocationCouvrant, soldeAllocation } from "./allocations.js"; // Allocation d'une période et son solde
 import { lireBudget } from "./budgets.js"; // Lecture d'un budget
+import { LONGUEUR_MAX_USSD, CHIFFRES_PIN_MAX, FORME_CODE_USSD, longueurMaxDuCode } from "./ussd-limites.js"; // Limites d'un code USSD
 
 export const VARIABLES = ["numero", "montant", "pin"]; // Variables autorisées dans un code
 export const ICONES_OPERATION = [ // Icônes proposées pour une opération (noms définis dans src/ui/icones.js)
@@ -51,7 +52,8 @@ export function validerOperation({ nom, type, code, budgetId, icone, couleur }) 
   const inconnues = variablesDuCode(codePropre).filter((v) => !VARIABLES.includes(v)); // Variables non autorisées
   const sansVariables = codePropre.replace(RE_VARIABLE, "0"); // Code où chaque variable est remplacée par un chiffre
   if (inconnues.length > 0) erreurs.code = `Variable inconnue : {${inconnues[0]}}. Variables permises : {numero}, {montant}, {pin}.`; // Variable inconnue
-  else if (!/^[#*][0-9*#]{2,98}#$/.test(sansVariables) || codePropre.length > 100) erreurs.code = "Le code doit commencer par # ou *, finir par # et ne contenir que des chiffres, des * et des # (et les variables {numero}, {montant}, {pin})."; // Forme invalide
+  else if (!FORME_CODE_USSD.test(sansVariables)) erreurs.code = "Le code doit commencer par # ou *, finir par # et ne contenir que des chiffres, des * et des # (et les variables {numero}, {montant}, {pin})."; // Forme invalide
+  else if (longueurMaxDuCode(codePropre) > LONGUEUR_MAX_USSD) erreurs.code = `Code trop long : une fois le numéro, le montant et le PIN insérés, il pourrait dépasser ${LONGUEUR_MAX_USSD} caractères (limite des réseaux).`; // Trop long même rempli
   else if (type === "sortie" && !variablesDuCode(codePropre).includes("montant")) erreurs.code = "Une opération de sortie doit contenir {montant} (il sert à débiter le budget)."; // Montant indispensable pour une sortie
   if (type === "sortie" && !budgetId) erreurs.budgetId = "Choisissez le budget à débiter."; // Budget obligatoire
   if (type === "entree" && budgetId) erreurs.budgetId = "Une opération d'entrée ne débite aucun budget."; // Pas de budget pour une entrée
@@ -141,6 +143,7 @@ export async function preparerEnvoi(base, operationId, { numero = "", montant = 
   if (Object.keys(erreurs).length > 0) throw new ErreurValidation(erreurs); // Refuse
   await controlerSortie(base, operationId, montant, maintenant); // Une sortie débite un budget : mêmes contrôles qu'une dépense saisie
   const code = operation.code.replaceAll("{numero}", numeroPropre).replaceAll("{montant}", String(montant ?? "")); // Remplace les variables connues ici
+  if (code.replaceAll("{pin}", "0".repeat(CHIFFRES_PIN_MAX)).length > LONGUEUR_MAX_USSD) throw new ErreurMetier(`Le code complet dépasse ${LONGUEUR_MAX_USSD} caractères (limite des réseaux) : raccourcissez le numéro ou le montant, ou le code de l'opération.`); // Garde-fou sur le code réellement envoyé (le PIN compte jusqu'à 8 chiffres)
   return { operation, code, codeAffiche: code.replaceAll("{pin}", "••••"), montant, numero: numeroPropre }; // Résultat
 } // Fin de preparerEnvoi
 

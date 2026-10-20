@@ -33,7 +33,7 @@ class UssdMmPlugin : Plugin() { // Début de la classe
     @PluginMethod // Envoie un code USSD complet
     fun envoyerCode(appel: PluginCall) { // Reçoit « code »
         val code = appel.getString("code") // Code complet, PIN déjà inséré
-        if (code == null || !Regex("^[#*][0-9*#]{1,98}$").matches(code) || !code.endsWith("#")) { appel.reject("Code USSD invalide."); return } // Seuls chiffres, * et # sont acceptés
+        if (code == null || !Regex("^[#*][0-9*#]{1,181}$").matches(code) || !code.endsWith("#")) { appel.reject("Code USSD invalide."); return } // Seuls chiffres, * et # sont acceptés, 182 caractères au plus (limite des réseaux)
         if (getPermissionState("ussd") != PermissionState.GRANTED) { appel.reject("Permission « téléphone » non accordée."); return } // Permission absente
         val idSim = if (appel.hasOption("subId")) appel.getInt("subId") else null // SIM choisie (facultative)
         UssdMm.envoyer(context, code, idSim) { reussi, texte -> // Envoie ; la fonction est appelée à la réponse
