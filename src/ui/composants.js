@@ -64,7 +64,7 @@ export function champ({ id, libelle, type = "text", valeur = "", aide = null, in
     aide ? h("div", { class: "champ-aide" }, aide) : null, // Texte d'aide éventuel
     message, // Zone d'erreur
   ); // Fin du bloc
-  return { // Objet de contrôle du champ
+  const controle = { // Objet de contrôle du champ
     element, // Bloc à insérer dans la page
     lire: () => saisie.value, // Lit la valeur saisie (toujours du texte)
     ecrire: (nouvelle) => { saisie.value = nouvelle; }, // Change la valeur affichée
@@ -79,6 +79,8 @@ export function champ({ id, libelle, type = "text", valeur = "", aide = null, in
       element.classList.remove("en-erreur"); // Retire la couleur rouge
     }, // Fin de effacerErreur
   }; // Fin de l'objet de contrôle
+  saisie.addEventListener("input", controle.effacerErreur); // Dès qu'on tape, l'ancienne erreur n'a plus lieu d'être
+  return controle; // Renvoie l'objet de contrôle
 } // Fin de champ
 
 // Gros bouton qui est en réalité un lien vers un écran, avec une icône.
@@ -95,7 +97,7 @@ export function boutonIcone({ nomIcone, libelle, auClic = null, route = null, da
 
 // Fabrique l'objet de contrôle commun à tous les champs de formulaire.
 function controleChamp({ element, saisie, lire, ecrire, message }) { // Éléments à piloter
-  return { // Objet de contrôle
+  const controle = { // Objet de contrôle
     element, // Bloc à insérer dans la page
     lire, // Lit la valeur
     ecrire, // Change la valeur affichée
@@ -110,6 +112,9 @@ function controleChamp({ element, saisie, lire, ecrire, message }) { // Élémen
       element.classList.remove("en-erreur"); // Retire la couleur rouge
     }, // Fin de effacerErreur
   }; // Fin de l'objet
+  saisie.addEventListener("input", controle.effacerErreur); // Dès qu'on tape, l'ancienne erreur n'a plus lieu d'être
+  saisie.addEventListener("change", controle.effacerErreur); // Idem pour une liste ou une case modifiée
+  return controle; // Renvoie l'objet de contrôle
 } // Fin de controleChamp
 
 // Zone de texte sur plusieurs lignes (gabarits, SMS d'essai). Lire renvoie le texte saisi.

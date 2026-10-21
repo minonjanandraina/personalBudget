@@ -276,3 +276,4 @@ note de travail:
 31- tableau de bord (graphiques des indicateurs, état actuel et historique) dans un onglet de la barre du bas ; choix de 3, 6 ou 12 périodes ; frais Mobile Money non séparés du montant (demandé dans le chat)
 33- codes USSD longs : limite portée de 100 à 182 caractères (norme des réseaux), calculée avec les valeurs les plus longues possibles (numéro 15 chiffres, montant 12, PIN 8) ; contrôle aussi du code réellement envoyé ; plugin Kotlin aligné (`src/core/ussd-limites.js`) (demandé dans le chat)
 34- icône de l'application : graphique en barres avec flèche montante, bleu #004AAD sur fond blanc (source `resources/icone-application.png`, images générées dans `android/app/src/main/res/mipmap-*`, icône adaptative et ronde comprises) (demandé dans le chat)
+35- formulaires : l'erreur affichée sous un champ disparaît dès qu'on le modifie ; l'essai d'un modèle de SMS n'exige plus de nom (demandé dans le chat)

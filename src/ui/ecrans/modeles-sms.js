@@ -3,7 +3,7 @@
 import { h, vider } from "../dom.js"; // Fabrication d'éléments
 import { enteteEcran, carte, alerte, boutonLien, boutonPrincipal, champ, choix, zoneTexte } from "../composants.js"; // Composants
 import { afficherToast, confirmer } from "../messages.js"; // Notifications et confirmation
-import { soumettre } from "../formulaire.js"; // Enregistrement de formulaire
+import { soumettre, effacerErreurs } from "../formulaire.js"; // Enregistrement de formulaire et effacement des erreurs
 import { aller } from "../routeur.js"; // Navigation
 import { ErreurMetier } from "../../core/erreurs.js"; // Erreur expliquée
 import { formaterMontant } from "../../core/format.js"; // Affichage des montants
@@ -94,8 +94,9 @@ export async function afficherFormulaireModeleSms(zone, { base, params = {} }) {
   const saisie = () => ({ nom: champs.nom.lire(), sens: champs.sens.lire(), gabarit: champs.gabarit.lire(), note: champs.note.lire() }); // Valeurs saisies
   const enregistrer = () => soumettre({ champs, action: () => (id === null ? creerModele(base, saisie()) : modifierModele(base, id, saisie())), messageSucces: id === null ? "Modèle créé." : "Modèle modifié.", routeSucces: "/sms/modeles" }); // Enregistre
   const essai = zoneEssai(async () => { // Essai avec le modèle en cours de saisie (rien n'est enregistré)
+    effacerErreurs(champs); // Repart sans erreur affichée (celle d'un essai précédent n'a plus lieu d'être)
     try { // Contrôle le modèle
-      return [{ ...validerModeleSms(saisie()), actif: true }]; // Modèle propre, utilisé seul
+      return [{ ...validerModeleSms({ ...saisie(), nom: saisie().nom.trim() || "Essai" }), actif: true }]; // Modèle propre, utilisé seul ; le nom ne sert pas à l'essai, un nom vide ne le bloque donc pas
     } catch (erreur) { // Modèle invalide
       const messages = erreur?.erreurs ? Object.entries(erreur.erreurs) : [["", erreur?.message ?? String(erreur)]]; // Erreurs par champ
       for (const [nom, message] of messages) (champs[nom] ?? champs.gabarit).afficherErreur(message); // Affiche sous les champs

@@ -72,6 +72,22 @@ describe("formulaire d'un modèle", () => { // Création
     expect(zone.textContent).toContain("dépense"); // Reconnu
     expect(await listerModeles(base)).toHaveLength(MODELES_PAR_DEFAUT.length); // Rien enregistré
   }); // Fin du cas
+  it("essaie un modèle sans nom : aucune erreur de nom, et l'erreur d'un enregistrement refusé disparaît dès qu'on tape", async () => { // Nom vide
+    await afficherFormulaireModeleSms(zone, { base }); // Formulaire vide
+    zone.querySelector("#modele-gabarit").value = "envoi de {montant_debit} Ar\nref {ref_trx}"; // Gabarit, sans nom
+    zone.querySelector("#essai-sms").value = "Envoi de 1500 Ar. Ref Z9"; // SMS
+    cliquer("Essayer"); // Essai sans nom
+    await attendre(); // Attend
+    expect(zone.textContent).toContain("dépense"); // Reconnu malgré le nom vide
+    expect(zone.querySelector("#modele-nom-message").textContent).toBe(""); // Aucune erreur de nom
+    cliquer("Enregistrer"); // Enregistrement sans nom : refusé
+    await attendre(); // Attend
+    expect(zone.querySelector("#modele-nom-message").textContent).toContain("1 à 60"); // Erreur sous le nom
+    const nom = zone.querySelector("#modele-nom"); // Champ nom
+    nom.value = "Paiement"; // Tape un nom
+    nom.dispatchEvent(new Event("input", { bubbles: true })); // Signale la saisie
+    expect(zone.querySelector("#modele-nom-message").textContent).toBe(""); // L'erreur a disparu
+  }); // Fin du cas
   it("explique ce qui est lu", () => { // Phrases
     expect(decrireResultat(null)).toContain("non compris"); // Pas reconnu
     expect(decrireResultat({ ignore: true, trxId: null, soldeApres: 5 })).toContain("à ignorer"); // Ignoré
